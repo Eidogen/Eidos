@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'eidos-api'
+    static_configs:
+      - targets: ['eidos-api:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-trading'
+    static_configs:
+      - targets: ['eidos-trading:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-matching'
+    static_configs:
+      - targets: ['eidos-matching:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-market'
+    static_configs:
+      - targets: ['eidos-market:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-chain'
+    static_configs:
+      - targets: ['eidos-chain:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-risk'
+    static_configs:
+      - targets: ['eidos-risk:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-jobs'
+    static_configs:
+      - targets: ['eidos-jobs:8080']
+    metrics_path: /metrics
+
+  - job_name: 'eidos-admin'
+    static_configs:
+      - targets: ['eidos-admin:8088']
+    metrics_path: /metrics

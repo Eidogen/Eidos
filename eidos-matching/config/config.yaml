@@ -1,0 +1,33 @@
+service:
+  name: eidos-matching
+  grpc_port: 50052
+  http_port: 8080
+  env: dev
+
+nacos:
+  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  group: EIDOS_GROUP
+
+redis:
+  addresses:
+    - ${REDIS_ADDR:redis:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 100
+
+kafka:
+  brokers:
+    - ${KAFKA_BROKERS:kafka:9092}
+  group_id: eidos-matching
+  client_id: eidos-matching
+
+matching:
+  markets:
+    - BTC-USDC
+    - ETH-USDC
+  snapshot_interval: 60  # 秒
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json

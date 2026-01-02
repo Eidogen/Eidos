@@ -1,0 +1,50 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+go.work.sum
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+
+# Build
+dist/
+build/
+
+# Generated proto files are version controlled
+# but ignore temporary files
+*.pb.tmp
+
+# Coverage
+coverage.txt
+coverage.html
+*.coverprofile
+
+# Docker
+docker-compose.override.yml

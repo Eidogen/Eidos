@@ -1,0 +1,238 @@
+.PHONY: all build test clean proto infra-up infra-down help
+
+# 服务列表
+SERVICES := eidos-api eidos-trading eidos-matching eidos-market eidos-chain eidos-risk eidos-jobs eidos-admin
+
+# Go 参数
+GOCMD := go
+GOBUILD := $(GOCMD) build
+GOTEST := $(GOCMD) test
+GOFMT := $(GOCMD) fmt
+GOMOD := $(GOCMD) mod
+
+# Proto 参数
+PROTOC := protoc
+PROTO_DIR := proto
+PROTO_GO_OUT := --go_out=. --go_opt=paths=source_relative
+PROTO_GRPC_OUT := --go-grpc_out=. --go-grpc_opt=paths=source_relative
+
+# 默认目标
+all: proto build
+
+# ========================================
+# 帮助
+# ========================================
+help:
+	@echo "Eidos 交易系统 - Makefile 使用指南"
+	@echo ""
+	@echo "基础命令:"
+	@echo "  make build          构建所有服务"
+	@echo "  make test           运行所有测试"
+	@echo "  make clean          清理构建产物"
+	@echo "  make fmt            格式化代码"
+	@echo "  make lint           运行代码检查"
+	@echo ""
+	@echo "Proto 相关:"
+	@echo "  make proto          生成所有 proto 文件"
+	@echo "  make proto-trading  生成 trading proto"
+	@echo "  make proto-matching 生成 matching proto"
+	@echo ""
+	@echo "基础设施:"
+	@echo "  make infra-up       启动基础设施 (PostgreSQL, Redis, Kafka, etc.)"
+	@echo "  make infra-down     停止基础设施"
+	@echo "  make infra-logs     查看基础设施日志"
+	@echo ""
+	@echo "单服务操作:"
+	@echo "  make build-api      构建 eidos-api"
+	@echo "  make run-api        运行 eidos-api"
+	@echo "  make test-api       测试 eidos-api"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build   构建所有 Docker 镜像"
+	@echo "  make docker-push    推送所有 Docker 镜像"
+
+# ========================================
+# 构建
+# ========================================
+build: $(addprefix build-,$(SERVICES))
+
+build-%:
+	@echo "Building $*..."
+	@cd $* && $(GOBUILD) -o bin/$* ./cmd/main.go
+
+# ========================================
+# 测试
+# ========================================
+test: $(addprefix test-,$(SERVICES))
+	@cd eidos-common && $(GOTEST) -v ./...
+
+test-%:
+	@echo "Testing $*..."
+	@cd $* && $(GOTEST) -v ./...
+
+test-cover:
+	@for svc in $(SERVICES); do \
+		echo "Testing $$svc with coverage..."; \
+		cd $$svc && $(GOTEST) -v -coverprofile=coverage.out ./... && cd ..; \
+	done
+
+# ========================================
+# 代码质量
+# ========================================
+fmt:
+	@for svc in $(SERVICES) eidos-common; do \
+		echo "Formatting $$svc..."; \
+		cd $$svc && $(GOFMT) ./... && cd ..; \
+	done
+
+lint:
+	@for svc in $(SERVICES) eidos-common; do \
+		echo "Linting $$svc..."; \
+		cd $$svc && golangci-lint run ./... && cd ..; \
+	done
+
+# ========================================
+# Proto 生成
+# ========================================
+proto: proto-common proto-trading proto-matching proto-market proto-chain proto-risk proto-admin
+
+proto-common:
+	@echo "Generating common proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) \
+		$(PROTO_DIR)/common/*.proto
+
+proto-trading:
+	@echo "Generating trading proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/trading/*.proto
+	@mkdir -p eidos-trading/gen/trading/v1
+	@cp -r gen/trading/v1/* eidos-trading/gen/trading/v1/ 2>/dev/null || true
+
+proto-matching:
+	@echo "Generating matching proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/matching/*.proto
+	@mkdir -p eidos-matching/gen/matching/v1
+	@cp -r gen/matching/v1/* eidos-matching/gen/matching/v1/ 2>/dev/null || true
+
+proto-market:
+	@echo "Generating market proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/market/*.proto
+	@mkdir -p eidos-market/gen/market/v1
+	@cp -r gen/market/v1/* eidos-market/gen/market/v1/ 2>/dev/null || true
+
+proto-chain:
+	@echo "Generating chain proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/chain/*.proto
+	@mkdir -p eidos-chain/gen/chain/v1
+	@cp -r gen/chain/v1/* eidos-chain/gen/chain/v1/ 2>/dev/null || true
+
+proto-risk:
+	@echo "Generating risk proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/risk/*.proto
+	@mkdir -p eidos-risk/gen/risk/v1
+	@cp -r gen/risk/v1/* eidos-risk/gen/risk/v1/ 2>/dev/null || true
+
+proto-admin:
+	@echo "Generating admin proto..."
+	@$(PROTOC) -I$(PROTO_DIR) \
+		$(PROTO_GO_OUT) $(PROTO_GRPC_OUT) \
+		$(PROTO_DIR)/admin/*.proto
+	@mkdir -p eidos-admin/gen/admin/v1
+	@cp -r gen/admin/v1/* eidos-admin/gen/admin/v1/ 2>/dev/null || true
+
+# ========================================
+# 基础设施
+# ========================================
+infra-up:
+	@echo "Starting infrastructure..."
+	docker-compose up -d postgres timescaledb redis kafka nacos prometheus grafana
+	@echo "Waiting for services to be ready..."
+	@sleep 10
+	@echo "Infrastructure is ready!"
+	@echo "  PostgreSQL:   localhost:5432"
+	@echo "  TimescaleDB:  localhost:5433"
+	@echo "  Redis:        localhost:6379"
+	@echo "  Kafka:        localhost:29092"
+	@echo "  Nacos:        http://localhost:8848/nacos"
+	@echo "  Prometheus:   http://localhost:9090"
+	@echo "  Grafana:      http://localhost:3000 (admin/admin123)"
+
+infra-down:
+	@echo "Stopping infrastructure..."
+	docker-compose down
+
+infra-logs:
+	docker-compose logs -f
+
+infra-anvil:
+	@echo "Starting Anvil (local blockchain)..."
+	docker-compose up -d anvil
+	@echo "Anvil is ready at http://localhost:8545"
+
+# ========================================
+# 单服务运行
+# ========================================
+run-%:
+	@echo "Running $*..."
+	@cd $* && $(GOCMD) run ./cmd/main.go
+
+# ========================================
+# Docker
+# ========================================
+docker-build: $(addprefix docker-build-,$(SERVICES))
+
+docker-build-%:
+	@echo "Building Docker image for $*..."
+	@cd $* && docker build -t $*:latest -f Dockerfile ..
+
+docker-push: $(addprefix docker-push-,$(SERVICES))
+
+docker-push-%:
+	@echo "Pushing Docker image for $*..."
+	docker push $*:latest
+
+# ========================================
+# 清理
+# ========================================
+clean:
+	@for svc in $(SERVICES); do \
+		echo "Cleaning $$svc..."; \
+		rm -rf $$svc/bin; \
+		rm -f $$svc/coverage.out $$svc/coverage.html; \
+	done
+	@rm -rf gen/
+
+# ========================================
+# 依赖管理
+# ========================================
+mod-tidy:
+	@for svc in $(SERVICES) eidos-common; do \
+		echo "Tidying $$svc..."; \
+		cd $$svc && $(GOMOD) tidy && cd ..; \
+	done
+
+mod-download:
+	@for svc in $(SERVICES) eidos-common; do \
+		echo "Downloading deps for $$svc..."; \
+		cd $$svc && $(GOMOD) download && cd ..; \
+	done
+
+# ========================================
+# 工具安装
+# ========================================
+install-tools:
+	@echo "Installing development tools..."
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "Tools installed successfully!"

@@ -1,0 +1,44 @@
+service:
+  name: eidos-api
+  http_port: 8080
+  env: dev
+
+nacos:
+  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  group: EIDOS_GROUP
+
+redis:
+  addresses:
+    - ${REDIS_ADDR:redis:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 100
+
+grpc_clients:
+  trading: ${TRADING_ADDR:eidos-trading:50051}
+  matching: ${MATCHING_ADDR:eidos-matching:50052}
+  market: ${MARKET_ADDR:eidos-market:50053}
+  risk: ${RISK_ADDR:eidos-risk:50055}
+
+eip712:
+  domain:
+    name: EidosExchange
+    version: "1"
+    chain_id: ${CHAIN_ID:31337}
+    verifying_contract: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
+
+rate_limit:
+  enabled: true
+  requests_per_second: 100
+  burst: 200
+
+websocket:
+  read_buffer_size: 1024
+  write_buffer_size: 1024
+  ping_interval: 30  # 秒
+  pong_timeout: 10   # 秒
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json

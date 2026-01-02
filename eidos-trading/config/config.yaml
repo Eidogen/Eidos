@@ -1,0 +1,44 @@
+service:
+  name: eidos-trading
+  grpc_port: 50051
+  http_port: 8080
+  env: dev
+
+nacos:
+  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  group: EIDOS_GROUP
+
+postgres:
+  host: ${POSTGRES_HOST:postgres}
+  port: ${POSTGRES_PORT:5432}
+  database: ${POSTGRES_DATABASE:eidos_trading}
+  user: ${POSTGRES_USER:eidos}
+  password: ${POSTGRES_PASSWORD:eidos123}
+  max_connections: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 3600
+
+redis:
+  addresses:
+    - ${REDIS_ADDR:redis:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 100
+
+kafka:
+  brokers:
+    - ${KAFKA_BROKERS:kafka:9092}
+  group_id: eidos-trading
+  client_id: eidos-trading
+
+eip712:
+  domain:
+    name: EidosExchange
+    version: "1"
+    chain_id: ${CHAIN_ID:31337}
+    verifying_contract: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json

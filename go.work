@@ -1,0 +1,13 @@
+go 1.22.0
+
+use (
+	./eidos-common
+	./eidos-api
+	./eidos-trading
+	./eidos-matching
+	./eidos-market
+	./eidos-chain
+	./eidos-risk
+	./eidos-jobs
+	./eidos-admin
+)

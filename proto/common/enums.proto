@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package eidos.common.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/gen/common/v1;commonv1";
+
+// 订单状态
+enum OrderStatus {
+    ORDER_STATUS_UNSPECIFIED = 0;
+    ORDER_STATUS_PENDING = 1;     // 待处理
+    ORDER_STATUS_OPEN = 2;        // 挂单中
+    ORDER_STATUS_PARTIAL = 3;     // 部分成交
+    ORDER_STATUS_FILLED = 4;      // 完全成交
+    ORDER_STATUS_CANCELLED = 5;   // 已取消
+    ORDER_STATUS_EXPIRED = 6;     // 已过期
+    ORDER_STATUS_REJECTED = 7;    // 被拒绝
+}
+
+// 订单方向
+enum OrderSide {
+    ORDER_SIDE_UNSPECIFIED = 0;
+    ORDER_SIDE_BUY = 1;
+    ORDER_SIDE_SELL = 2;
+}
+
+// 订单类型
+enum OrderType {
+    ORDER_TYPE_UNSPECIFIED = 0;
+    ORDER_TYPE_LIMIT = 1;         // 限价单
+    ORDER_TYPE_MARKET = 2;        // 市价单
+}
+
+// 时效策略
+enum TimeInForce {
+    TIME_IN_FORCE_UNSPECIFIED = 0;
+    TIME_IN_FORCE_GTC = 1;        // Good Till Cancel
+    TIME_IN_FORCE_IOC = 2;        // Immediate Or Cancel
+    TIME_IN_FORCE_FOK = 3;        // Fill Or Kill
+}
+
+// 结算状态
+enum SettlementStatus {
+    SETTLEMENT_STATUS_UNSPECIFIED = 0;
+    SETTLEMENT_STATUS_MATCHED_OFFCHAIN = 1;    // 链下成交
+    SETTLEMENT_STATUS_PENDING = 2;              // 结算待处理
+    SETTLEMENT_STATUS_SUBMITTED = 3;            // 已提交链上
+    SETTLEMENT_STATUS_SETTLED = 4;              // 链上已结算
+    SETTLEMENT_STATUS_FAILED = 5;               // 结算失败
+    SETTLEMENT_STATUS_ROLLED_BACK = 6;          // 已回滚
+}
+
+// 充值状态
+enum DepositStatus {
+    DEPOSIT_STATUS_UNSPECIFIED = 0;
+    DEPOSIT_STATUS_PENDING = 1;    // 待确认
+    DEPOSIT_STATUS_CONFIRMED = 2;  // 已确认
+    DEPOSIT_STATUS_CREDITED = 3;   // 已入账
+}
+
+// 提现状态
+enum WithdrawStatus {
+    WITHDRAW_STATUS_UNSPECIFIED = 0;
+    WITHDRAW_STATUS_PENDING = 1;     // 待处理
+    WITHDRAW_STATUS_PROCESSING = 2;  // 处理中
+    WITHDRAW_STATUS_SUBMITTED = 3;   // 已提交
+    WITHDRAW_STATUS_CONFIRMED = 4;   // 已确认
+    WITHDRAW_STATUS_FAILED = 5;      // 失败
+    WITHDRAW_STATUS_CANCELLED = 6;   // 已取消
+    WITHDRAW_STATUS_REJECTED = 7;    // 被拒绝
+}

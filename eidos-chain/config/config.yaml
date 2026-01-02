@@ -1,0 +1,52 @@
+service:
+  name: eidos-chain
+  grpc_port: 50054
+  http_port: 8080
+  env: dev
+
+nacos:
+  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  group: EIDOS_GROUP
+
+postgres:
+  host: ${POSTGRES_HOST:postgres}
+  port: ${POSTGRES_PORT:5432}
+  database: ${POSTGRES_DATABASE:eidos_chain}
+  user: ${POSTGRES_USER:eidos}
+  password: ${POSTGRES_PASSWORD:eidos123}
+  max_connections: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 3600
+
+redis:
+  addresses:
+    - ${REDIS_ADDR:redis:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 50
+
+kafka:
+  brokers:
+    - ${KAFKA_BROKERS:kafka:9092}
+  group_id: eidos-chain
+  client_id: eidos-chain
+
+blockchain:
+  rpc_url: ${RPC_URL:http://localhost:8545}
+  chain_id: ${CHAIN_ID:31337}
+  contract_address: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
+  private_key: ${PRIVATE_KEY:}
+  confirmations:
+    deposit: 0
+    settlement: 0
+
+settlement:
+  batch_size: 100
+  batch_interval: 10  # 秒
+  max_retries: 3
+  retry_backoff: 30   # 秒
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json

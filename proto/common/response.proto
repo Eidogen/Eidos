@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package eidos.common.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/gen/common/v1;commonv1";
+
+// 通用响应
+message Response {
+    bool success = 1;
+    string error_code = 2;
+    string error_message = 3;
+}
+
+// 空请求
+message Empty {}

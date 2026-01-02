@@ -1,0 +1,41 @@
+service:
+  name: eidos-jobs
+  grpc_port: 50056
+  http_port: 8080
+  env: dev
+
+nacos:
+  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  group: EIDOS_GROUP
+
+redis:
+  addresses:
+    - ${REDIS_ADDR:redis:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 20
+
+grpc_clients:
+  trading: ${TRADING_ADDR:eidos-trading:50051}
+  chain: ${CHAIN_ADDR:eidos-chain:50054}
+  market: ${MARKET_ADDR:eidos-market:50053}
+
+jobs:
+  reconciliation:
+    enabled: true
+    cron: "0 0 * * *"  # 每天 0 点
+  archive:
+    enabled: true
+    cron: "0 2 * * 0"  # 每周日凌晨 2 点
+    retention_days: 90
+  stats:
+    enabled: true
+    cron: "0 * * * *"  # 每小时
+  expire_orders:
+    enabled: true
+    cron: "*/5 * * * *"  # 每 5 分钟
+
+log:
+  level: ${LOG_LEVEL:info}
+  format: json
