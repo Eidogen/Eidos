@@ -1,8 +1,4 @@
-<h1 align="center">
-  <img src="docs/Eidos.jpeg" alt="Eidos Logo" width="50" />
-  Eidos 交易系统
-</h1>
-
+# Eidos 交易系统
 
 ---
 
