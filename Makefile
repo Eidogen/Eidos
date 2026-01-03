@@ -39,8 +39,10 @@ help:
 	@echo ""
 	@echo "基础设施:"
 	@echo "  make infra-up       启动基础设施 (PostgreSQL, Redis, Kafka, etc.)"
-	@echo "  make infra-down     停止基础设施"
+	@echo "  make infra-down     停止基础设施 (数据保留)"
+	@echo "  make infra-clean    停止基础设施并删除所有数据 (慎用!)"
 	@echo "  make infra-logs     查看基础设施日志"
+	@echo "  make infra-status   查看基础设施状态"
 	@echo ""
 	@echo "单服务操作:"
 	@echo "  make build-api      构建 eidos-api"
@@ -168,16 +170,21 @@ infra-up:
 	@echo "  Grafana:      http://localhost:3000 (admin/admin123)"
 
 infra-down:
-	@echo "Stopping infrastructure..."
+	@echo "Stopping infrastructure (data preserved in volumes)..."
 	docker-compose down
+	@echo "Infrastructure stopped. Data is preserved in Docker volumes."
 
 infra-logs:
 	docker-compose logs -f
 
-infra-anvil:
-	@echo "Starting Anvil (local blockchain)..."
-	docker-compose up -d anvil
-	@echo "Anvil is ready at http://localhost:8545"
+infra-clean:
+	@echo "WARNING: This will delete all data in Docker volumes!"
+	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
+	docker-compose down -v
+	@echo "Infrastructure stopped and all data deleted."
+
+infra-status:
+	docker-compose ps
 
 # ========================================
 # 单服务运行

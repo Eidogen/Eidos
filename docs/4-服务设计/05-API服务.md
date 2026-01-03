@@ -579,32 +579,148 @@ Retry-After: 5
 
 ---
 
-## 四、数据库设计
+## 四、Redis 缓存设计
 
-eidos-api 本身不持有业务数据，仅存储连接和限流相关数据。
+eidos-api 本身不持有业务数据，仅使用 Redis 存储连接状态和限流数据。
 
-### 4.1 Redis 数据结构
+### 4.1 Key 命名规范
 
 ```
-# 限流计数
-ratelimit:{wallet}:orders     # 钱包下单计数
-ratelimit:{ip}:total          # IP 总请求计数
-TTL: 1 秒/1 分钟
+eidos:api:{domain}:{identifier}
 
-# WebSocket 会话
-ws:session:{conn_id}
-Value: {
-    "wallet": "0x...",
-    "channels": ["ticker.BTC-USDC", "depth.BTC-USDC.20"],
-    "connected_at": 1704067200000
+命名示例:
+├── eidos:api:ratelimit:wallet:{address}:orders    钱包下单限流计数
+├── eidos:api:ratelimit:wallet:{address}:queries   钱包查询限流计数
+├── eidos:api:ratelimit:ip:{ip}:total              IP 总请求限流计数
+├── eidos:api:replay:{sig_hash}                    签名重放保护
+├── eidos:api:ws:session:{conn_id}                 WebSocket 会话信息
+├── eidos:api:ws:online:{wallet}                   用户在线状态
+└── eidos:api:ws:subs:{channel}                    频道订阅关系
+```
+
+### 4.2 限流缓存
+
+| Key 模式 | 类型 | TTL | 说明 |
+|----------|------|-----|------|
+| `eidos:api:ratelimit:wallet:{address}:orders` | ZSET | 1s | 钱包下单滑动窗口计数 |
+| `eidos:api:ratelimit:wallet:{address}:queries` | ZSET | 1s | 钱包查询滑动窗口计数 |
+| `eidos:api:ratelimit:wallet:{address}:withdrawals` | ZSET | 1s | 钱包提现滑动窗口计数 |
+| `eidos:api:ratelimit:ip:{ip}:total` | ZSET | 60s | IP 总请求滑动窗口计数 |
+| `eidos:api:ratelimit:ip:{ip}:ws_conn` | ZSET | 60s | IP WebSocket 连接滑动窗口 |
+| `eidos:api:ratelimit:global:orders` | ZSET | 1s | 全局下单滑动窗口计数 |
+
+**限流 Lua 脚本 (滑动窗口)**:
+
+```lua
+-- KEYS[1]: 限流 key
+-- ARGV[1]: 窗口大小(毫秒)
+-- ARGV[2]: 限制次数
+-- ARGV[3]: 当前时间戳(毫秒)
+-- 返回: 1=通过, 0=拒绝
+
+local key = KEYS[1]
+local window = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+
+-- 清理过期数据
+redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+
+-- 检查当前窗口计数
+local count = redis.call('ZCARD', key)
+
+if count < limit then
+    -- 记录本次请求
+    redis.call('ZADD', key, now, now .. ':' .. math.random())
+    redis.call('PEXPIRE', key, window)
+    return 1
+else
+    return 0
+end
+```
+
+### 4.3 签名重放保护
+
+| Key 模式 | 类型 | TTL | 说明 |
+|----------|------|-----|------|
+| `eidos:api:replay:{sig_hash}` | STRING | 5min | 防止相同签名重复使用 |
+
+```
+签名去重逻辑:
+1. 计算签名哈希: SHA256(wallet + timestamp + signature)
+2. SETNX eidos:api:replay:{sig_hash} "1" EX 300
+3. 返回 1 表示首次使用，0 表示重复
+```
+
+### 4.4 WebSocket 会话管理
+
+| Key 模式 | 类型 | TTL | 说明 |
+|----------|------|-----|------|
+| `eidos:api:ws:session:{conn_id}` | HASH | 心跳超时+30s | 会话详细信息 |
+| `eidos:api:ws:online:{wallet}` | SET | 心跳超时+30s | 用户所有连接 ID |
+| `eidos:api:ws:subs:{channel}` | SET | - | 订阅某频道的连接 ID 集合 |
+
+**会话 HASH 结构**:
+
+```
+HGETALL eidos:api:ws:session:{conn_id}
+{
+    "wallet": "0x1234...abcd",           -- 关联钱包地址(可选)
+    "ip": "1.2.3.4",                     -- 客户端 IP
+    "connected_at": "1704067200000",     -- 连接时间戳
+    "last_ping": "1704067230000",        -- 最后心跳时间
+    "channels": "ticker.BTC-USDC,depth.BTC-USDC.20"  -- 订阅频道列表
 }
-TTL: 会话有效期
-
-# 在线用户
-ws:online:{wallet}
-Value: conn_id
-TTL: 心跳超时时间
 ```
+
+**连接生命周期操作**:
+
+```lua
+-- 新建连接
+HSET eidos:api:ws:session:{conn_id} wallet "" ip {ip} connected_at {ts} last_ping {ts} channels ""
+EXPIRE eidos:api:ws:session:{conn_id} 40
+
+-- 订阅频道
+SADD eidos:api:ws:subs:ticker.BTC-USDC {conn_id}
+HSET eidos:api:ws:session:{conn_id} channels "ticker.BTC-USDC"
+
+-- 心跳更新
+HSET eidos:api:ws:session:{conn_id} last_ping {ts}
+EXPIRE eidos:api:ws:session:{conn_id} 40
+
+-- 断开连接
+DEL eidos:api:ws:session:{conn_id}
+SREM eidos:api:ws:online:{wallet} {conn_id}
+SREM eidos:api:ws:subs:ticker.BTC-USDC {conn_id}
+```
+
+### 4.5 Pub/Sub 频道设计
+
+```
+订阅关系 (Redis Pub/Sub):
+──────────────────────────────────────────────────────────────────
+eidos-api 订阅以下 Redis 频道，将消息推送给 WebSocket 客户端:
+
+  eidos:pubsub:ticker:{market}              Ticker 行情更新
+  eidos:pubsub:depth:{market}               订单簿深度更新
+  eidos:pubsub:kline:{market}:{interval}    K线数据更新
+  eidos:pubsub:trades:{market}              成交流数据
+
+消息转发逻辑:
+1. 收到 Redis 消息
+2. 查询 eidos:api:ws:subs:{channel} 获取订阅该频道的 conn_id 集合
+3. 遍历 conn_id，通过本地 ConnectionManager 推送消息
+4. 若 conn_id 不在本实例，忽略 (多实例部署时各实例只处理自己的连接)
+```
+
+### 4.6 缓存策略汇总
+
+| 缓存类型 | 写入策略 | 一致性保障 | 备注 |
+|----------|----------|------------|------|
+| 限流计数 | 请求时写入 | 最终一致 | 过期自动清理 |
+| 签名重放 | 验签时写入 | 强一致(SETNX) | 5分钟过期 |
+| WS 会话 | 连接时创建，心跳续期 | 强一致 | 断开时主动删除 |
+| 订阅关系 | 订阅/取消时更新 | 强一致 | 本地+Redis 双维护 |
 
 ---
 
@@ -685,4 +801,39 @@ websocket:
   ping_interval: 30s
   pong_timeout: 10s
   max_connections: 100000
+
+# =============================================================================
+# 安全传输配置 (云组件加密)
+# =============================================================================
+# 说明: 生产环境使用云托管组件，默认启用加密传输
+#       本地开发/测试环境可关闭加密以简化配置
+security:
+  # 总开关: true=启用加密, false=关闭加密 (本地测试)
+  tls_enabled: ${TLS_ENABLED:false}
+
+  # HTTP/WebSocket TLS (对外)
+  # 注意: 生产环境通常由 Load Balancer (ALB/CLB) 终结 TLS
+  http:
+    enabled: ${HTTP_TLS_ENABLED:false}
+    cert: "${HTTP_CERT_PATH}"               # SSL 证书
+    key: "${HTTP_KEY_PATH}"                 # SSL 私钥
+    # 若使用 LB 终结: enabled=false，LB 配置证书
+
+  # gRPC TLS (调用后端服务)
+  grpc:
+    enabled: ${GRPC_TLS_ENABLED:false}
+    ca_cert: "${GRPC_CA_CERT_PATH}"         # CA 证书 (用于验证服务端)
+    client_cert: "${GRPC_CLIENT_CERT_PATH}" # 客户端证书 (mTLS)
+    client_key: "${GRPC_CLIENT_KEY_PATH}"   # 客户端私钥 (mTLS)
+
+  # Redis TLS
+  redis:
+    enabled: ${REDIS_TLS_ENABLED:false}
+    ca_cert: "${REDIS_CA_CERT_PATH}"
+    skip_verify: false
+
+  # Nacos TLS
+  nacos:
+    enabled: ${NACOS_TLS_ENABLED:false}
+    ca_cert: "${NACOS_CA_CERT_PATH}"
 ```
