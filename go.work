@@ -1,13 +1,13 @@
-go 1.22.0
+go 1.24.0
 
 use (
-	./eidos-common
-	./eidos-api
-	./eidos-trading
-	./eidos-matching
-	./eidos-market
-	./eidos-chain
-	./eidos-risk
-	./eidos-jobs
 	./eidos-admin
+	./eidos-api
+	./eidos-chain
+	./eidos-common
+	./eidos-jobs
+	./eidos-market
+	./eidos-matching
+	./eidos-risk
+	./eidos-trading
 )

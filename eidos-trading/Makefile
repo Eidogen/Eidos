@@ -1,11 +1,13 @@
-.PHONY: build run test clean proto
+.PHONY: build run test clean proto migrate-up migrate-down migrate-status migrate-create
 
 SERVICE_NAME := eidos-trading
 GRPC_PORT := 50051
+MIGRATE_DIR := migrations
 
 # Build
 build:
 	go build -o bin/$(SERVICE_NAME) ./cmd/main.go
+	go build -o bin/migrate ./cmd/migrate/main.go
 
 # Run locally
 run:
@@ -44,3 +46,17 @@ docker-build:
 # Docker run
 docker-run:
 	docker run -p $(GRPC_PORT):$(GRPC_PORT) $(SERVICE_NAME):latest
+
+# Database migrations
+migrate-up:
+	go run ./cmd/migrate/main.go -cmd up -dir $(MIGRATE_DIR)
+
+migrate-down:
+	go run ./cmd/migrate/main.go -cmd down -dir $(MIGRATE_DIR)
+
+migrate-status:
+	go run ./cmd/migrate/main.go -cmd status -dir $(MIGRATE_DIR)
+
+migrate-create:
+	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=<migration_name>"; exit 1; fi
+	go run ./cmd/migrate/main.go -cmd create -dir $(MIGRATE_DIR) $(name)

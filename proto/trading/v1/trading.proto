@@ -1,0 +1,476 @@
+syntax = "proto3";
+
+package eidos.trading.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/trading/v1;tradingv1";
+
+import "google/protobuf/empty.proto";
+
+// TradingService 交易服务
+// 提供订单、余额、成交、充提等核心交易功能
+service TradingService {
+  // ========== 订单接口 ==========
+
+  // CreateOrder 创建订单
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+
+  // CancelOrder 取消订单
+  rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty);
+
+  // GetOrder 获取订单详情
+  rpc GetOrder(GetOrderRequest) returns (Order);
+
+  // ListOrders 获取订单列表
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+
+  // ListOpenOrders 获取活跃订单
+  rpc ListOpenOrders(ListOpenOrdersRequest) returns (ListOrdersResponse);
+
+  // ========== 余额接口 ==========
+
+  // GetBalance 获取单个代币余额
+  rpc GetBalance(GetBalanceRequest) returns (Balance);
+
+  // GetBalances 获取所有余额
+  rpc GetBalances(GetBalancesRequest) returns (GetBalancesResponse);
+
+  // GetBalanceLogs 获取余额流水
+  rpc GetBalanceLogs(GetBalanceLogsRequest) returns (GetBalanceLogsResponse);
+
+  // ========== 成交接口 ==========
+
+  // GetTrade 获取成交详情
+  rpc GetTrade(GetTradeRequest) returns (Trade);
+
+  // ListTrades 获取成交列表
+  rpc ListTrades(ListTradesRequest) returns (ListTradesResponse);
+
+  // ListTradesByOrder 获取订单相关成交
+  rpc ListTradesByOrder(ListTradesByOrderRequest) returns (ListTradesResponse);
+
+  // ========== 充值接口 ==========
+
+  // GetDeposit 获取充值详情
+  rpc GetDeposit(GetDepositRequest) returns (Deposit);
+
+  // ListDeposits 获取充值列表
+  rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
+
+  // ========== 提现接口 ==========
+
+  // CreateWithdrawal 创建提现
+  rpc CreateWithdrawal(CreateWithdrawalRequest) returns (CreateWithdrawalResponse);
+
+  // CancelWithdrawal 取消提现
+  rpc CancelWithdrawal(CancelWithdrawalRequest) returns (google.protobuf.Empty);
+
+  // GetWithdrawal 获取提现详情
+  rpc GetWithdrawal(GetWithdrawalRequest) returns (Withdrawal);
+
+  // ListWithdrawals 获取提现列表
+  rpc ListWithdrawals(ListWithdrawalsRequest) returns (ListWithdrawalsResponse);
+
+  // ========== 内部接口 (服务间调用) ==========
+
+  // ProcessTradeResult 处理撮合结果
+  rpc ProcessTradeResult(ProcessTradeResultRequest) returns (google.protobuf.Empty);
+
+  // ProcessDepositEvent 处理充值事件
+  rpc ProcessDepositEvent(ProcessDepositEventRequest) returns (google.protobuf.Empty);
+
+  // ConfirmSettlement 确认结算
+  rpc ConfirmSettlement(ConfirmSettlementRequest) returns (google.protobuf.Empty);
+}
+
+// ========== 订单相关消息 ==========
+
+// OrderSide 订单方向
+enum OrderSide {
+  ORDER_SIDE_UNSPECIFIED = 0;
+  ORDER_SIDE_BUY = 1;
+  ORDER_SIDE_SELL = 2;
+}
+
+// OrderType 订单类型
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_LIMIT = 1;
+  ORDER_TYPE_MARKET = 2;
+}
+
+// OrderStatus 订单状态
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_OPEN = 2;
+  ORDER_STATUS_PARTIAL = 3;
+  ORDER_STATUS_FILLED = 4;
+  ORDER_STATUS_CANCELLED = 5;
+  ORDER_STATUS_EXPIRED = 6;
+  ORDER_STATUS_REJECTED = 7;
+}
+
+// TimeInForce 订单有效期类型
+enum TimeInForce {
+  TIME_IN_FORCE_UNSPECIFIED = 0;
+  TIME_IN_FORCE_GTC = 1;  // Good Till Cancel
+  TIME_IN_FORCE_IOC = 2;  // Immediate Or Cancel
+  TIME_IN_FORCE_FOK = 3;  // Fill Or Kill
+}
+
+// Order 订单
+message Order {
+  string order_id = 1;
+  string wallet = 2;
+  string market = 3;
+  OrderSide side = 4;
+  OrderType type = 5;
+  string price = 6;           // decimal string
+  string amount = 7;          // decimal string
+  string filled_amount = 8;   // decimal string
+  string filled_quote = 9;    // decimal string
+  string remaining_amount = 10; // decimal string
+  string avg_price = 11;      // decimal string
+  OrderStatus status = 12;
+  TimeInForce time_in_force = 13;
+  uint64 nonce = 14;
+  string client_order_id = 15;
+  int64 expire_at = 16;
+  string reject_reason = 17;
+  int64 created_at = 18;
+  int64 updated_at = 19;
+}
+
+message CreateOrderRequest {
+  string wallet = 1;
+  string market = 2;
+  OrderSide side = 3;
+  OrderType type = 4;
+  string price = 5;           // decimal string
+  string amount = 6;          // decimal string
+  uint64 nonce = 7;
+  bytes signature = 8;
+  string client_order_id = 9; // optional
+  int64 expire_at = 10;       // optional
+  TimeInForce time_in_force = 11; // optional, default GTC
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  string wallet = 1;
+  string order_id = 2;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message ListOrdersRequest {
+  string wallet = 1;
+  string market = 2;          // optional filter
+  OrderSide side = 3;         // optional filter
+  OrderType type = 4;         // optional filter
+  repeated OrderStatus statuses = 5; // optional filter
+  int64 start_time = 6;       // optional filter
+  int64 end_time = 7;         // optional filter
+  int32 page = 8;
+  int32 page_size = 9;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListOpenOrdersRequest {
+  string wallet = 1;
+  string market = 2; // optional
+}
+
+// ========== 余额相关消息 ==========
+
+message Balance {
+  string wallet = 1;
+  string token = 2;
+  string settled_available = 3;   // decimal string
+  string settled_frozen = 4;      // decimal string
+  string pending_available = 5;   // decimal string
+  string pending_frozen = 6;      // decimal string
+  string total_available = 7;     // decimal string (settled + pending available)
+  string total = 8;               // decimal string (all)
+  string withdrawable = 9;        // decimal string (settled_available)
+  int64 updated_at = 10;
+}
+
+message GetBalanceRequest {
+  string wallet = 1;
+  string token = 2;
+}
+
+message GetBalancesRequest {
+  string wallet = 1;
+}
+
+message GetBalancesResponse {
+  repeated Balance balances = 1;
+}
+
+// BalanceLogType 余额流水类型
+enum BalanceLogType {
+  BALANCE_LOG_TYPE_UNSPECIFIED = 0;
+  BALANCE_LOG_TYPE_DEPOSIT = 1;
+  BALANCE_LOG_TYPE_WITHDRAW = 2;
+  BALANCE_LOG_TYPE_FREEZE = 3;
+  BALANCE_LOG_TYPE_UNFREEZE = 4;
+  BALANCE_LOG_TYPE_TRADE = 5;
+  BALANCE_LOG_TYPE_FEE = 6;
+  BALANCE_LOG_TYPE_SETTLEMENT = 7;
+  BALANCE_LOG_TYPE_ROLLBACK = 8;
+  BALANCE_LOG_TYPE_WITHDRAW_REFUND = 9;
+}
+
+message BalanceLog {
+  int64 id = 1;
+  string wallet = 2;
+  string token = 3;
+  BalanceLogType type = 4;
+  string amount = 5;          // decimal string
+  string balance_before = 6;  // decimal string
+  string balance_after = 7;   // decimal string
+  string order_id = 8;
+  string trade_id = 9;
+  string tx_hash = 10;
+  string remark = 11;
+  int64 created_at = 12;
+}
+
+message GetBalanceLogsRequest {
+  string wallet = 1;
+  string token = 2;           // optional filter
+  BalanceLogType type = 3;    // optional filter
+  string order_id = 4;        // optional filter
+  int64 start_time = 5;
+  int64 end_time = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+}
+
+message GetBalanceLogsResponse {
+  repeated BalanceLog logs = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ========== 成交相关消息 ==========
+
+// SettlementStatus 结算状态
+enum SettlementStatus {
+  SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  SETTLEMENT_STATUS_MATCHED_OFFCHAIN = 1;
+  SETTLEMENT_STATUS_PENDING = 2;
+  SETTLEMENT_STATUS_SUBMITTED = 3;
+  SETTLEMENT_STATUS_SETTLED_ONCHAIN = 4;
+  SETTLEMENT_STATUS_FAILED = 5;
+  SETTLEMENT_STATUS_ROLLED_BACK = 6;
+}
+
+message Trade {
+  string trade_id = 1;
+  string market = 2;
+  string maker_order_id = 3;
+  string taker_order_id = 4;
+  string maker_wallet = 5;
+  string taker_wallet = 6;
+  string price = 7;           // decimal string
+  string amount = 8;          // decimal string
+  string quote_amount = 9;    // decimal string
+  string maker_fee = 10;      // decimal string
+  string taker_fee = 11;      // decimal string
+  string fee_token = 12;
+  OrderSide maker_side = 13;
+  SettlementStatus settlement_status = 14;
+  string batch_id = 15;
+  string tx_hash = 16;
+  int64 matched_at = 17;
+  int64 settled_at = 18;
+}
+
+message GetTradeRequest {
+  string trade_id = 1;
+}
+
+message ListTradesRequest {
+  string wallet = 1;
+  string market = 2;          // optional filter
+  SettlementStatus settlement_status = 3; // optional filter
+  int64 start_time = 4;
+  int64 end_time = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListTradesResponse {
+  repeated Trade trades = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListTradesByOrderRequest {
+  string order_id = 1;
+}
+
+// ========== 充值相关消息 ==========
+
+// DepositStatus 充值状态
+enum DepositStatus {
+  DEPOSIT_STATUS_UNSPECIFIED = 0;
+  DEPOSIT_STATUS_PENDING = 1;
+  DEPOSIT_STATUS_CONFIRMED = 2;
+  DEPOSIT_STATUS_CREDITED = 3;
+}
+
+message Deposit {
+  string deposit_id = 1;
+  string wallet = 2;
+  string token = 3;
+  string amount = 4;          // decimal string
+  string tx_hash = 5;
+  uint32 log_index = 6;
+  int64 block_num = 7;
+  DepositStatus status = 8;
+  int64 detected_at = 9;
+  int64 confirmed_at = 10;
+  int64 credited_at = 11;
+  int64 created_at = 12;
+}
+
+message GetDepositRequest {
+  string deposit_id = 1;
+}
+
+message ListDepositsRequest {
+  string wallet = 1;
+  string token = 2;           // optional filter
+  DepositStatus status = 3;   // optional filter
+  int64 start_time = 4;
+  int64 end_time = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListDepositsResponse {
+  repeated Deposit deposits = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ========== 提现相关消息 ==========
+
+// WithdrawStatus 提现状态
+enum WithdrawStatus {
+  WITHDRAW_STATUS_UNSPECIFIED = 0;
+  WITHDRAW_STATUS_PENDING = 1;
+  WITHDRAW_STATUS_PROCESSING = 2;
+  WITHDRAW_STATUS_SUBMITTED = 3;
+  WITHDRAW_STATUS_CONFIRMED = 4;
+  WITHDRAW_STATUS_FAILED = 5;
+  WITHDRAW_STATUS_CANCELLED = 6;
+  WITHDRAW_STATUS_REJECTED = 7;
+}
+
+message Withdrawal {
+  string withdraw_id = 1;
+  string wallet = 2;
+  string token = 3;
+  string amount = 4;          // decimal string
+  string to_address = 5;
+  uint64 nonce = 6;
+  WithdrawStatus status = 7;
+  string tx_hash = 8;
+  string reject_reason = 9;
+  int64 submitted_at = 10;
+  int64 confirmed_at = 11;
+  int64 refunded_at = 12;
+  int64 created_at = 13;
+}
+
+message CreateWithdrawalRequest {
+  string wallet = 1;
+  string token = 2;
+  string amount = 3;          // decimal string
+  string to_address = 4;
+  uint64 nonce = 5;
+  bytes signature = 6;
+}
+
+message CreateWithdrawalResponse {
+  Withdrawal withdrawal = 1;
+}
+
+message CancelWithdrawalRequest {
+  string wallet = 1;
+  string withdraw_id = 2;
+}
+
+message GetWithdrawalRequest {
+  string withdraw_id = 1;
+}
+
+message ListWithdrawalsRequest {
+  string wallet = 1;
+  string token = 2;           // optional filter
+  WithdrawStatus status = 3;  // optional filter
+  int64 start_time = 4;
+  int64 end_time = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListWithdrawalsResponse {
+  repeated Withdrawal withdrawals = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ========== 内部接口消息 ==========
+
+message ProcessTradeResultRequest {
+  string trade_id = 1;
+  string market = 2;
+  string maker_order_id = 3;
+  string taker_order_id = 4;
+  string maker_wallet = 5;
+  string taker_wallet = 6;
+  string price = 7;
+  string amount = 8;
+  string quote_amount = 9;
+  string maker_fee = 10;
+  string taker_fee = 11;
+  string fee_token = 12;
+  OrderSide maker_side = 13;
+  int64 matched_at = 14;
+}
+
+message ProcessDepositEventRequest {
+  string tx_hash = 1;
+  uint32 log_index = 2;
+  int64 block_num = 3;
+  string wallet = 4;
+  string token = 5;
+  string amount = 6;
+  int64 detected_at = 7;
+}
+
+message ConfirmSettlementRequest {
+  string batch_id = 1;
+  string tx_hash = 2;
+}
