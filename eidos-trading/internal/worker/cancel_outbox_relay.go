@@ -23,6 +23,10 @@ const (
 	cancelOutboxPendingKeyPattern = "eidos:trading:outbox:cancel:pending:%d"
 	// Cancel Shard lock key: eidos:trading:outbox:cancel:lock:{shard_id}
 	cancelShardLockKeyPattern = "eidos:trading:outbox:cancel:lock:%d"
+	// Recovery lock key
+	cancelRecoveryLockKey = "eidos:trading:outbox:cancel:lock:recovery"
+	// Cleanup lock key
+	cancelCleanupLockKey = "eidos:trading:outbox:cancel:lock:cleanup"
 )
 
 // Cancel Outbox status constants
@@ -431,7 +435,12 @@ func (r *CancelOutboxRelay) recoveryLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			r.recoverStaleMessages(ctx)
+			// 获取分布式锁
+			if r.tryAcquireLock(ctx, cancelRecoveryLockKey) {
+				logger.Debug("acquired cancel recovery lock")
+				r.recoverStaleMessages(ctx)
+				r.releaseLockSimple(ctx, cancelRecoveryLockKey)
+			}
 		}
 	}
 }
@@ -531,9 +540,29 @@ func (r *CancelOutboxRelay) cleanupLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			r.cleanupSentMessages(ctx)
-			r.alertFailedMessages(ctx)
+			// 获取分布式锁
+			if r.tryAcquireLock(ctx, cancelCleanupLockKey) {
+				logger.Debug("acquired cancel cleanup lock")
+				r.cleanupSentMessages(ctx)
+				r.alertFailedMessages(ctx)
+				r.releaseLockSimple(ctx, cancelCleanupLockKey)
+			}
 		}
+	}
+}
+
+// releaseLockSimple 简单释放非分片锁
+func (r *CancelOutboxRelay) releaseLockSimple(ctx context.Context, lockKey string) {
+	// 使用 Lua 脚本确保只有锁持有者才能释放
+	script := redis.NewScript(`
+		if redis.call('GET', KEYS[1]) == ARGV[1] then
+			return redis.call('DEL', KEYS[1])
+		end
+		return 0
+	`)
+
+	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
+		logger.Error("release simple lock failed", zap.String("key", lockKey), zap.Error(err))
 	}
 }
 

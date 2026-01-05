@@ -13,6 +13,7 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 )
 
 // Redis key patterns for order outbox
@@ -23,6 +24,10 @@ const (
 	outboxPendingKeyPattern = "eidos:trading:outbox:pending:%d"
 	// Shard lock key: eidos:trading:outbox:lock:{shard_id}
 	shardLockKeyPattern = "eidos:trading:outbox:lock:%d"
+	// Recovery lock key: eidos:trading:outbox:lock:recovery
+	recoveryLockKey = "eidos:trading:outbox:lock:recovery"
+	// Cleanup lock key: eidos:trading:outbox:lock:cleanup
+	cleanupLockKey = "eidos:trading:outbox:lock:cleanup"
 )
 
 // Outbox status constants
@@ -422,6 +427,7 @@ func (r *OrderOutboxRelay) processOrder(ctx context.Context, orderID string) err
 
 // recoveryLoop 恢复卡住消息的循环
 // 当实例崩溃时，PROCESSING 状态的消息需要被恢复到 pending 队列
+// 增加分布式锁，避免多实例并发全表扫描
 func (r *OrderOutboxRelay) recoveryLoop(ctx context.Context) {
 	defer r.wg.Done()
 
@@ -433,7 +439,13 @@ func (r *OrderOutboxRelay) recoveryLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			r.recoverStaleMessages(ctx)
+			// 尝试获取锁 (只持有很短时间)
+			if r.tryAcquireLock(ctx, recoveryLockKey) {
+				logger.Info("acquired recovery lock, starting recovery")
+				r.recoverStaleMessages(ctx)
+				// 任务完成后立即释放，不需要一直持有
+				r.releaseLockSimple(ctx, recoveryLockKey)
+			}
 		}
 	}
 }
@@ -522,6 +534,7 @@ func (r *OrderOutboxRelay) recoverStaleMessages(ctx context.Context) {
 }
 
 // cleanupLoop 清理循环
+// 增加分布式锁，避免多实例并发扫描
 func (r *OrderOutboxRelay) cleanupLoop(ctx context.Context) {
 	defer r.wg.Done()
 
@@ -533,9 +546,29 @@ func (r *OrderOutboxRelay) cleanupLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			r.cleanupSentMessages(ctx)
-			r.alertFailedMessages(ctx)
+			// 尝试获取锁
+			if r.tryAcquireLock(ctx, cleanupLockKey) {
+				logger.Info("acquired cleanup lock, starting cleanup")
+				r.cleanupSentMessages(ctx)
+				r.alertFailedMessages(ctx)
+				r.releaseLockSimple(ctx, cleanupLockKey)
+			}
 		}
+	}
+}
+
+// releaseLockSimple 简单释放非分片锁
+func (r *OrderOutboxRelay) releaseLockSimple(ctx context.Context, lockKey string) {
+	// 使用 Lua 脚本确保只有锁持有者才能释放
+	script := redis.NewScript(`
+		if redis.call('GET', KEYS[1]) == ARGV[1] then
+			return redis.call('DEL', KEYS[1])
+		end
+		return 0
+	`)
+
+	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
+		logger.Error("release simple lock failed", zap.String("key", lockKey), zap.Error(err))
 	}
 }
 
@@ -629,7 +662,8 @@ func (r *OrderOutboxRelay) alertFailedMessages(ctx context.Context) {
 		logger.Warn("order outbox has failed messages",
 			zap.Int("count", failedCount),
 		)
-		// TODO: 发送告警通知
+		// 发送告警通知 (Metrics)
+		metrics.RecordOutboxError("order", "processing_failed_in_db")
 	}
 }
 

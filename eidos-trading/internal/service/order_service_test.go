@@ -444,6 +444,16 @@ func (m *MockBalanceRedisRepository) RollbackTrade(ctx context.Context, req *cac
 	return args.Error(0)
 }
 
+func (m *MockBalanceRedisRepository) DecrUserOpenOrders(ctx context.Context, wallet string) error {
+	args := m.Called(ctx, wallet)
+	return args.Error(0)
+}
+
+func (m *MockBalanceRedisRepository) GetUserOpenOrders(ctx context.Context, wallet string) (int, error) {
+	args := m.Called(ctx, wallet)
+	return args.Int(0), args.Error(1)
+}
+
 // ========== Test Cases ==========
 
 func TestOrderService_CreateOrder_Success(t *testing.T) {
@@ -968,6 +978,7 @@ func TestOrderService_ExpireOrder_Success(t *testing.T) {
 	orderRepo.On("GetByOrderID", ctx, orderID).Return(existingOrder, nil)
 	// 新流程: 使用 Redis UnfreezeByOrderID 解冻
 	balanceCache.On("UnfreezeByOrderID", ctx, existingOrder.Wallet, "USDT", orderID).Return(nil)
+	balanceCache.On("DecrUserOpenOrders", ctx, existingOrder.Wallet).Return(nil) // Added expectation
 	// DB 异步更新
 	orderRepo.On("UpdateStatus", mock.Anything, orderID, model.OrderStatusOpen, model.OrderStatusExpired).Return(nil).Maybe()
 	balanceRepo.On("CreateBalanceLog", mock.Anything, mock.AnythingOfType("*model.BalanceLog")).Return(nil).Maybe()
@@ -1001,6 +1012,7 @@ func TestOrderService_RejectOrder_Success(t *testing.T) {
 	orderRepo.On("GetByOrderID", ctx, orderID).Return(existingOrder, nil)
 	// 新流程: 使用 Redis UnfreezeByOrderID 解冻
 	balanceCache.On("UnfreezeByOrderID", ctx, existingOrder.Wallet, "USDT", orderID).Return(nil)
+	balanceCache.On("DecrUserOpenOrders", ctx, existingOrder.Wallet).Return(nil) // Added expectation
 	// DB 异步更新
 	orderRepo.On("Update", mock.Anything, mock.AnythingOfType("*model.Order")).Return(nil).Maybe()
 	balanceRepo.On("CreateBalanceLog", mock.Anything, mock.AnythingOfType("*model.BalanceLog")).Return(nil).Maybe()

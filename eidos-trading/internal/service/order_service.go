@@ -5,24 +5,43 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
 
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 )
 
+// 默认 Outbox 分片数量
+const defaultOutboxShards = 8
+
+// calculateShardID 根据钱包地址计算 Outbox 分片 ID
+// 使用 FNV-1a 哈希确保相同钱包地址的订单分配到同一分片
+// 这保证了同一用户的订单处理有序性
+func calculateShardID(wallet string, numShards int) int {
+	if numShards <= 0 {
+		numShards = defaultOutboxShards
+	}
+	h := fnv.New32a()
+	h.Write([]byte(strings.ToLower(wallet)))
+	return int(h.Sum32() % uint32(numShards))
+}
+
 var (
-	ErrInvalidOrder           = errors.New("invalid order")
-	ErrOrderNotCancellable    = errors.New("order cannot be cancelled")
-	ErrDuplicateOrder         = errors.New("duplicate order")
-	ErrInvalidNonce           = errors.New("invalid nonce")
-	ErrInsufficientBalance    = errors.New("insufficient balance")
-	ErrPendingLimitExceeded   = errors.New("pending limit exceeded")
-	ErrInvalidStateTransition = errors.New("invalid order state transition")
+	ErrInvalidOrder               = errors.New("invalid order")
+	ErrOrderNotCancellable        = errors.New("order cannot be cancelled")
+	ErrDuplicateOrder             = errors.New("duplicate order")
+	ErrInvalidNonce               = errors.New("invalid nonce")
+	ErrInsufficientBalance        = errors.New("insufficient balance")
+	ErrPendingLimitExceeded       = errors.New("pending limit exceeded")
+	ErrGlobalPendingLimitExceeded = errors.New("global pending limit exceeded")
+	ErrMaxOpenOrdersExceeded      = errors.New("max open orders exceeded")
+	ErrInvalidStateTransition     = errors.New("invalid order state transition")
 )
 
 // OrderService 订单服务接口
@@ -254,22 +273,27 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 	nonceKey := fmt.Sprintf("nonce:%s:order:%d", req.Wallet, req.Nonce)
 
 	// 获取风控限额配置
-	var userPendingLimit decimal.Decimal
+	var userPendingLimit, globalPendingLimit decimal.Decimal
+	var maxOpenOrders int
 	if s.riskConfig != nil {
 		userPendingLimit = s.riskConfig.GetUserPendingLimit()
+		globalPendingLimit = s.riskConfig.GetGlobalPendingLimit()
+		maxOpenOrders = s.riskConfig.GetMaxOpenOrdersPerUser()
 	}
 
 	freezeReq := &cache.FreezeForOrderRequest{
-		Wallet:           req.Wallet,
-		Token:            freezeToken,
-		Amount:           freezeAmount,
-		OrderID:          orderID,
-		FromSettled:      true, // 优先从已结算冻结
-		OrderJSON:        string(orderJSON),
-		ShardID:          0, // TODO: 根据钱包地址分片
-		NonceKey:         nonceKey,
-		NonceTTL:         7 * 24 * time.Hour, // Nonce 7 天过期
-		UserPendingLimit: userPendingLimit,   // 用户待结算限额检查
+		Wallet:             req.Wallet,
+		Token:              freezeToken,
+		Amount:             freezeAmount,
+		OrderID:            orderID,
+		FromSettled:        true, // 优先从已结算冻结
+		OrderJSON:          string(orderJSON),
+		ShardID:            calculateShardID(req.Wallet, defaultOutboxShards), // 根据钱包地址分片
+		NonceKey:           nonceKey,
+		NonceTTL:           7 * 24 * time.Hour, // Nonce 7 天过期
+		UserPendingLimit:   userPendingLimit,   // 用户待结算限额检查
+		GlobalPendingLimit: globalPendingLimit, // 全局待结算限额检查
+		MaxOpenOrders:      maxOpenOrders,      // 用户最大活跃订单数检查
 	}
 
 	if err := s.balanceCache.FreezeForOrder(ctx, freezeReq); err != nil {
@@ -277,19 +301,50 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 			return nil, ErrInvalidNonce
 		}
 		if errors.Is(err, cache.ErrRedisInsufficientBalance) {
+			metrics.RecordRiskRejection("insufficient_balance")
 			return nil, ErrInsufficientBalance
 		}
 		if errors.Is(err, cache.ErrRedisPendingLimitExceeded) {
+			metrics.RecordRiskRejection("pending_limit")
 			return nil, ErrPendingLimitExceeded
+		}
+		if errors.Is(err, cache.ErrRedisGlobalPendingLimitExceeded) {
+			metrics.RecordRiskRejection("global_limit")
+			return nil, ErrGlobalPendingLimitExceeded
+		}
+		if errors.Is(err, cache.ErrRedisMaxOpenOrdersExceeded) {
+			metrics.RecordRiskRejection("max_orders")
+			return nil, ErrMaxOpenOrdersExceeded
 		}
 		return nil, fmt.Errorf("redis freeze for order failed: %w", err)
 	}
 
-	// 9. 异步写入 DB (订单已在 Redis Outbox 中，消息投递有保障)
-	// 使用 AsyncTaskManager 管理异步任务，提供超时控制和错误日志
-	s.asyncTasks.Submit("persistOrderToDB", orderID, func(taskCtx context.Context) error {
-		return s.persistOrderToDB(taskCtx, order, req)
-	})
+	// 9. 记录订单创建成功指标
+	sideStr := "buy"
+	if req.Side == model.OrderSideSell {
+		sideStr = "sell"
+	}
+	metrics.RecordOrderCreated(req.Market, sideStr)
+	metrics.IncTotalOpenOrders()
+
+	// 10. 同步写入 DB (保证数据持久化，避免 Redis 写入成功但 DB 丢单)
+	if err := s.persistOrderToDB(ctx, order, req); err != nil {
+		// 严重错误：Redis 冻结成功但 DB 写入失败
+		// 此时需要回滚 Redis (解锁资金，清除 Outbox)，并返回错误给用户
+		// 使用 CancelPendingOrder 逻辑尝试回滚
+		shardID := calculateShardID(req.Wallet, defaultOutboxShards)
+		rollbackReq := &cache.CancelPendingOrderRequest{
+			Wallet:  req.Wallet,
+			Token:   freezeToken,
+			OrderID: orderID,
+			ShardID: shardID,
+		}
+		_ = s.balanceCache.CancelPendingOrder(ctx, rollbackReq)
+		_ = s.balanceCache.DecrUserOpenOrders(ctx, req.Wallet)
+		metrics.DecTotalOpenOrders()
+		metrics.RecordDataIntegrityCritical("order", "db_persist_failed_rollback")
+		return nil, fmt.Errorf("persist order to db failed: %w", err)
+	}
 
 	return order, nil
 }
@@ -354,7 +409,7 @@ func (s *orderService) CancelOrder(ctx context.Context, wallet, orderID string) 
 	}
 
 	// 4. 根据订单状态选择取消策略
-	shardID := int(wallet[len(wallet)-1]) % 8 // 简单分片策略
+	shardID := calculateShardID(wallet, defaultOutboxShards)
 
 	if order.Status == model.OrderStatusPending {
 		// PENDING 订单: 直接在 Redis 中原子取消
@@ -390,36 +445,33 @@ func (s *orderService) cancelPendingOrder(ctx context.Context, order *model.Orde
 		return fmt.Errorf("cancel pending order failed: %w", err)
 	}
 
-	// 2. 异步更新 DB
-	s.asyncTasks.Submit("cancelPendingOrderDB", order.OrderID, func(taskCtx context.Context) error {
-		return s.balanceRepo.Transaction(taskCtx, func(txCtx context.Context) error {
-			// 更新订单状态
-			if err := s.orderRepo.UpdateStatus(txCtx, order.OrderID, order.Status, model.OrderStatusCancelled); err != nil {
-				return fmt.Errorf("update order status: %w", err)
-			}
+	// 2. 同步更新 DB
+	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+		// 更新订单状态
+		if err := s.orderRepo.UpdateStatus(txCtx, order.OrderID, order.Status, model.OrderStatusCancelled); err != nil {
+			return fmt.Errorf("update order status: %w", err)
+		}
 
-			// 创建余额流水
-			if order.FreezeAmount.GreaterThan(decimal.Zero) {
-				balanceLog := &model.BalanceLog{
-					Wallet:        order.Wallet,
-					Token:         order.FreezeToken,
-					Type:          model.BalanceLogTypeUnfreeze,
-					Amount:        order.FreezeAmount,
-					BalanceBefore: decimal.Zero,
-					BalanceAfter:  decimal.Zero,
-					OrderID:       order.OrderID,
-					Remark:        fmt.Sprintf("Pending order cancelled: %s", order.OrderID),
-				}
-				if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
-					return fmt.Errorf("create balance log: %w", err)
-				}
+		// 创建余额流水
+		if order.FreezeAmount.GreaterThan(decimal.Zero) {
+			balanceLog := &model.BalanceLog{
+				Wallet:        order.Wallet,
+				Token:         order.FreezeToken,
+				Type:          model.BalanceLogTypeUnfreeze,
+				Amount:        order.FreezeAmount,
+				BalanceBefore: decimal.Zero,
+				BalanceAfter:  decimal.Zero,
+				OrderID:       order.OrderID,
+				Remark:        fmt.Sprintf("Pending order cancelled: %s", order.OrderID),
 			}
+			if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
+				return fmt.Errorf("create balance log: %w", err)
+			}
+		}
 
-			return nil
-		})
+		return nil
 	})
 
-	return nil
 }
 
 // cancelActiveOrder 取消 OPEN/PARTIAL 状态订单
@@ -449,12 +501,9 @@ func (s *orderService) cancelActiveOrder(ctx context.Context, order *model.Order
 		return fmt.Errorf("write cancel outbox failed: %w", err)
 	}
 
-	// 3. 更新订单状态为 CANCELLING (可选，用于前端展示)
-	s.asyncTasks.Submit("updateOrderCancelling", order.OrderID, func(taskCtx context.Context) error {
-		return s.orderRepo.UpdateStatus(taskCtx, order.OrderID, order.Status, model.OrderStatusCancelling)
-	})
+	// 3. 更新订单状态为 CANCELLING (同步)
+	return s.orderRepo.UpdateStatus(ctx, order.OrderID, order.Status, model.OrderStatusCancelling)
 
-	return nil
 }
 
 // CancelOrderRequest 取消订单请求 (发送到 Kafka)
@@ -521,35 +570,43 @@ func (s *orderService) ExpireOrder(ctx context.Context, orderID string) error {
 		// logger.Warn("expire order unfreeze failed", zap.Error(err), zap.String("order_id", orderID))
 	}
 
-	// 异步更新 DB
+	// 减少用户活跃订单计数
+	_ = s.balanceCache.DecrUserOpenOrders(ctx, order.Wallet)
+	metrics.DecTotalOpenOrders()
+
+	// 记录订单过期指标
+	sideStr := "buy"
+	if order.Side == model.OrderSideSell {
+		sideStr = "sell"
+	}
+	metrics.RecordOrderExpired(order.Market, sideStr)
+
+	// 同步更新 DB
 	unfreezeAmount := order.RemainingFreezeAmount()
-	s.asyncTasks.Submit("expireOrderDB", orderID, func(taskCtx context.Context) error {
-		return s.balanceRepo.Transaction(taskCtx, func(txCtx context.Context) error {
-			if err := s.orderRepo.UpdateStatus(txCtx, orderID, order.Status, model.OrderStatusExpired); err != nil {
+	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+		if err := s.orderRepo.UpdateStatus(txCtx, orderID, order.Status, model.OrderStatusExpired); err != nil {
+			return err
+		}
+
+		if unfreezeAmount.GreaterThan(decimal.Zero) {
+			balanceLog := &model.BalanceLog{
+				Wallet:        order.Wallet,
+				Token:         order.FreezeToken,
+				Type:          model.BalanceLogTypeUnfreeze,
+				Amount:        unfreezeAmount,
+				BalanceBefore: decimal.Zero,
+				BalanceAfter:  decimal.Zero,
+				OrderID:       orderID,
+				Remark:        fmt.Sprintf("Order expired: %s", orderID),
+			}
+			if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
 				return err
 			}
+		}
 
-			if unfreezeAmount.GreaterThan(decimal.Zero) {
-				balanceLog := &model.BalanceLog{
-					Wallet:        order.Wallet,
-					Token:         order.FreezeToken,
-					Type:          model.BalanceLogTypeUnfreeze,
-					Amount:        unfreezeAmount,
-					BalanceBefore: decimal.Zero,
-					BalanceAfter:  decimal.Zero,
-					OrderID:       orderID,
-					Remark:        fmt.Sprintf("Order expired: %s", orderID),
-				}
-				if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
+		return nil
 	})
 
-	return nil
 }
 
 // RejectOrder 拒绝订单 (风控拦截)
@@ -569,40 +626,41 @@ func (s *orderService) RejectOrder(ctx context.Context, orderID string, reason s
 		// logger.Warn("reject order unfreeze failed", zap.Error(err), zap.String("order_id", orderID))
 	}
 
-	// 异步更新 DB
+	// 减少用户活跃订单计数
+	_ = s.balanceCache.DecrUserOpenOrders(ctx, order.Wallet)
+	metrics.DecTotalOpenOrders()
+
+	// 同步更新 DB
 	unfreezeAmount := order.FreezeAmount
-	s.asyncTasks.Submit("rejectOrderDB", orderID, func(taskCtx context.Context) error {
-		return s.balanceRepo.Transaction(taskCtx, func(txCtx context.Context) error {
-			// 更新订单状态和拒绝原因
-			order.Status = model.OrderStatusRejected
-			order.RejectReason = reason
-			order.UpdatedAt = time.Now().UnixMilli()
-			if err := s.orderRepo.Update(txCtx, order); err != nil {
+	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+		// 更新订单状态和拒绝原因
+		order.Status = model.OrderStatusRejected
+		order.RejectReason = reason
+		order.UpdatedAt = time.Now().UnixMilli()
+		if err := s.orderRepo.Update(txCtx, order); err != nil {
+			return err
+		}
+
+		// 创建余额流水
+		if unfreezeAmount.GreaterThan(decimal.Zero) {
+			balanceLog := &model.BalanceLog{
+				Wallet:        order.Wallet,
+				Token:         order.FreezeToken,
+				Type:          model.BalanceLogTypeUnfreeze,
+				Amount:        unfreezeAmount,
+				BalanceBefore: decimal.Zero,
+				BalanceAfter:  decimal.Zero,
+				OrderID:       orderID,
+				Remark:        fmt.Sprintf("Order rejected: %s, reason: %s", orderID, reason),
+			}
+			if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
 				return err
 			}
+		}
 
-			// 创建余额流水
-			if unfreezeAmount.GreaterThan(decimal.Zero) {
-				balanceLog := &model.BalanceLog{
-					Wallet:        order.Wallet,
-					Token:         order.FreezeToken,
-					Type:          model.BalanceLogTypeUnfreeze,
-					Amount:        unfreezeAmount,
-					BalanceBefore: decimal.Zero,
-					BalanceAfter:  decimal.Zero,
-					OrderID:       orderID,
-					Remark:        fmt.Sprintf("Order rejected: %s, reason: %s", orderID, reason),
-				}
-				if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
+		return nil
 	})
 
-	return nil
 }
 
 // validateCreateOrderRequest 验证创建订单请求
@@ -665,41 +723,52 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 			// logger.Warn("unfreeze by order id failed", zap.Error(err), zap.String("order_id", msg.OrderID))
 		}
 
-		// 异步更新 DB
-		remainingSizeStr := msg.RemainingSize // capture for closure
-		s.asyncTasks.Submit("cancelConfirmDB", msg.OrderID, func(taskCtx context.Context) error {
-			remainingSize, err := decimal.NewFromString(remainingSizeStr)
-			if err != nil {
-				return fmt.Errorf("parse remaining size: %w", err)
+		// 减少用户活跃订单计数
+		_ = s.balanceCache.DecrUserOpenOrders(ctx, order.Wallet)
+		metrics.DecTotalOpenOrders()
+
+		// 记录订单取消指标
+		sideStr := "buy"
+		if order.Side == model.OrderSideSell {
+			sideStr = "sell"
+		}
+		metrics.RecordOrderCancelled(order.Market, sideStr)
+
+		// 同步更新 DB
+		remainingSizeStr := msg.RemainingSize
+		remainingSize, err := decimal.NewFromString(remainingSizeStr)
+		if err != nil {
+			return fmt.Errorf("parse remaining size: %w", err)
+		}
+
+		if err := s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+			// 更新订单状态
+			if err := s.orderRepo.UpdateStatus(txCtx, msg.OrderID, order.Status, model.OrderStatusCancelled); err != nil {
+				return fmt.Errorf("update order status: %w", err)
 			}
 
-			return s.balanceRepo.Transaction(taskCtx, func(txCtx context.Context) error {
-				// 更新订单状态
-				if err := s.orderRepo.UpdateStatus(txCtx, msg.OrderID, order.Status, model.OrderStatusCancelled); err != nil {
-					return fmt.Errorf("update order status: %w", err)
+			// 创建余额流水
+			unfreezeAmount := s.calculateUnfreezeAmount(order, remainingSize)
+			if unfreezeAmount.GreaterThan(decimal.Zero) {
+				balanceLog := &model.BalanceLog{
+					Wallet:        order.Wallet,
+					Token:         order.FreezeToken,
+					Type:          model.BalanceLogTypeUnfreeze,
+					Amount:        unfreezeAmount,
+					BalanceBefore: decimal.Zero,
+					BalanceAfter:  decimal.Zero,
+					OrderID:       msg.OrderID,
+					Remark:        fmt.Sprintf("Order cancel confirmed: %s", msg.OrderID),
 				}
-
-				// 创建余额流水
-				unfreezeAmount := s.calculateUnfreezeAmount(order, remainingSize)
-				if unfreezeAmount.GreaterThan(decimal.Zero) {
-					balanceLog := &model.BalanceLog{
-						Wallet:        order.Wallet,
-						Token:         order.FreezeToken,
-						Type:          model.BalanceLogTypeUnfreeze,
-						Amount:        unfreezeAmount,
-						BalanceBefore: decimal.Zero,
-						BalanceAfter:  decimal.Zero,
-						OrderID:       msg.OrderID,
-						Remark:        fmt.Sprintf("Order cancel confirmed: %s", msg.OrderID),
-					}
-					if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
-						return fmt.Errorf("create balance log: %w", err)
-					}
+				if err := s.balanceRepo.CreateBalanceLog(txCtx, balanceLog); err != nil {
+					return fmt.Errorf("create balance log: %w", err)
 				}
-
-				return nil
-			})
-		})
+			}
+			return nil
+		}); err != nil {
+			metrics.RecordDataIntegrityCritical("order", "cancel_db_update_failed")
+			return fmt.Errorf("cancel confirm db update failed: %w", err)
+		}
 
 		return nil
 
@@ -715,11 +784,16 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 			}
 		}
 
-		// 异步更新 DB
-		finalStatus := newStatus // capture for closure
-		s.asyncTasks.Submit("cancelNotFoundDB", msg.OrderID, func(taskCtx context.Context) error {
-			return s.orderRepo.UpdateStatus(taskCtx, msg.OrderID, order.Status, finalStatus)
-		})
+		// 减少用户活跃订单计数
+		_ = s.balanceCache.DecrUserOpenOrders(ctx, order.Wallet)
+		metrics.DecTotalOpenOrders()
+
+		// 同步更新 DB
+		finalStatus := newStatus
+		if err := s.orderRepo.UpdateStatus(ctx, msg.OrderID, order.Status, finalStatus); err != nil {
+			metrics.RecordDataIntegrityCritical("order", "cancel_not_found_db_failed")
+			return fmt.Errorf("update order status failed: %w", err)
+		}
 
 		return nil
 

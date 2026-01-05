@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # ========================================
@@ -95,7 +95,11 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -114,6 +118,21 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: eidos
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      - eidos-network
+
+  # Kafka Init (初始化 Topic)
+  kafka-init:
+    image: apache/kafka:3.8.1
+    container_name: eidos-kafka-init
+    depends_on:
+      - kafka
+    volumes:
+      - ./scripts/init-kafka-topics.sh:/init-kafka-topics.sh
+    entrypoint: ["/bin/bash", "/init-kafka-topics.sh"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+      REPLICATION_FACTOR: 1
     networks:
       - eidos-network
 
@@ -137,7 +156,13 @@ services:
     volumes:
       - nacos_data:/home/nacos/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8848/nacos/v1/console/health/readiness",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -157,10 +182,10 @@ services:
       - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
     networks:
       - eidos-network
 

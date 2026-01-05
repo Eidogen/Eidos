@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -43,6 +44,7 @@ func (m *AsyncTaskManager) Submit(taskName, taskID string, fn func(ctx context.C
 	m.wg.Add(1)
 	m.mu.Lock()
 	m.pendingTasks++
+	metrics.SetAsyncTasksPending(taskName, float64(m.pendingTasks))
 	m.mu.Unlock()
 
 	go func() {
@@ -50,6 +52,7 @@ func (m *AsyncTaskManager) Submit(taskName, taskID string, fn func(ctx context.C
 			m.wg.Done()
 			m.mu.Lock()
 			m.pendingTasks--
+			metrics.SetAsyncTasksPending(taskName, float64(m.pendingTasks))
 			m.mu.Unlock()
 		}()
 
@@ -73,6 +76,9 @@ func (m *AsyncTaskManager) Submit(taskName, taskID string, fn func(ctx context.C
 		duration := time.Since(startTime)
 
 		if err != nil {
+			// 记录异步任务错误指标
+			metrics.RecordAsyncTaskError(taskName)
+
 			if taskCtx.Err() == context.DeadlineExceeded {
 				logger.Error("async task timeout",
 					zap.String("task", taskName),

@@ -8,9 +8,18 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics" // Added metrics
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
+	"github.com/redis/go-redis/v9" // Added redis
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
+)
+
+const (
+	// Reconciliation lock key
+	reconciliationLockKey = "eidos:trading:reconciliation:lock"
+	// Lock TTL
+	reconciliationLockTTL = 30 * time.Second
 )
 
 // ReconciliationWorkerConfig 对账 Worker 配置
@@ -34,6 +43,7 @@ func DefaultReconciliationWorkerConfig() *ReconciliationWorkerConfig {
 // 如果发现差异，记录告警日志
 type ReconciliationWorker struct {
 	cfg          *ReconciliationWorkerConfig
+	rdb          redis.UniversalClient // Added redis client
 	balanceCache cache.BalanceRedisRepository
 	balanceRepo  repository.BalanceRepository
 	cancel       context.CancelFunc
@@ -43,6 +53,7 @@ type ReconciliationWorker struct {
 // NewReconciliationWorker 创建对账 Worker
 func NewReconciliationWorker(
 	cfg *ReconciliationWorkerConfig,
+	rdb redis.UniversalClient, // Added redis client
 	balanceCache cache.BalanceRedisRepository,
 	balanceRepo repository.BalanceRepository,
 ) *ReconciliationWorker {
@@ -51,6 +62,7 @@ func NewReconciliationWorker(
 	}
 	return &ReconciliationWorker{
 		cfg:          cfg,
+		rdb:          rdb,
 		balanceCache: balanceCache,
 		balanceRepo:  balanceRepo,
 	}
@@ -90,9 +102,30 @@ func (w *ReconciliationWorker) checkLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			w.reconcile(ctx)
+			// 获取分布式锁，防止多实例并发执行对账
+			if w.tryAcquireLock(ctx) {
+				logger.Info("acquired reconciliation lock, starting check")
+				w.reconcile(ctx)
+				// 对账时间可能很长，完成后释放锁 (或者可以让它自然过期，这里选择主动释放)
+				w.releaseLock(ctx)
+			}
 		}
 	}
+}
+
+// tryAcquireLock 尝试获取分布式锁
+func (w *ReconciliationWorker) tryAcquireLock(ctx context.Context) bool {
+	ok, err := w.rdb.SetNX(ctx, reconciliationLockKey, "locked", reconciliationLockTTL).Result()
+	if err != nil {
+		logger.Error("try acquire reconciliation lock failed", zap.Error(err))
+		return false
+	}
+	return ok
+}
+
+// releaseLock 释放锁
+func (w *ReconciliationWorker) releaseLock(ctx context.Context) {
+	w.rdb.Del(ctx, reconciliationLockKey)
 }
 
 // reconcile 执行对账
@@ -196,6 +229,7 @@ func (w *ReconciliationWorker) reconcile(ctx context.Context) {
 
 	// 如果有差异，可以发送告警 (metrics/alert)
 	if discrepancies > 0 {
+		metrics.RecordDataIntegrityCritical("reconciliation", "mismatch_found") // Fix arguments
 		logger.Error("reconciliation: discrepancies found",
 			zap.Int("count", discrepancies),
 		)

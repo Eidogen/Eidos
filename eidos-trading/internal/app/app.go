@@ -288,7 +288,7 @@ func (a *App) initWorkers() {
 			CheckInterval: time.Duration(a.cfg.Worker.Reconciliation.CheckIntervalSec) * time.Second,
 			BatchSize:     a.cfg.Worker.Reconciliation.BatchSize,
 		}
-		a.reconciliationWorker = worker.NewReconciliationWorker(reconcileConfig, a.balanceCache, a.balanceRepo)
+		a.reconciliationWorker = worker.NewReconciliationWorker(reconcileConfig, a.rdb, a.balanceCache, a.balanceRepo)
 	}
 
 	// 以下 Worker 依赖 Kafka

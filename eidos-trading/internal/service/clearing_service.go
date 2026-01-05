@@ -11,6 +11,7 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
@@ -120,11 +121,30 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 		return fmt.Errorf("redis clear trade: %w", err)
 	}
 
-	// 4. 异步写入 DB (Redis 已完成实时清算，DB 用于持久化)
-	// 使用 AsyncTaskManager 管理，提供超时控制和错误日志
-	s.asyncTasks.Submit("persistTradeToDB", msg.TradeID, func(taskCtx context.Context) error {
-		return s.persistTradeToDB(taskCtx, msg, marketCfg, price, size, quoteAmount, makerFee, takerFee)
-	})
+	// 4. 记录成交指标
+	quoteAmountFloat, _ := quoteAmount.Float64()
+	metrics.RecordTrade(msg.Market, quoteAmountFloat)
+
+	// 5. 同步写入 DB (Redis 已完成实时清算，DB 用于持久化)
+	if err := s.persistTradeToDB(ctx, msg, marketCfg, price, size, quoteAmount, makerFee, takerFee); err != nil {
+		// 严重错误：Redis 清算成功但 DB 持久化失败
+		// 1. 尝试回滚 Redis (RollbackTrade)
+		// 2. 将错误返回给 Kafka Consumer (依靠 Kafka 重试机制)
+		logger.Error("persist trade to db failed, attempting rollback",
+			zap.String("trade_id", msg.TradeID),
+			zap.Error(err))
+
+		if rbErr := s.rollbackSingleTrade(ctx, msg.TradeID); rbErr != nil {
+			logger.Error("CRITICAL: rollback trade failed after db error",
+				zap.String("trade_id", msg.TradeID),
+				zap.Error(rbErr))
+			metrics.RecordDataIntegrityCritical("trade", "db_persist_failed_rollback_failed")
+		} else {
+			metrics.RecordOutboxError("trade", "db_persist_failed_rolled_back")
+		}
+
+		return fmt.Errorf("persist trade to db failed: %w", err)
+	}
 
 	logger.Info("trade cleared successfully",
 		zap.String("trade_id", msg.TradeID),
@@ -226,10 +246,12 @@ func (s *clearingService) updateOrderFilled(tx *gorm.DB, orderID string, size de
 func (s *clearingService) HandleSettlementConfirm(ctx context.Context, msg *worker.SettlementConfirmedMessage) error {
 	if msg.Status == "confirmed" {
 		// 结算成功: 更新 DB 状态 + Redis 余额结算 (pending → settled)
+		metrics.RecordSettlement("success")
 		return s.handleSettlementSuccess(ctx, msg)
 	}
 
 	// 结算失败: 回滚 Redis 余额 + 更新 DB 状态
+	metrics.RecordSettlement("failed")
 	return s.handleSettlementFailure(ctx, msg)
 }
 
@@ -253,10 +275,11 @@ func (s *clearingService) handleSettlementSuccess(ctx context.Context, msg *work
 		}
 
 		// 2. Redis 余额结算: pending → settled
-		// 异步执行，因为 DB 事务是关键路径
-		s.asyncTasks.Submit("settleBalances", msg.SettlementID, func(taskCtx context.Context) error {
-			return s.settleBalancesForTrades(taskCtx, msg.TradeIDs)
-		})
+		// 同步执行
+		if err := s.settleBalancesForTrades(ctx, msg.TradeIDs); err != nil {
+			logger.Warn("settle balances failed", zap.Error(err))
+			// 结算失败只会导致余额一直在 pending，不会导致资金丢失，不影响 DB 状态
+		}
 
 		logger.Info("settlement confirmed",
 			zap.String("settlement_id", msg.SettlementID),
@@ -317,6 +340,7 @@ func (s *clearingService) handleSettlementFailure(ctx context.Context, msg *work
 		logger.Error("settlement rollback completed with errors",
 			zap.String("settlement_id", msg.SettlementID),
 			zap.Int("error_count", len(rollbackErrors)))
+		metrics.RecordDataIntegrityCritical("settlement", "rollback_failed")
 		return fmt.Errorf("rollback completed with %d errors", len(rollbackErrors))
 	}
 
@@ -324,6 +348,7 @@ func (s *clearingService) handleSettlementFailure(ctx context.Context, msg *work
 		zap.String("settlement_id", msg.SettlementID),
 		zap.Int("trade_count", len(msg.TradeIDs)))
 
+	metrics.RecordSettlement("rolled_back")
 	return nil
 }
 

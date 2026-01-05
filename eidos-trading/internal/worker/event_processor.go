@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +54,10 @@ func (p *EventProcessor) Handle(ctx context.Context, msg *kafka.Message) error {
 		zap.Int32("partition", msg.Partition),
 		zap.Int64("offset", msg.Offset),
 	)
+
+	// 记录消息延迟 (Consumer Lag)
+	lag := time.Since(time.UnixMilli(msg.Timestamp)).Seconds()
+	metrics.RecordConsumerLag(msg.Topic, lag)
 
 	if err := handler.HandleEvent(ctx, msg.Topic, msg.Value); err != nil {
 		logger.Error("handle event failed",
