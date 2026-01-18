@@ -124,6 +124,11 @@ type CreateOrderRequest struct {
 	ExpireAt      int64           // 过期时间 (可选)
 }
 
+// OrderPublisher 订单状态发布接口
+type OrderPublisher interface {
+	PublishOrderUpdate(ctx context.Context, order *model.Order) error
+}
+
 // orderService 订单服务实现
 type orderService struct {
 	orderRepo    repository.OrderRepository
@@ -134,6 +139,7 @@ type orderService struct {
 	marketConfig MarketConfigProvider
 	riskConfig   RiskConfigProvider // 风控配置
 	producer     KafkaProducer      // Kafka producer 发送取消请求到撮合引擎
+	publisher    OrderPublisher     // 订单状态更新发布者
 	asyncTasks   *AsyncTaskManager  // 异步任务管理器
 }
 
@@ -189,6 +195,7 @@ func NewOrderService(
 	marketConfig MarketConfigProvider,
 	riskConfig RiskConfigProvider,
 	producer KafkaProducer,
+	publisher OrderPublisher,
 ) OrderService {
 	return &orderService{
 		orderRepo:    orderRepo,
@@ -199,6 +206,7 @@ func NewOrderService(
 		marketConfig: marketConfig,
 		riskConfig:   riskConfig,
 		producer:     producer,
+		publisher:    publisher,
 		asyncTasks:   GetAsyncTaskManager(),
 	}
 }
@@ -346,6 +354,9 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("persist order to db failed: %w", err)
 	}
 
+	// 11. 发布订单创建消息到 Kafka (供 WebSocket 推送)
+	s.publishOrderUpdate(ctx, order)
+
 	return order, nil
 }
 
@@ -446,7 +457,7 @@ func (s *orderService) cancelPendingOrder(ctx context.Context, order *model.Orde
 	}
 
 	// 2. 同步更新 DB
-	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+	if err := s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
 		// 更新订单状态
 		if err := s.orderRepo.UpdateStatus(txCtx, order.OrderID, order.Status, model.OrderStatusCancelled); err != nil {
 			return fmt.Errorf("update order status: %w", err)
@@ -470,8 +481,16 @@ func (s *orderService) cancelPendingOrder(ctx context.Context, order *model.Orde
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
+	// 3. 发布订单取消消息
+	order.Status = model.OrderStatusCancelled
+	order.UpdatedAt = time.Now().UnixMilli()
+	s.publishOrderUpdate(ctx, order)
+
+	return nil
 }
 
 // cancelActiveOrder 取消 OPEN/PARTIAL 状态订单
@@ -583,7 +602,7 @@ func (s *orderService) ExpireOrder(ctx context.Context, orderID string) error {
 
 	// 同步更新 DB
 	unfreezeAmount := order.RemainingFreezeAmount()
-	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+	if err := s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
 		if err := s.orderRepo.UpdateStatus(txCtx, orderID, order.Status, model.OrderStatusExpired); err != nil {
 			return err
 		}
@@ -605,8 +624,16 @@ func (s *orderService) ExpireOrder(ctx context.Context, orderID string) error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
+	// 发布订单过期消息
+	order.Status = model.OrderStatusExpired
+	order.UpdatedAt = time.Now().UnixMilli()
+	s.publishOrderUpdate(ctx, order)
+
+	return nil
 }
 
 // RejectOrder 拒绝订单 (风控拦截)
@@ -632,11 +659,12 @@ func (s *orderService) RejectOrder(ctx context.Context, orderID string, reason s
 
 	// 同步更新 DB
 	unfreezeAmount := order.FreezeAmount
-	return s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
+	order.Status = model.OrderStatusRejected
+	order.RejectReason = reason
+	order.UpdatedAt = time.Now().UnixMilli()
+
+	if err := s.balanceRepo.Transaction(ctx, func(txCtx context.Context) error {
 		// 更新订单状态和拒绝原因
-		order.Status = model.OrderStatusRejected
-		order.RejectReason = reason
-		order.UpdatedAt = time.Now().UnixMilli()
 		if err := s.orderRepo.Update(txCtx, order); err != nil {
 			return err
 		}
@@ -659,8 +687,14 @@ func (s *orderService) RejectOrder(ctx context.Context, orderID string, reason s
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
+	// 发布订单拒绝消息
+	s.publishOrderUpdate(ctx, order)
+
+	return nil
 }
 
 // validateCreateOrderRequest 验证创建订单请求
@@ -770,6 +804,11 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 			return fmt.Errorf("cancel confirm db update failed: %w", err)
 		}
 
+		// 发布订单取消消息
+		order.Status = model.OrderStatusCancelled
+		order.UpdatedAt = time.Now().UnixMilli()
+		s.publishOrderUpdate(ctx, order)
+
 		return nil
 
 	case "not_found":
@@ -794,6 +833,11 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 			metrics.RecordDataIntegrityCritical("order", "cancel_not_found_db_failed")
 			return fmt.Errorf("update order status failed: %w", err)
 		}
+
+		// 发布订单状态变更消息
+		order.Status = finalStatus
+		order.UpdatedAt = time.Now().UnixMilli()
+		s.publishOrderUpdate(ctx, order)
 
 		return nil
 
@@ -832,7 +876,14 @@ func (s *orderService) HandleOrderAccepted(ctx context.Context, msg *OrderAccept
 	order.AcceptedAt = msg.Timestamp
 	order.UpdatedAt = time.Now().UnixMilli()
 
-	return s.orderRepo.Update(ctx, order)
+	if err := s.orderRepo.Update(ctx, order); err != nil {
+		return err
+	}
+
+	// 发布订单状态变更消息 (PENDING → OPEN)
+	s.publishOrderUpdate(ctx, order)
+
+	return nil
 }
 
 // validateStateTransition 验证订单状态转换是否合法
@@ -842,4 +893,19 @@ func (s *orderService) validateStateTransition(order *model.Order, newStatus mod
 		return fmt.Errorf("%w: %s -> %s", ErrInvalidStateTransition, order.Status.String(), newStatus.String())
 	}
 	return nil
+}
+
+// publishOrderUpdate 发布订单状态更新消息
+// 异步发布，不阻塞主流程
+func (s *orderService) publishOrderUpdate(ctx context.Context, order *model.Order) {
+	if s.publisher == nil {
+		return
+	}
+	// 异步发布，不阻塞主流程
+	go func() {
+		if err := s.publisher.PublishOrderUpdate(ctx, order); err != nil {
+			// 发布失败只记录日志，不影响主流程
+			// 客户端可以通过 API 查询最新状态
+		}
+	}()
 }

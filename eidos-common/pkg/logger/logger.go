@@ -13,6 +13,7 @@ type ctxKey struct{}
 var (
 	globalLogger *zap.Logger
 	sugarLogger  *zap.SugaredLogger
+	atomicLevel  zap.AtomicLevel
 )
 
 // Config 日志配置
@@ -24,10 +25,12 @@ type Config struct {
 
 // Init 初始化全局日志
 func Init(cfg *Config) error {
+	atomicLevel = zap.NewAtomicLevel()
 	level := zapcore.InfoLevel
 	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
 		level = zapcore.InfoLevel
 	}
+	atomicLevel.SetLevel(level)
 
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
@@ -54,7 +57,7 @@ func Init(cfg *Config) error {
 	core := zapcore.NewCore(
 		encoder,
 		zapcore.AddSync(os.Stdout),
-		level,
+		atomicLevel,
 	)
 
 	globalLogger = zap.New(core,
@@ -65,6 +68,15 @@ func Init(cfg *Config) error {
 	sugarLogger = globalLogger.Sugar()
 
 	return nil
+}
+
+// SetLevel 动态设置日志级别
+func SetLevel(levelStr string) {
+	var level zapcore.Level
+	if err := level.UnmarshalText([]byte(levelStr)); err != nil {
+		return
+	}
+	atomicLevel.SetLevel(level)
 }
 
 // L 获取全局 logger

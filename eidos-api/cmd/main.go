@@ -2,81 +2,59 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"net/http"
+	"flag"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"go.uber.org/zap"
-)
 
-const (
-	serviceName = "eidos-api"
-	httpPort    = 8080
+	"github.com/eidos-exchange/eidos/eidos-api/internal/app"
+	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 )
 
 func main() {
+	// 解析命令行参数
+	configPath := flag.String("config", "config/config.yaml", "配置文件路径")
+	flag.Parse()
+
+	// 加载配置
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		panic("load config: " + err.Error())
+	}
+
+	// 初始化日志
 	if err := logger.Init(&logger.Config{
-		Level:       "info",
-		Format:      "json",
-		ServiceName: serviceName,
+		Level:       cfg.Log.Level,
+		Format:      cfg.Log.Format,
+		ServiceName: cfg.Service.Name,
 	}); err != nil {
-		panic(err)
+		panic("init logger: " + err.Error())
 	}
 	defer logger.Sync()
 
-	logger.Info("starting service", zap.String("service", serviceName))
+	log := logger.L()
+	log.Info("starting service",
+		zap.String("service", cfg.Service.Name),
+		zap.String("env", cfg.Service.Env),
+		zap.Int("port", cfg.Service.HTTPPort),
+	)
 
-	// TODO: 初始化 Gin 路由和 WebSocket
-	// router := gin.Default()
-	// handler.RegisterRESTRoutes(router)
-	// handler.RegisterWebSocket(router)
+	// 创建应用
+	application := app.New(cfg, log)
 
-	// 临时使用简单 HTTP 服务器
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("/api/v1/markets", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"markets":[]}`))
-	})
-
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", httpPort),
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	// 启动应用
+	ctx := context.Background()
+	if err := application.Start(ctx); err != nil {
+		log.Fatal("failed to start application", zap.Error(err))
 	}
 
-	go func() {
-		logger.Info("HTTP server listening", zap.Int("port", httpPort))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("failed to serve", zap.Error(err))
-		}
-	}()
+	log.Info("service started successfully",
+		zap.Int("port", cfg.Service.HTTPPort),
+	)
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+	// 等待关闭信号
+	application.WaitForShutdown()
 
-	logger.Info("shutting down...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		logger.Error("server shutdown error", zap.Error(err))
-	}
-
-	logger.Info("service stopped")
+	os.Exit(0)
 }

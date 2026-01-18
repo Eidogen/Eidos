@@ -1,0 +1,302 @@
+# Eidos 交易系统 Prometheus 告警规则
+# 分为四个级别:
+# - P0 (Critical): 资金安全/数据一致性，立即响应
+# - P1 (High): 核心功能不可用，15分钟内响应
+# - P2 (Medium): 性能下降，1小时内响应
+# - P3 (Low): 预警，工作时间处理
+
+groups:
+  # ========== P0 Critical: 资金安全 & 数据一致性 ==========
+  - name: eidos-critical
+    interval: 10s
+    rules:
+      # 数据一致性严重错误 (回滚失败、资金不守恒)
+      - alert: DataIntegrityCritical
+        expr: increase(eidos_trading_data_integrity_critical_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "P0 数据一致性严重错误"
+          description: "检测到 {{ $labels.type }} 类型的数据一致性错误: {{ $labels.reason }}。需要立即人工介入！"
+          runbook_url: "https://wiki.eidos.io/runbooks/data-integrity"
+
+      # 对账发现余额差异
+      - alert: ReconciliationDiff
+        expr: eidos_trading_reconciliation_diffs > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "P0 对账发现余额差异"
+          description: "代币 {{ $labels.token }} 在 Redis 和 DB 之间存在 {{ $value }} 条余额差异。需要立即排查！"
+          runbook_url: "https://wiki.eidos.io/runbooks/reconciliation"
+
+      # 结算失败
+      - alert: SettlementFailed
+        expr: increase(eidos_trading_settlements_total{status="failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: chain
+        annotations:
+          summary: "P0 链上结算失败"
+          description: "过去5分钟有 {{ $value }} 笔结算失败。需要立即检查链上状态！"
+          runbook_url: "https://wiki.eidos.io/runbooks/settlement-failed"
+
+      # 结算回滚
+      - alert: SettlementRolledBack
+        expr: increase(eidos_trading_settlements_total{status="rolled_back"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "P0 结算回滚"
+          description: "过去5分钟有 {{ $value }} 笔结算被回滚。需要检查原因！"
+          runbook_url: "https://wiki.eidos.io/runbooks/settlement-rollback"
+
+  # ========== P1 High: 服务可用性 ==========
+  - name: eidos-availability
+    interval: 15s
+    rules:
+      # 服务实例宕机
+      - alert: ServiceDown
+        expr: up{job=~"eidos-.*"} == 0
+        for: 1m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "P1 服务不可用"
+          description: "服务 {{ $labels.job }} 实例 {{ $labels.instance }} 不可用"
+          runbook_url: "https://wiki.eidos.io/runbooks/service-down"
+
+      # gRPC 请求错误率过高
+      - alert: GRPCHighErrorRate
+        expr: |
+          (
+            sum(rate(grpc_server_handled_total{grpc_code!="OK",job=~"eidos-.*"}[5m])) by (job, grpc_service, grpc_method)
+            /
+            sum(rate(grpc_server_handled_total{job=~"eidos-.*"}[5m])) by (job, grpc_service, grpc_method)
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "P1 gRPC 错误率过高"
+          description: "服务 {{ $labels.job }} 的 {{ $labels.grpc_service }}/{{ $labels.grpc_method }} 错误率 {{ $value | humanizePercentage }} > 5%"
+          runbook_url: "https://wiki.eidos.io/runbooks/grpc-errors"
+
+      # Kafka 消费延迟过高
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          histogram_quantile(0.95, rate(eidos_trading_consumer_lag_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: high
+          team: trading
+        annotations:
+          summary: "P1 Kafka 消费延迟过高"
+          description: "Topic {{ $labels.topic }} 消费延迟 P95 超过 5 秒 (当前: {{ $value | humanizeDuration }})"
+          runbook_url: "https://wiki.eidos.io/runbooks/kafka-lag"
+
+      # 撮合引擎停止
+      - alert: MatchingEngineDown
+        expr: eidos_matching_engine_running == 0
+        for: 30s
+        labels:
+          severity: high
+          team: matching
+        annotations:
+          summary: "P1 撮合引擎停止"
+          description: "市场 {{ $labels.market }} 的撮合引擎已停止运行"
+          runbook_url: "https://wiki.eidos.io/runbooks/matching-engine"
+
+      # Outbox 积压过多
+      - alert: OutboxBacklogHigh
+        expr: eidos_trading_outbox_pending > 1000
+        for: 5m
+        labels:
+          severity: high
+          team: trading
+        annotations:
+          summary: "P1 Outbox 消息积压"
+          description: "Outbox {{ $labels.type }} 分片 {{ $labels.shard }} 积压 {{ $value }} 条消息"
+          runbook_url: "https://wiki.eidos.io/runbooks/outbox-backlog"
+
+      # 异步任务持续失败
+      - alert: AsyncTaskErrorsHigh
+        expr: increase(eidos_trading_async_task_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: high
+          team: trading
+        annotations:
+          summary: "P1 异步任务错误过多"
+          description: "任务类型 {{ $labels.type }} 在过去5分钟有 {{ $value }} 次错误"
+          runbook_url: "https://wiki.eidos.io/runbooks/async-task-errors"
+
+  # ========== P2 Medium: 性能 & 容量 ==========
+  - name: eidos-performance
+    interval: 30s
+    rules:
+      # 订单处理延迟过高
+      - alert: OrderLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(eidos_trading_order_latency_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: medium
+          team: trading
+        annotations:
+          summary: "P2 订单处理延迟过高"
+          description: "操作 {{ $labels.operation }} 延迟 P95 超过 1 秒 (当前: {{ $value | humanizeDuration }})"
+          runbook_url: "https://wiki.eidos.io/runbooks/order-latency"
+
+      # 撮合延迟过高
+      - alert: MatchingLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(eidos_matching_match_latency_seconds_bucket[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: medium
+          team: matching
+        annotations:
+          summary: "P2 撮合延迟过高"
+          description: "市场 {{ $labels.market }} 撮合延迟 P95 超过 10ms (当前: {{ $value | humanizeDuration }})"
+          runbook_url: "https://wiki.eidos.io/runbooks/matching-latency"
+
+      # Redis 操作延迟过高
+      - alert: RedisLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(eidos_trading_redis_operation_latency_seconds_bucket[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: medium
+          team: platform
+        annotations:
+          summary: "P2 Redis 延迟过高"
+          description: "操作 {{ $labels.operation }} 延迟 P95 超过 50ms (当前: {{ $value | humanizeDuration }})"
+          runbook_url: "https://wiki.eidos.io/runbooks/redis-latency"
+
+      # 数据库连接池使用率过高
+      - alert: DBConnectionPoolHigh
+        expr: |
+          eidos_trading_db_connection_pool{state="in_use"}
+          /
+          eidos_trading_db_connection_pool{state="max"} > 0.8
+        for: 10m
+        labels:
+          severity: medium
+          team: platform
+        annotations:
+          summary: "P2 数据库连接池使用率过高"
+          description: "DB 连接池使用率 {{ $value | humanizePercentage }} > 80%"
+          runbook_url: "https://wiki.eidos.io/runbooks/db-connections"
+
+      # 风控拒绝率过高
+      - alert: RiskRejectionRateHigh
+        expr: |
+          sum(rate(eidos_trading_risk_rejections_total[5m]))
+          /
+          sum(rate(eidos_trading_orders_total{status="created"}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: medium
+          team: risk
+        annotations:
+          summary: "P2 风控拒绝率过高"
+          description: "订单风控拒绝率 {{ $value | humanizePercentage }} > 10%"
+          runbook_url: "https://wiki.eidos.io/runbooks/risk-rejections"
+
+      # 订单簿深度不足
+      - alert: OrderBookDepthLow
+        expr: eidos_matching_orderbook_bid_levels < 5 or eidos_matching_orderbook_ask_levels < 5
+        for: 15m
+        labels:
+          severity: medium
+          team: market
+        annotations:
+          summary: "P2 订单簿深度不足"
+          description: "市场 {{ $labels.market }} 订单簿档位不足 (买档: {{ $value }})"
+          runbook_url: "https://wiki.eidos.io/runbooks/orderbook-depth"
+
+  # ========== P3 Low: 预警 & 趋势 ==========
+  - name: eidos-warning
+    interval: 60s
+    rules:
+      # 充值处理缓慢
+      - alert: DepositProcessingSlow
+        expr: increase(eidos_trading_deposits_total{status="pending"}[30m]) > 100
+        for: 30m
+        labels:
+          severity: low
+          team: chain
+        annotations:
+          summary: "P3 充值处理积压"
+          description: "过去30分钟有 {{ $value }} 笔待处理充值"
+          runbook_url: "https://wiki.eidos.io/runbooks/deposit-backlog"
+
+      # 提现处理缓慢
+      - alert: WithdrawalProcessingSlow
+        expr: increase(eidos_trading_withdrawals_total{status="pending"}[30m]) > 50
+        for: 30m
+        labels:
+          severity: low
+          team: chain
+        annotations:
+          summary: "P3 提现处理积压"
+          description: "过去30分钟有 {{ $value }} 笔待处理提现"
+          runbook_url: "https://wiki.eidos.io/runbooks/withdrawal-backlog"
+
+      # 活跃订单数量过高
+      - alert: TotalOpenOrdersHigh
+        expr: eidos_trading_total_open_orders > 50000
+        for: 30m
+        labels:
+          severity: low
+          team: trading
+        annotations:
+          summary: "P3 系统活跃订单过多"
+          description: "系统当前有 {{ $value }} 个活跃订单，可能影响性能"
+          runbook_url: "https://wiki.eidos.io/runbooks/open-orders"
+
+      # 价差过大
+      - alert: SpreadTooWide
+        expr: eidos_matching_orderbook_spread_percent > 5
+        for: 30m
+        labels:
+          severity: low
+          team: market
+        annotations:
+          summary: "P3 买卖价差过大"
+          description: "市场 {{ $labels.market }} 价差 {{ $value }}% > 5%"
+          runbook_url: "https://wiki.eidos.io/runbooks/spread-wide"
+
+      # Outbox 错误
+      - alert: OutboxErrors
+        expr: increase(eidos_trading_outbox_errors_total[1h]) > 5
+        for: 0m
+        labels:
+          severity: low
+          team: trading
+        annotations:
+          summary: "P3 Outbox 处理错误"
+          description: "Outbox {{ $labels.type }} 在过去1小时有 {{ $value }} 次错误: {{ $labels.reason }}"
+          runbook_url: "https://wiki.eidos.io/runbooks/outbox-errors"
+
+      # 异步任务积压
+      - alert: AsyncTasksBacklog
+        expr: eidos_trading_async_tasks > 100
+        for: 10m
+        labels:
+          severity: low
+          team: trading
+        annotations:
+          summary: "P3 异步任务积压"
+          description: "任务类型 {{ $labels.type }} 积压 {{ $value }} 个待处理任务"
+          runbook_url: "https://wiki.eidos.io/runbooks/async-tasks-backlog"

@@ -1,0 +1,230 @@
+# eidos-market 行情服务告警规则
+groups:
+  - name: market_service
+    rules:
+      # ========== 高优先级告警 (P1) ==========
+
+      # 成交处理错误率过高
+      - alert: TradeProcessingErrorRateHigh
+        expr: |
+          sum(rate(eidos_market_trade_processing_errors_total[5m])) by (market)
+          / sum(rate(eidos_market_trades_processed_total[5m])) by (market) > 0.01
+        for: 3m
+        labels:
+          severity: critical
+          service: eidos-market
+        annotations:
+          summary: "成交处理错误率过高"
+          description: "市场 {{ $labels.market }} 的成交处理错误率超过 1%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # Kafka 消费延迟过高
+      - alert: KafkaConsumerLagHigh
+        expr: histogram_quantile(0.95, rate(eidos_market_kafka_message_processing_duration_seconds_bucket[5m])) > 1
+        for: 3m
+        labels:
+          severity: critical
+          service: eidos-market
+        annotations:
+          summary: "Kafka 消息处理延迟过高"
+          description: "Topic {{ $labels.topic }} 的 P95 消息处理延迟超过 1 秒，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # Kafka 消费错误过多
+      - alert: KafkaConsumerErrorsHigh
+        expr: rate(eidos_market_kafka_consumer_errors_total[5m]) > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: eidos-market
+        annotations:
+          summary: "Kafka 消费错误频繁"
+          description: "Topic {{ $labels.topic }} 的 Kafka 消费错误率超过 1/s，当前值: {{ $value | printf \"%.2f\" }}/s"
+
+      # 深度序列号缺口 - 可能导致深度数据不一致
+      - alert: DepthSequenceGapDetected
+        expr: increase(eidos_market_depth_sequence_gaps_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: eidos-market
+        annotations:
+          summary: "深度序列号缺口检测"
+          description: "市场 {{ $labels.market }} 在过去 5 分钟检测到 {{ $value }} 次序列号缺口，深度数据可能不一致"
+
+      # ========== 中优先级告警 (P2) ==========
+
+      # 成交处理延迟过高
+      - alert: TradeProcessingLatencyHigh
+        expr: histogram_quantile(0.95, rate(eidos_market_trade_processing_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "成交处理延迟过高"
+          description: "市场 {{ $labels.market }} 的 P95 成交处理延迟超过 100ms，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # K线刷盘失败
+      - alert: KlineFlushErrorsHigh
+        expr: increase(eidos_market_kline_flush_errors_total[10m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "K线刷盘失败"
+          description: "市场 {{ $labels.market }} 在过去 10 分钟 K 线刷盘失败超过 3 次"
+
+      # K线刷盘延迟过高
+      - alert: KlineFlushLatencyHigh
+        expr: histogram_quantile(0.95, rate(eidos_market_kline_flush_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "K线刷盘延迟过高"
+          description: "市场 {{ $labels.market }} 的 P95 K 线刷盘延迟超过 1 秒，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # PubSub 发布错误过多
+      - alert: PubSubPublishErrorsHigh
+        expr: |
+          sum(rate(eidos_market_pubsub_publish_errors_total[5m])) by (channel_type)
+          / sum(rate(eidos_market_pubsub_publish_total[5m])) by (channel_type) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "PubSub 发布错误率过高"
+          description: "频道类型 {{ $labels.channel_type }} 的发布错误率超过 5%"
+
+      # 深度快照请求失败
+      - alert: DepthSnapshotRequestsFailed
+        expr: |
+          sum(rate(eidos_market_depth_snapshot_requests_total{result="error"}[5m])) by (market)
+          / sum(rate(eidos_market_depth_snapshot_requests_total[5m])) by (market) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "深度快照请求失败率过高"
+          description: "市场 {{ $labels.market }} 的深度快照请求失败率超过 50%"
+
+      # Kafka 消费重试过多
+      - alert: KafkaConsumerRetriesHigh
+        expr: rate(eidos_market_kafka_consumer_retries_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "Kafka 消费重试频繁"
+          description: "Topic {{ $labels.topic }} 的 Kafka 消费重试率超过 5/s"
+
+      # ========== 低优先级告警 (P3) ==========
+
+      # 深度档位过少
+      - alert: DepthLevelsLow
+        expr: eidos_market_depth_levels < 5
+        for: 15m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "深度档位过少"
+          description: "市场 {{ $labels.market }} {{ $labels.side }} 侧的价格档位少于 5 档，当前值: {{ $value }}"
+
+      # gRPC 请求延迟过高
+      - alert: GRPCRequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(eidos_market_grpc_request_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "gRPC 请求延迟过高"
+          description: "方法 {{ $labels.method }} 的 P95 延迟超过 100ms，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # gRPC 请求错误率
+      - alert: GRPCRequestErrorsHigh
+        expr: |
+          sum(rate(eidos_market_grpc_requests_total{status!="OK"}[5m])) by (method)
+          / sum(rate(eidos_market_grpc_requests_total[5m])) by (method) > 0.05
+        for: 5m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "gRPC 请求错误率过高"
+          description: "方法 {{ $labels.method }} 的错误率超过 5%"
+
+      # 缓存未命中率过高
+      - alert: CacheMissRateHigh
+        expr: |
+          sum(rate(eidos_market_cache_misses_total[5m])) by (cache_type)
+          / (sum(rate(eidos_market_cache_hits_total[5m])) by (cache_type) + sum(rate(eidos_market_cache_misses_total[5m])) by (cache_type)) > 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "缓存未命中率过高"
+          description: "缓存类型 {{ $labels.cache_type }} 的未命中率超过 50%"
+
+      # Ticker 桶活跃数量异常低
+      - alert: TickerBucketsLow
+        expr: eidos_market_ticker_buckets_active < 60
+        for: 30m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "Ticker 桶活跃数量低"
+          description: "市场 {{ $labels.market }} 活跃的 Ticker 桶少于 60 个（正常应有近 1440 个），可能没有成交活动"
+
+  - name: market_throughput
+    rules:
+      # K线生成吞吐量监控
+      - alert: KlineGenerationStopped
+        expr: increase(eidos_market_klines_generated_total[30m]) == 0 and eidos_market_active_markets > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "K线生成停止"
+          description: "市场 {{ $labels.market }} 在过去 30 分钟没有生成任何 {{ $labels.interval }} K 线"
+
+      # 深度更新吞吐量监控
+      - alert: DepthUpdatesStopped
+        expr: increase(eidos_market_depth_updates_total[10m]) == 0 and eidos_market_active_markets > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "深度更新停止"
+          description: "市场 {{ $labels.market }} 在过去 10 分钟没有收到任何深度更新"
+
+      # Ticker 更新吞吐量监控
+      - alert: TickerUpdatesStopped
+        expr: increase(eidos_market_ticker_updates_total[10m]) == 0 and eidos_market_active_markets > 0
+        for: 0m
+        labels:
+          severity: info
+          service: eidos-market
+        annotations:
+          summary: "Ticker 更新停止"
+          description: "市场 {{ $labels.market }} 在过去 10 分钟没有更新 Ticker"
+
+      # Kafka 消息消费吞吐量监控
+      - alert: KafkaConsumptionStopped
+        expr: increase(eidos_market_kafka_messages_consumed_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-market
+        annotations:
+          summary: "Kafka 消费停止"
+          description: "Topic {{ $labels.topic }} 在过去 5 分钟没有消费任何消息"

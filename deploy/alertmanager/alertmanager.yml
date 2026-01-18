@@ -1,0 +1,201 @@
+# Eidos AlertManager 配置
+# 告警路由和通知配置
+
+global:
+  # 默认SMTP配置 (生产环境需替换)
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@eidos.io'
+  smtp_auth_username: 'alertmanager@eidos.io'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+  # Slack Webhook URL (生产环境需替换)
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+  # 告警解决后等待时间
+  resolve_timeout: 5m
+
+# 告警模板
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# 路由树
+route:
+  # 默认接收者
+  receiver: 'default-receiver'
+
+  # 分组配置
+  group_by: ['alertname', 'severity', 'team']
+
+  # 初始等待时间 (收集同组告警)
+  group_wait: 30s
+
+  # 同组告警发送间隔
+  group_interval: 5m
+
+  # 重复发送间隔
+  repeat_interval: 4h
+
+  # 子路由 - 按严重程度分发
+  routes:
+    # P0 Critical: 立即通知所有渠道
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 15m
+      continue: true  # 继续匹配其他规则
+
+    # P1 High: 通知值班人员
+    - match:
+        severity: high
+      receiver: 'oncall-receiver'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+
+    # P2 Medium: 工作时间通知
+    - match:
+        severity: medium
+      receiver: 'team-receiver'
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 4h
+      # 可以添加静默规则: mute_time_intervals: ['non-working-hours']
+
+    # P3 Low: 仅记录
+    - match:
+        severity: low
+      receiver: 'low-priority-receiver'
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 12h
+
+    # 按团队分发
+    - match:
+        team: trading
+      receiver: 'trading-team'
+
+    - match:
+        team: matching
+      receiver: 'matching-team'
+
+    - match:
+        team: chain
+      receiver: 'chain-team'
+
+    - match:
+        team: platform
+      receiver: 'platform-team'
+
+# 接收者定义
+receivers:
+  # 默认接收者
+  - name: 'default-receiver'
+    slack_configs:
+      - channel: '#eidos-alerts'
+        send_resolved: true
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+
+  # P0 Critical 接收者 - 多渠道通知
+  - name: 'critical-receiver'
+    slack_configs:
+      - channel: '#eidos-critical'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: ':rotating_light: P0 CRITICAL: {{ .CommonLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          *Runbook:* {{ .CommonAnnotations.runbook_url }}
+          *Instances:* {{ range .Alerts }}{{ .Labels.instance }} {{ end }}
+    # 生产环境启用电话/短信通知
+    # pagerduty_configs:
+    #   - service_key: '${PAGERDUTY_SERVICE_KEY}'
+    #     severity: critical
+    webhook_configs:
+      - url: '${ONCALL_WEBHOOK_URL}'
+        send_resolved: true
+
+  # P1 High - 值班人员
+  - name: 'oncall-receiver'
+    slack_configs:
+      - channel: '#eidos-oncall'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: ':warning: P1 HIGH: {{ .CommonLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          *Runbook:* {{ .CommonAnnotations.runbook_url }}
+
+  # P2/P3 团队通知
+  - name: 'team-receiver'
+    slack_configs:
+      - channel: '#eidos-alerts'
+        send_resolved: true
+        title: 'P2: {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.summary }}'
+
+  - name: 'low-priority-receiver'
+    slack_configs:
+      - channel: '#eidos-alerts-low'
+        send_resolved: false
+        title: 'P3: {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.summary }}'
+
+  # 按团队分发
+  - name: 'trading-team'
+    slack_configs:
+      - channel: '#team-trading'
+        send_resolved: true
+
+  - name: 'matching-team'
+    slack_configs:
+      - channel: '#team-matching'
+        send_resolved: true
+
+  - name: 'chain-team'
+    slack_configs:
+      - channel: '#team-chain'
+        send_resolved: true
+
+  - name: 'platform-team'
+    slack_configs:
+      - channel: '#team-platform'
+        send_resolved: true
+
+# 抑制规则 - 避免告警风暴
+inhibit_rules:
+  # 如果服务宕机，抑制该服务的其他告警
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['job']
+
+  # Critical 告警触发时抑制同类 High 告警
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'high'
+    equal: ['alertname', 'team']
+
+  # High 告警触发时抑制同类 Medium 告警
+  - source_match:
+      severity: 'high'
+    target_match:
+      severity: 'medium'
+    equal: ['alertname', 'team']
+
+# 静默时间配置
+# time_intervals:
+#   - name: 'non-working-hours'
+#     time_intervals:
+#       - weekdays: ['saturday', 'sunday']
+#       - times:
+#           - start_time: '00:00'
+#             end_time: '09:00'
+#           - start_time: '18:00'
+#             end_time: '24:00'

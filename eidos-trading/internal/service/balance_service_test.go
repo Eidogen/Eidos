@@ -106,7 +106,7 @@ func TestBalanceService_GetBalance_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -139,7 +139,7 @@ func TestBalanceService_GetBalance_InvalidToken(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -159,7 +159,7 @@ func TestBalanceService_GetBalances_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -192,7 +192,7 @@ func TestBalanceService_Credit_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -217,7 +217,7 @@ func TestBalanceService_Credit_InvalidAmount(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -235,7 +235,7 @@ func TestBalanceService_Credit_InvalidToken(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -255,7 +255,7 @@ func TestBalanceService_Freeze_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -280,7 +280,7 @@ func TestBalanceService_Freeze_InsufficientBalance(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -301,7 +301,7 @@ func TestBalanceService_Unfreeze_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -326,7 +326,7 @@ func TestBalanceService_Transfer_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	fromWallet := "0x1111111111111111111111111111111111111111"
@@ -353,7 +353,7 @@ func TestBalanceService_Settle_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -378,7 +378,7 @@ func TestBalanceService_DeductFee_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -404,7 +404,7 @@ func TestBalanceService_DeductFee_ZeroAmount(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -423,7 +423,7 @@ func TestBalanceService_RefundWithdraw_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -448,7 +448,7 @@ func TestBalanceService_GetAvailableBalance_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -476,7 +476,7 @@ func TestBalanceService_GetWithdrawableBalance_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -504,7 +504,7 @@ func TestBalanceService_GetTotalFeeBalance_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg)
+	svc := NewBalanceService(balanceRepo, nil, balanceCache, tokenCfg, nil)
 
 	ctx := context.Background()
 	token := "USDT"

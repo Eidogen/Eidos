@@ -9,9 +9,19 @@ nacos:
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
 
+postgres:
+  host: ${POSTGRES_HOST:localhost}
+  port: ${POSTGRES_PORT:5432}
+  user: ${POSTGRES_USER:eidos}
+  password: ${POSTGRES_PASSWORD:eidos123}
+  database: ${POSTGRES_DATABASE:eidos_jobs}
+  max_connections: 10
+  max_idle_conns: 5
+  conn_max_lifetime_minutes: 30
+
 redis:
-  addresses:
-    - ${REDIS_ADDR:redis:6379}
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 20
@@ -20,21 +30,36 @@ grpc_clients:
   trading: ${TRADING_ADDR:eidos-trading:50051}
   chain: ${CHAIN_ADDR:eidos-chain:50054}
   market: ${MARKET_ADDR:eidos-market:50053}
+  matching: ${MATCHING_ADDR:eidos-matching:50052}
+
+scheduler:
+  max_concurrent_jobs: 3
 
 jobs:
+  health_monitor:
+    enabled: true
+    cron: "*/30 * * * * *"  # 每 30 秒
+  cleanup_orders:
+    enabled: true
+    cron: "0 */2 * * * *"   # 每 2 分钟
+  stats_agg:
+    enabled: true
+    cron: "0 5 * * * *"     # 每小时第 5 分钟
+  kline_agg:
+    enabled: true
+    cron: "0 0 * * * *"     # 每小时整点
   reconciliation:
     enabled: true
-    cron: "0 0 * * *"  # 每天 0 点
+    cron: "0 10 * * * *"    # 每小时第 10 分钟
   archive:
     enabled: true
-    cron: "0 2 * * 0"  # 每周日凌晨 2 点
-    retention_days: 90
-  stats:
+    cron: "0 0 3 * * *"     # 每天凌晨 3 点
+  data_cleanup:
     enabled: true
-    cron: "0 * * * *"  # 每小时
-  expire_orders:
+    cron: "0 0 4 * * *"     # 每天凌晨 4 点
+  partition_mgmt:
     enabled: true
-    cron: "*/5 * * * *"  # 每 5 分钟
+    cron: "0 0 2 1 * *"     # 每月 1 日凌晨 2 点
 
 log:
   level: ${LOG_LEVEL:info}

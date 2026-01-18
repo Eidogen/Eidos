@@ -96,102 +96,132 @@ lint:
 # ========================================
 # Proto 生成
 # ========================================
-# Proto 文件统一放在根目录 proto 文件夹下
-proto: proto-trading proto-matching proto-market proto-chain proto-risk proto-admin
+# Proto 文件和生成的 Go 文件统一放在 proto 文件夹下
+# 使用 module 模式，输出路径由 go_package 决定
+
+proto: proto-clean proto-common proto-trading proto-matching proto-market proto-chain proto-risk proto-jobs proto-admin
+	@echo "All proto files generated successfully!"
+
+proto-clean:
+	@echo "Cleaning old generated files..."
+	@find proto -name "*.pb.go" -delete 2>/dev/null || true
+
+proto-common:
+	@echo "Generating common proto..."
+	@$(PROTOC) \
+		--go_out=. \
+		--go_opt=module=github.com/eidos-exchange/eidos \
+		-I /opt/homebrew/include \
+		-I $(PROTO_DIR) \
+		$(PROTO_DIR)/common/enums.proto \
+		$(PROTO_DIR)/common/pagination.proto \
+		$(PROTO_DIR)/common/response.proto
+	@echo "Common proto generated!"
 
 proto-trading:
 	@echo "Generating trading proto..."
 	@$(PROTOC) \
-		--go_out=$(PROTO_DIR)/trading/v1 \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=$(PROTO_DIR)/trading/v1 \
-		--go-grpc_opt=paths=source_relative \
+		--go_out=. \
+		--go_opt=module=github.com/eidos-exchange/eidos \
+		--go-grpc_out=. \
+		--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 		-I /opt/homebrew/include \
-		-I $(PROTO_DIR)/trading/v1 \
+		-I $(PROTO_DIR) \
 		$(PROTO_DIR)/trading/v1/trading.proto
-	@echo "Trading proto generated at $(PROTO_DIR)/trading/v1/"
+	@echo "Trading proto generated!"
 
 proto-matching:
 	@echo "Generating matching proto..."
-	@mkdir -p $(PROTO_DIR)/matching/v1
 	@if [ -f $(PROTO_DIR)/matching/v1/matching.proto ]; then \
 		$(PROTOC) \
-			--go_out=$(PROTO_DIR)/matching/v1 \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=$(PROTO_DIR)/matching/v1 \
-			--go-grpc_opt=paths=source_relative \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 			-I /opt/homebrew/include \
-			-I $(PROTO_DIR)/matching/v1 \
+			-I $(PROTO_DIR) \
 			$(PROTO_DIR)/matching/v1/matching.proto; \
-		echo "Matching proto generated at $(PROTO_DIR)/matching/v1/"; \
+		echo "Matching proto generated!"; \
 	else \
 		echo "Matching proto not found, skipping..."; \
 	fi
 
 proto-market:
 	@echo "Generating market proto..."
-	@mkdir -p $(PROTO_DIR)/market/v1
-	@if [ -f $(PROTO_DIR)/market/v1/market.proto ]; then \
+	@if [ -f $(PROTO_DIR)/market/v1/market_service.proto ]; then \
 		$(PROTOC) \
-			--go_out=$(PROTO_DIR)/market/v1 \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=$(PROTO_DIR)/market/v1 \
-			--go-grpc_opt=paths=source_relative \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 			-I /opt/homebrew/include \
-			-I $(PROTO_DIR)/market/v1 \
-			$(PROTO_DIR)/market/v1/market.proto; \
-		echo "Market proto generated at $(PROTO_DIR)/market/v1/"; \
+			-I $(PROTO_DIR) \
+			$(PROTO_DIR)/market/v1/market_service.proto; \
+		echo "Market proto generated!"; \
 	else \
 		echo "Market proto not found, skipping..."; \
 	fi
 
 proto-chain:
 	@echo "Generating chain proto..."
-	@mkdir -p $(PROTO_DIR)/chain/v1
 	@if [ -f $(PROTO_DIR)/chain/v1/chain.proto ]; then \
 		$(PROTOC) \
-			--go_out=$(PROTO_DIR)/chain/v1 \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=$(PROTO_DIR)/chain/v1 \
-			--go-grpc_opt=paths=source_relative \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 			-I /opt/homebrew/include \
-			-I $(PROTO_DIR)/chain/v1 \
+			-I $(PROTO_DIR) \
 			$(PROTO_DIR)/chain/v1/chain.proto; \
-		echo "Chain proto generated at $(PROTO_DIR)/chain/v1/"; \
+		echo "Chain proto generated!"; \
 	else \
 		echo "Chain proto not found, skipping..."; \
 	fi
 
 proto-risk:
 	@echo "Generating risk proto..."
-	@mkdir -p $(PROTO_DIR)/risk/v1
 	@if [ -f $(PROTO_DIR)/risk/v1/risk.proto ]; then \
 		$(PROTOC) \
-			--go_out=$(PROTO_DIR)/risk/v1 \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=$(PROTO_DIR)/risk/v1 \
-			--go-grpc_opt=paths=source_relative \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 			-I /opt/homebrew/include \
-			-I $(PROTO_DIR)/risk/v1 \
+			-I $(PROTO_DIR) \
 			$(PROTO_DIR)/risk/v1/risk.proto; \
-		echo "Risk proto generated at $(PROTO_DIR)/risk/v1/"; \
+		echo "Risk proto generated!"; \
 	else \
 		echo "Risk proto not found, skipping..."; \
 	fi
 
+proto-jobs:
+	@echo "Generating jobs proto..."
+	@if [ -f $(PROTO_DIR)/jobs/v1/jobs.proto ]; then \
+		$(PROTOC) \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
+			-I /opt/homebrew/include \
+			-I $(PROTO_DIR) \
+			$(PROTO_DIR)/jobs/v1/jobs.proto; \
+		echo "Jobs proto generated!"; \
+	else \
+		echo "Jobs proto not found, skipping..."; \
+	fi
+
 proto-admin:
 	@echo "Generating admin proto..."
-	@mkdir -p $(PROTO_DIR)/admin/v1
 	@if [ -f $(PROTO_DIR)/admin/v1/admin.proto ]; then \
 		$(PROTOC) \
-			--go_out=$(PROTO_DIR)/admin/v1 \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=$(PROTO_DIR)/admin/v1 \
-			--go-grpc_opt=paths=source_relative \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
 			-I /opt/homebrew/include \
-			-I $(PROTO_DIR)/admin/v1 \
+			-I $(PROTO_DIR) \
 			$(PROTO_DIR)/admin/v1/admin.proto; \
-		echo "Admin proto generated at $(PROTO_DIR)/admin/v1/"; \
+		echo "Admin proto generated!"; \
 	else \
 		echo "Admin proto not found, skipping..."; \
 	fi
@@ -261,7 +291,7 @@ clean:
 		rm -rf $$svc/bin; \
 		rm -f $$svc/coverage.out $$svc/coverage.html; \
 	done
-	@rm -rf gen/
+	@find proto -name "*.pb.go" -delete 2>/dev/null || true
 
 # ========================================
 # 依赖管理

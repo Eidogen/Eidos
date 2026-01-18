@@ -1,27 +1,23 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net"
+	"flag"
 	"os"
-	"os/signal"
-	"syscall"
 
+	"github.com/eidos-exchange/eidos/eidos-chain/internal/app"
+	"github.com/eidos-exchange/eidos/eidos-chain/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-const (
-	serviceName = "eidos-chain"
-	grpcPort    = 50054
-)
+const serviceName = "eidos-chain"
 
 func main() {
+	// 命令行参数
+	configPath := flag.String("config", "config/config.yaml", "config file path")
+	flag.Parse()
+
+	// 初始化日志
 	if err := logger.Init(&logger.Config{
 		Level:       "info",
 		Format:      "json",
@@ -33,43 +29,28 @@ func main() {
 
 	logger.Info("starting service", zap.String("service", serviceName))
 
-	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.RecoveryUnaryServerInterceptor(),
-			middleware.UnaryServerInterceptor(),
-		),
-	)
-
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(server, healthServer)
-	healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_SERVING)
-
-	// TODO: 注册链上服务
-	// chainv1.RegisterChainServiceServer(server, handler.NewChainHandler(...))
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+	// 加载配置
+	cfg, err := config.Load(*configPath)
 	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+		logger.Fatal("failed to load config", zap.Error(err))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		logger.Info("shutting down...")
-		healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		server.GracefulStop()
-		cancel()
-	}()
-
-	logger.Info("gRPC server listening", zap.Int("port", grpcPort))
-	if err := server.Serve(lis); err != nil {
-		logger.Fatal("failed to serve", zap.Error(err))
+	// 根据配置更新日志级别
+	if cfg.Log.Level != "" {
+		logger.SetLevel(cfg.Log.Level)
 	}
 
-	<-ctx.Done()
+	// 创建应用
+	application, err := app.NewApp(cfg)
+	if err != nil {
+		logger.Fatal("failed to create app", zap.Error(err))
+	}
+
+	// 运行应用
+	if err := application.Run(); err != nil {
+		logger.Fatal("app run error", zap.Error(err))
+		os.Exit(1)
+	}
+
 	logger.Info("service stopped")
 }

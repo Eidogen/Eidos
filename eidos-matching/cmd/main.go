@@ -1,75 +1,190 @@
+// Package main 撮合引擎入口
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-matching/internal/app"
+	"github.com/eidos-exchange/eidos/eidos-matching/internal/config"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-const (
-	serviceName = "eidos-matching"
-	grpcPort    = 50052
+var (
+	configPath = flag.String("config", "config/config.yaml", "配置文件路径")
 )
 
 func main() {
-	if err := logger.Init(&logger.Config{
-		Level:       "info",
-		Format:      "json",
-		ServiceName: serviceName,
-	}); err != nil {
-		panic(err)
+	flag.Parse()
+
+	// 加载配置
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load config: %v\n", err)
+		os.Exit(1)
 	}
+
+	// 初始化日志
+	logger := initLogger(cfg.Log.Level, cfg.Log.Format)
 	defer logger.Sync()
 
-	logger.Info("starting service", zap.String("service", serviceName))
-
-	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.RecoveryUnaryServerInterceptor(),
-			middleware.UnaryServerInterceptor(),
-		),
+	logger.Info("starting service",
+		zap.String("service", cfg.Service.Name),
+		zap.String("node_id", cfg.Service.NodeID),
+		zap.String("env", cfg.Service.Env),
 	)
 
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(server, healthServer)
-	healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_SERVING)
-
-	// TODO: 注册撮合引擎服务
-	// matchingv1.RegisterMatchingServiceServer(server, handler.NewMatchingHandler(...))
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+	// 创建应用
+	application, err := app.NewApp(cfg)
 	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+		logger.Fatal("create app", zap.Error(err))
 	}
 
+	// 启动 gRPC 服务器
+	grpcServer := grpc.NewServer()
+
+	// 注册健康检查
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
+	// 启动 gRPC 监听
+	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Service.GRPCPort))
+	if err != nil {
+		logger.Fatal("listen grpc", zap.Error(err))
+	}
+
+	go func() {
+		logger.Info("gRPC server listening", zap.Int("port", cfg.Service.GRPCPort))
+		if err := grpcServer.Serve(grpcLis); err != nil {
+			logger.Error("grpc serve", zap.Error(err))
+		}
+	}()
+
+	// 启动 HTTP 服务器 (健康检查 + Metrics)
+	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	httpMux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		stats := application.GetStats()
+		if running, ok := stats["running"].(bool); ok && running {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("NOT READY"))
+		}
+	})
+	httpMux.Handle("/metrics", promhttp.Handler())
+	httpMux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		stats := application.GetStats()
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, "%+v", stats)
+	})
+
+	httpServer := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Service.HTTPPort),
+		Handler: httpMux,
+	}
+
+	go func() {
+		logger.Info("HTTP server listening", zap.Int("port", cfg.Service.HTTPPort))
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("http serve", zap.Error(err))
+		}
+	}()
+
+	// 启动应用
+	if err := application.Start(); err != nil {
+		logger.Fatal("start app", zap.Error(err))
+	}
+
+	// 标记服务就绪
+	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
+	logger.Info("service ready",
+		zap.String("service", cfg.Service.Name),
+		zap.Int("grpc_port", cfg.Service.GRPCPort),
+		zap.Int("http_port", cfg.Service.HTTPPort),
+	)
+
+	// 等待停止信号
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		logger.Info("shutting down...")
-		healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		server.GracefulStop()
-		cancel()
-	}()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	logger.Info("gRPC server listening", zap.Int("port", grpcPort))
-	if err := server.Serve(lis); err != nil {
-		logger.Fatal("failed to serve", zap.Error(err))
+	select {
+	case sig := <-sigCh:
+		logger.Info("received signal", zap.String("signal", sig.String()))
+	case <-ctx.Done():
 	}
 
-	<-ctx.Done()
+	// 优雅关闭
+	logger.Info("shutting down...")
+
+	// 标记服务不可用
+	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
+	// 停止应用
+	if err := application.Stop(); err != nil {
+		logger.Error("stop app", zap.Error(err))
+	}
+
+	// 停止 HTTP 服务器
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("shutdown http", zap.Error(err))
+	}
+
+	// 停止 gRPC 服务器
+	grpcServer.GracefulStop()
+
 	logger.Info("service stopped")
+}
+
+// initLogger 初始化日志
+func initLogger(level, format string) *zap.Logger {
+	var zapLevel zapcore.Level
+	switch level {
+	case "debug":
+		zapLevel = zapcore.DebugLevel
+	case "warn":
+		zapLevel = zapcore.WarnLevel
+	case "error":
+		zapLevel = zapcore.ErrorLevel
+	default:
+		zapLevel = zapcore.InfoLevel
+	}
+
+	var config zap.Config
+	if format == "json" {
+		config = zap.NewProductionConfig()
+	} else {
+		config = zap.NewDevelopmentConfig()
+	}
+	config.Level = zap.NewAtomicLevelAt(zapLevel)
+
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	zap.ReplaceGlobals(logger)
+	return logger
 }

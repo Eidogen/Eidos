@@ -57,7 +57,7 @@ eidos-xxx/
 │   ├── model/               # Data models
 │   └── client/              # External service clients
 ├── pkg/                     # Reusable packages
-├── api/proto/               # Proto definitions
+├── # Proto definitions are in root /proto directory
 ├── migrations/              # DB migrations
 ├── Dockerfile
 ├── Makefile

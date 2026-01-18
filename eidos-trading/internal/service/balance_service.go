@@ -13,6 +13,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/publisher"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 )
 
@@ -63,6 +64,16 @@ type BalanceService interface {
 	GetTotalFeeBalance(ctx context.Context, token string) (decimal.Decimal, error)
 }
 
+// BalancePublisher 余额变更发布接口
+type BalancePublisher interface {
+	PublishDeposit(ctx context.Context, snapshot *publisher.BalanceSnapshot, depositID string) error
+	PublishWithdraw(ctx context.Context, snapshot *publisher.BalanceSnapshot, withdrawalID string) error
+	PublishFreeze(ctx context.Context, snapshot *publisher.BalanceSnapshot, orderID string) error
+	PublishUnfreeze(ctx context.Context, snapshot *publisher.BalanceSnapshot, orderID string) error
+	PublishTrade(ctx context.Context, snapshot *publisher.BalanceSnapshot, tradeID string) error
+	PublishSettle(ctx context.Context, snapshot *publisher.BalanceSnapshot, settlementID string) error
+}
+
 // balanceService 余额服务实现
 // 使用 Transactional Outbox 模式保证 Redis → DB 的可靠同步
 type balanceService struct {
@@ -70,6 +81,7 @@ type balanceService struct {
 	outboxRepo   *repository.OutboxRepository
 	balanceCache cache.BalanceRedisRepository // Redis 作为实时资金真相
 	tokenConfig  TokenConfigProvider
+	publisher    BalancePublisher // 余额变更发布者
 }
 
 // TokenConfigProvider 代币配置提供者
@@ -85,12 +97,14 @@ func NewBalanceService(
 	outboxRepo *repository.OutboxRepository,
 	balanceCache cache.BalanceRedisRepository,
 	tokenConfig TokenConfigProvider,
+	publisher BalancePublisher,
 ) BalanceService {
 	return &balanceService{
 		balanceRepo:  balanceRepo,
 		outboxRepo:   outboxRepo,
 		balanceCache: balanceCache,
 		tokenConfig:  tokenConfig,
+		publisher:    publisher,
 	}
 }
 
@@ -194,6 +208,9 @@ func (s *balanceService) Credit(ctx context.Context, wallet, token string, amoun
 	logType := model.BalanceLogTypeDeposit
 	s.enqueueBalanceLog(ctx, wallet, token, logType, amount, "", "", "", remark)
 
+	// 发布余额变更消息
+	s.publishBalanceChange(ctx, wallet, token, "deposit", "")
+
 	return nil
 }
 
@@ -215,6 +232,9 @@ func (s *balanceService) Freeze(ctx context.Context, wallet, token string, amoun
 	// 写入 Outbox
 	s.enqueueBalanceLog(ctx, wallet, token, model.BalanceLogTypeFreeze, amount.Neg(), orderID, "", "", fmt.Sprintf("Freeze for order %s", orderID))
 
+	// 发布余额变更消息
+	s.publishBalanceChange(ctx, wallet, token, "freeze", orderID)
+
 	return nil
 }
 
@@ -232,6 +252,9 @@ func (s *balanceService) Unfreeze(ctx context.Context, wallet, token string, amo
 
 	// 写入 Outbox
 	s.enqueueBalanceLog(ctx, wallet, token, model.BalanceLogTypeUnfreeze, amount, orderID, "", "", fmt.Sprintf("Unfreeze for order %s", orderID))
+
+	// 发布余额变更消息
+	s.publishBalanceChange(ctx, wallet, token, "unfreeze", orderID)
 
 	return nil
 }
@@ -256,6 +279,10 @@ func (s *balanceService) Transfer(ctx context.Context, fromWallet, toWallet, tok
 	s.enqueueBalanceLog(ctx, fromWallet, token, model.BalanceLogTypeTrade, amount.Neg(), "", tradeID, "", fmt.Sprintf("Trade out: %s", tradeID))
 	s.enqueueBalanceLog(ctx, toWallet, token, model.BalanceLogTypeTrade, amount, "", tradeID, "", fmt.Sprintf("Trade in: %s", tradeID))
 
+	// 发布余额变更消息 (双方)
+	s.publishBalanceChange(ctx, fromWallet, token, "trade", tradeID)
+	s.publishBalanceChange(ctx, toWallet, token, "trade", tradeID)
+
 	return nil
 }
 
@@ -273,6 +300,9 @@ func (s *balanceService) Settle(ctx context.Context, wallet, token string, amoun
 
 	// 写入 Outbox
 	s.enqueueBalanceLog(ctx, wallet, token, model.BalanceLogTypeSettlement, amount, "", "", "", fmt.Sprintf("Settlement confirmed: %s", batchID))
+
+	// 发布余额变更消息
+	s.publishBalanceChange(ctx, wallet, token, "settle", batchID)
 
 	return nil
 }
@@ -309,6 +339,9 @@ func (s *balanceService) RefundWithdraw(ctx context.Context, wallet, token strin
 
 	// 写入 Outbox
 	s.enqueueBalanceLog(ctx, wallet, token, model.BalanceLogTypeWithdrawRefund, amount, "", "", "", fmt.Sprintf("Withdraw refund: %s", withdrawID))
+
+	// 发布余额变更消息 (提现退回视为充值类型)
+	s.publishBalanceChange(ctx, wallet, token, "deposit", withdrawID)
 
 	return nil
 }
@@ -390,4 +423,50 @@ func hashToBucket(wallet string, buckets int) int {
 	// 使用地址最后一个字节的低 4 位
 	lastByte := wallet[len(wallet)-1]
 	return int(lastByte) % buckets
+}
+
+// publishBalanceChange 发布余额变更消息
+// 异步发布，不阻塞主流程
+func (s *balanceService) publishBalanceChange(ctx context.Context, wallet, token, eventType, eventID string) {
+	if s.publisher == nil {
+		return
+	}
+
+	// 异步发布，不阻塞主流程
+	go func() {
+		// 获取最新余额快照
+		balance, err := s.balanceCache.GetOrCreateBalance(ctx, wallet, token)
+		if err != nil {
+			return
+		}
+
+		snapshot := &publisher.BalanceSnapshot{
+			Wallet:    wallet,
+			Token:     token,
+			Available: balance.SettledAvailable.Add(balance.PendingAvailable),
+			Frozen:    balance.SettledFrozen.Add(balance.PendingFrozen),
+			Pending:   balance.PendingAvailable.Add(balance.PendingFrozen),
+		}
+
+		var publishErr error
+		switch eventType {
+		case "deposit":
+			publishErr = s.publisher.PublishDeposit(ctx, snapshot, eventID)
+		case "withdraw":
+			publishErr = s.publisher.PublishWithdraw(ctx, snapshot, eventID)
+		case "freeze":
+			publishErr = s.publisher.PublishFreeze(ctx, snapshot, eventID)
+		case "unfreeze":
+			publishErr = s.publisher.PublishUnfreeze(ctx, snapshot, eventID)
+		case "trade":
+			publishErr = s.publisher.PublishTrade(ctx, snapshot, eventID)
+		case "settle":
+			publishErr = s.publisher.PublishSettle(ctx, snapshot, eventID)
+		}
+
+		if publishErr != nil {
+			// 发布失败只记录日志，不影响主流程
+			// 客户端可以通过 API 查询最新余额
+		}
+	}()
 }

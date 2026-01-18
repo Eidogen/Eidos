@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package eidos.common.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/gen/common/v1;commonv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/common/v1;commonv1";
 
 // 通用响应
 message Response {

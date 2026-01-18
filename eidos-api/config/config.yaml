@@ -4,40 +4,60 @@ service:
   env: dev
 
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
+  namespace: ${NACOS_NAMESPACE:public}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
 
 redis:
-  addresses:
-    - ${REDIS_ADDR:redis:6379}
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
 
 grpc_clients:
-  trading: ${TRADING_ADDR:eidos-trading:50051}
-  matching: ${MATCHING_ADDR:eidos-matching:50052}
-  market: ${MARKET_ADDR:eidos-market:50053}
-  risk: ${RISK_ADDR:eidos-risk:50055}
+  trading: ${GRPC_TRADING_ADDR:localhost:50051}
+  matching: ${GRPC_MATCHING_ADDR:localhost:50052}
+  market: ${GRPC_MARKET_ADDR:localhost:50053}
+  risk: ${GRPC_RISK_ADDR:localhost:50055}
 
 eip712:
   domain:
     name: EidosExchange
     version: "1"
-    chain_id: ${CHAIN_ID:31337}
-    verifying_contract: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
+    chain_id: ${EIP712_CHAIN_ID:31337}
+    verifying_contract: ${EIP712_CONTRACT:0x0000000000000000000000000000000000000000}
+  mock_mode: ${EIP712_MOCK_MODE:true}
+  timestamp_tolerance_ms: 300000  # 5 分钟
 
 rate_limit:
-  enabled: true
-  requests_per_second: 100
-  burst: 200
+  enabled: ${RATE_LIMIT_ENABLED:true}
+  per_wallet:
+    orders: 10        # 下单 次/秒
+    queries: 100      # 查询 次/秒
+    withdrawals: 1    # 提现 次/秒
+    cancels: 20       # 取消 次/秒
+  per_ip:
+    total: 1000       # 总请求 次/分钟
+    websocket: 5      # WebSocket 连接 次/分钟
+    public_api: 100   # 公开 API 次/秒
+  global:
+    orders: 10000     # 全局下单 次/秒
 
 websocket:
   read_buffer_size: 1024
   write_buffer_size: 1024
-  ping_interval: 30  # 秒
-  pong_timeout: 10   # 秒
+  ping_interval: 30           # 秒
+  pong_timeout: 10            # 秒
+  max_connections: 100000
+  max_subscriptions: 50
+  write_wait: 10              # 秒
+  max_message_size: 4096
 
 log:
   level: ${LOG_LEVEL:info}

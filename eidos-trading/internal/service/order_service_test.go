@@ -466,7 +466,7 @@ func TestOrderService_CreateOrder_Success(t *testing.T) {
 	marketCfg := new(MockMarketConfigProvider)
 
 	// 创建服务
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	req := &CreateOrderRequest{
@@ -513,7 +513,7 @@ func TestOrderService_CreateOrder_Success(t *testing.T) {
 }
 
 func TestOrderService_CreateOrder_InvalidWallet(t *testing.T) {
-	svc := NewOrderService(nil, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewOrderService(nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	req := &CreateOrderRequest{
@@ -542,7 +542,7 @@ func TestOrderService_CreateOrder_InvalidMarket(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	req := &CreateOrderRequest{
@@ -573,7 +573,7 @@ func TestOrderService_CreateOrder_DuplicateNonce(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	req := &CreateOrderRequest{
@@ -613,7 +613,7 @@ func TestOrderService_CreateOrder_InsufficientBalance(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	req := &CreateOrderRequest{
@@ -653,7 +653,7 @@ func TestOrderService_CreateOrder_IdempotentWithClientOrderID(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	existingOrder := &model.Order{
@@ -701,7 +701,7 @@ func TestOrderService_CancelOrder_OpenOrder_Success(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -742,7 +742,7 @@ func TestOrderService_CancelOrder_PendingOrder_Success(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -785,7 +785,7 @@ func TestOrderService_CancelOrder_PendingOrderAlreadySent(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -825,7 +825,7 @@ func TestOrderService_CancelOrder_NotFound(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -847,7 +847,7 @@ func TestOrderService_CancelOrder_WrongWallet(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -875,7 +875,7 @@ func TestOrderService_CancelOrder_NotCancellable(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	marketCfg := new(MockMarketConfigProvider)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nonceRepo, balanceCache, idGen, marketCfg, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -897,7 +897,7 @@ func TestOrderService_CancelOrder_NotCancellable(t *testing.T) {
 
 func TestOrderService_GetOrder_Success(t *testing.T) {
 	orderRepo := new(MockOrderRepository)
-	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	orderID := "O123456789"
@@ -920,7 +920,7 @@ func TestOrderService_GetOrder_Success(t *testing.T) {
 
 func TestOrderService_GetOrder_NotFound(t *testing.T) {
 	orderRepo := new(MockOrderRepository)
-	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	orderID := "O123456789"
@@ -936,7 +936,7 @@ func TestOrderService_GetOrder_NotFound(t *testing.T) {
 
 func TestOrderService_ListOpenOrders_Success(t *testing.T) {
 	orderRepo := new(MockOrderRepository)
-	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewOrderService(orderRepo, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -960,7 +960,7 @@ func TestOrderService_ExpireOrder_Success(t *testing.T) {
 	balanceRepo := new(MockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nil, balanceCache, nil, nil, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nil, balanceCache, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	orderID := "O123456789"
@@ -995,7 +995,7 @@ func TestOrderService_RejectOrder_Success(t *testing.T) {
 	balanceRepo := new(MockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewOrderService(orderRepo, balanceRepo, nil, balanceCache, nil, nil, nil, nil)
+	svc := NewOrderService(orderRepo, balanceRepo, nil, balanceCache, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	orderID := "O123456789"

@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -26,10 +28,12 @@ import (
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/handler/event"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/publisher"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
@@ -51,9 +55,19 @@ type App struct {
 	grpcServer   *grpc.Server
 	healthServer *health.Server
 
+	// HTTP (metrics + health)
+	httpServer *http.Server
+
 	// Kafka
 	producer *kafka.Producer
 	consumer *kafka.ConsumerGroup
+
+	// 外部服务客户端
+	matchingClient *client.MatchingClient
+
+	// 消息发布者
+	orderPublisher   *publisher.OrderPublisher
+	balancePublisher *publisher.BalancePublisher
 
 	// Workers
 	outboxRelay          *worker.OutboxRelay
@@ -117,8 +131,16 @@ func (a *App) Run() error {
 		return fmt.Errorf("init kafka: %w", err)
 	}
 
-	// 4.1 重新初始化需要 Kafka producer 的服务
+	// 4.1 初始化消息发布者
+	a.initPublishers()
+
+	// 4.2 重新初始化需要 Kafka producer 的服务
 	a.initServicesWithKafka()
+
+	// 4.3 初始化外部服务客户端
+	if err := a.initClients(); err != nil {
+		return fmt.Errorf("init clients: %w", err)
+	}
 
 	// 5. 初始化后台任务
 	a.initWorkers()
@@ -127,6 +149,9 @@ func (a *App) Run() error {
 	if err := a.startGRPCServer(); err != nil {
 		return fmt.Errorf("start grpc: %w", err)
 	}
+
+	// 6.1 启动 HTTP 服务器 (metrics + health check)
+	a.startHTTPServer()
 
 	// 7. 启动后台任务
 	a.startWorkers()
@@ -204,31 +229,69 @@ func (a *App) initRepositories() {
 }
 
 // initServices 初始化服务层
-// 注意: orderSvc 需要 producer，但 producer 在 initKafka 中初始化
-// 所以这里先传 nil，在 initKafka 后会重新初始化
+// 注意: orderSvc 和 balanceSvc 需要 publisher，但 publisher 在 initPublishers 中初始化
+// 所以这里先传 nil，在 initPublishers 后会重新初始化
 func (a *App) initServices() {
 	marketCfg := NewMarketConfigProvider(a.cfg)
 	tokenCfg := NewTokenConfigProvider(a.cfg)
 	riskCfg := NewRiskConfigProvider(a.cfg)
 
-	// orderSvc 先用 nil producer，后续在 initServicesWithKafka 中更新
-	a.orderSvc = service.NewOrderService(a.orderRepo, a.balanceRepo, a.nonceRepo, a.balanceCache, a.idGen, marketCfg, riskCfg, nil)
-	a.balanceSvc = service.NewBalanceService(a.balanceRepo, a.outboxRepo, a.balanceCache, tokenCfg)
+	// 先用 nil producer/publisher，后续在 initServicesWithKafka 中更新
+	a.orderSvc = service.NewOrderService(a.orderRepo, a.balanceRepo, a.nonceRepo, a.balanceCache, a.idGen, marketCfg, riskCfg, nil, nil)
+	a.balanceSvc = service.NewBalanceService(a.balanceRepo, a.outboxRepo, a.balanceCache, tokenCfg, nil)
 	a.tradeSvc = service.NewTradeService(a.tradeRepo, a.balanceRepo, a.balanceCache, a.idGen, marketCfg)
 	a.depositSvc = service.NewDepositService(a.depositRepo, a.balanceRepo, a.balanceCache, a.idGen, tokenCfg)
 	a.withdrawSvc = service.NewWithdrawalService(a.withdrawRepo, a.balanceRepo, a.balanceCache, a.nonceRepo, a.idGen, tokenCfg)
-	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg)
+	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, nil, nil)
 }
 
-// initServicesWithKafka 在 Kafka 初始化后重新创建需要 producer 的服务
+// initServicesWithKafka 在 Kafka 和 Publisher 初始化后重新创建需要它们的服务
 func (a *App) initServicesWithKafka() {
 	if a.producer == nil {
 		return
 	}
 	marketCfg := NewMarketConfigProvider(a.cfg)
+	tokenCfg := NewTokenConfigProvider(a.cfg)
 	riskCfg := NewRiskConfigProvider(a.cfg)
-	// 重新创建 orderSvc，这次带 producer
-	a.orderSvc = service.NewOrderService(a.orderRepo, a.balanceRepo, a.nonceRepo, a.balanceCache, a.idGen, marketCfg, riskCfg, a.producer)
+
+	// 重新创建需要 producer/publisher 的服务
+	a.orderSvc = service.NewOrderService(a.orderRepo, a.balanceRepo, a.nonceRepo, a.balanceCache, a.idGen, marketCfg, riskCfg, a.producer, a.orderPublisher)
+	a.balanceSvc = service.NewBalanceService(a.balanceRepo, a.outboxRepo, a.balanceCache, tokenCfg, a.balancePublisher)
+	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, a.orderPublisher, a.balancePublisher)
+}
+
+// initPublishers 初始化消息发布者
+func (a *App) initPublishers() {
+	if a.producer == nil {
+		logger.Warn("kafka producer not available, publishers disabled")
+		return
+	}
+
+	a.orderPublisher = publisher.NewOrderPublisher(a.producer)
+	a.balancePublisher = publisher.NewBalancePublisher(a.producer)
+	logger.Info("message publishers initialized (order-updates, balance-updates)")
+}
+
+// initClients 初始化外部服务客户端
+func (a *App) initClients() error {
+	// 初始化 eidos-matching 客户端
+	if a.cfg.Matching.Enabled {
+		cfg := client.DefaultMatchingClientConfig(a.cfg.Matching.Addr)
+		matchingClient, err := client.NewMatchingClient(cfg)
+		if err != nil {
+			logger.Warn("failed to connect to eidos-matching, continuing without it",
+				zap.String("addr", a.cfg.Matching.Addr),
+				zap.Error(err),
+			)
+			// 不返回错误，允许在没有 matching 服务的情况下启动
+		} else {
+			a.matchingClient = matchingClient
+			logger.Info("matching client initialized",
+				zap.String("addr", a.cfg.Matching.Addr),
+			)
+		}
+	}
+	return nil
 }
 
 // initKafka 初始化 Kafka
@@ -319,6 +382,55 @@ func (a *App) initWorkers() {
 	cancelRelayCfg := worker.DefaultCancelOutboxRelayConfig()
 	cancelRelayCfg.InstanceID = fmt.Sprintf("cancel-relay-%d-%d", a.cfg.Node.ID, time.Now().UnixNano())
 	a.cancelOutboxRelay = worker.NewCancelOutboxRelay(cancelRelayCfg, a.rdb, a.producer)
+}
+
+// startHTTPServer 启动 HTTP 服务器 (metrics + health check)
+func (a *App) startHTTPServer() {
+	mux := http.NewServeMux()
+
+	// Prometheus metrics 端点
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// 健康检查端点 (HTTP)
+	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		// 检查数据库连接
+		if a.db != nil {
+			sqlDB, err := a.db.DB()
+			if err != nil || sqlDB.Ping() != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("DB NOT READY"))
+				return
+			}
+		}
+		// 检查 Redis 连接
+		if a.rdb != nil {
+			if err := a.rdb.Ping(r.Context()).Err(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("REDIS NOT READY"))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	a.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
+		Handler: mux,
+	}
+
+	go func() {
+		logger.Info("HTTP server listening (metrics + health)",
+			zap.Int("port", a.cfg.Service.HTTPPort),
+		)
+		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("http server error", zap.Error(err))
+		}
+	}()
 }
 
 // startGRPCServer 启动 gRPC 服务器
@@ -505,9 +617,23 @@ func (a *App) shutdown() {
 		a.producer.Close()
 	}
 
+	// 关闭 matching 客户端
+	if a.matchingClient != nil {
+		a.matchingClient.Close()
+	}
+
 	// 优雅停止 gRPC 服务
 	if a.grpcServer != nil {
 		a.grpcServer.GracefulStop()
+	}
+
+	// 停止 HTTP 服务器
+	if a.httpServer != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("http server shutdown error", zap.Error(err))
+		}
 	}
 
 	// 关闭 Redis

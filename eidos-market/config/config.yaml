@@ -29,7 +29,7 @@ redis:
 kafka:
   brokers:
     - ${KAFKA_BROKERS:kafka:9092}
-  group_id: eidos-market
+  group_id: eidos-market-group
   client_id: eidos-market
 
 kline:
@@ -42,6 +42,17 @@ kline:
     - 4h
     - 1d
     - 1w
+
+# 聚合器配置
+aggregator:
+  # K 线刷盘间隔（秒）
+  kline_flush_interval: 10
+  # Ticker 发布间隔（毫秒）
+  ticker_publish_interval: 1000
+  # 深度发布间隔（毫秒）
+  depth_publish_interval: 100
+  # 深度最大档位数
+  depth_max_levels: 100
 
 log:
   level: ${LOG_LEVEL:info}

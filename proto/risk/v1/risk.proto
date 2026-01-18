@@ -1,0 +1,198 @@
+syntax = "proto3";
+
+package eidos.risk.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/risk/v1;riskv1";
+
+import "common/enums.proto";
+import "common/pagination.proto";
+
+// 风控服务
+service RiskService {
+    // === 交易前检查 (同步调用) ===
+    rpc CheckOrder(CheckOrderRequest) returns (CheckOrderResponse);
+    rpc CheckWithdraw(CheckWithdrawRequest) returns (CheckWithdrawResponse);
+
+    // === 黑名单管理 ===
+    rpc AddToBlacklist(AddToBlacklistRequest) returns (AddToBlacklistResponse);
+    rpc RemoveFromBlacklist(RemoveFromBlacklistRequest) returns (RemoveFromBlacklistResponse);
+    rpc CheckBlacklist(CheckBlacklistRequest) returns (CheckBlacklistResponse);
+    rpc ListBlacklist(ListBlacklistRequest) returns (ListBlacklistResponse);
+
+    // === 风控规则 ===
+    rpc ListRiskRules(ListRiskRulesRequest) returns (ListRiskRulesResponse);
+    rpc UpdateRiskRule(UpdateRiskRuleRequest) returns (UpdateRiskRuleResponse);
+
+    // === 风控事件 ===
+    rpc ListRiskEvents(ListRiskEventsRequest) returns (ListRiskEventsResponse);
+
+    // === 限额查询 ===
+    rpc GetUserLimits(GetUserLimitsRequest) returns (GetUserLimitsResponse);
+}
+
+// === 交易前检查 ===
+message CheckOrderRequest {
+    string wallet = 1;
+    string market = 2;
+    eidos.common.v1.OrderSide side = 3;
+    eidos.common.v1.OrderType order_type = 4;
+    string price = 5;
+    string amount = 6;
+}
+
+message CheckOrderResponse {
+    bool approved = 1;
+    string reject_reason = 2;
+    string reject_code = 3;
+    repeated string warnings = 4;  // 通过但有警告
+}
+
+message CheckWithdrawRequest {
+    string wallet = 1;
+    string token = 2;
+    string amount = 3;
+    string to_address = 4;
+}
+
+message CheckWithdrawResponse {
+    bool approved = 1;
+    string reject_reason = 2;
+    string reject_code = 3;
+    bool require_manual_review = 4;  // 需要人工审核
+}
+
+// === 黑名单 ===
+message AddToBlacklistRequest {
+    string wallet = 1;
+    string reason = 2;
+    string operator_id = 3;
+    int64 expire_at = 4;  // 0 表示永久
+}
+
+message AddToBlacklistResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message RemoveFromBlacklistRequest {
+    string wallet = 1;
+    string reason = 2;
+    string operator_id = 3;
+}
+
+message RemoveFromBlacklistResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message CheckBlacklistRequest {
+    string wallet = 1;
+}
+
+message CheckBlacklistResponse {
+    bool is_blacklisted = 1;
+    string reason = 2;
+    int64 expire_at = 3;
+}
+
+message ListBlacklistRequest {
+    eidos.common.v1.PaginationRequest pagination = 1;
+}
+
+message ListBlacklistResponse {
+    repeated BlacklistEntry entries = 1;
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+message BlacklistEntry {
+    string wallet = 1;
+    string reason = 2;
+    string operator_id = 3;
+    int64 created_at = 4;
+    int64 expire_at = 5;
+}
+
+// === 风控规则 ===
+message ListRiskRulesRequest {}
+
+message ListRiskRulesResponse {
+    repeated RiskRule rules = 1;
+}
+
+message RiskRule {
+    string rule_id = 1;
+    string name = 2;
+    string description = 3;
+    string category = 4;       // order, withdraw, account
+    bool is_enabled = 5;
+    map<string, string> params = 6;
+    int64 updated_at = 7;
+}
+
+message UpdateRiskRuleRequest {
+    string rule_id = 1;
+    bool is_enabled = 2;
+    map<string, string> params = 3;
+    string operator_id = 4;
+}
+
+message UpdateRiskRuleResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// === 风控事件 ===
+message ListRiskEventsRequest {
+    string wallet = 1;
+    string event_type = 2;  // order_rejected, withdraw_rejected, blacklist_hit
+    int64 start_time = 3;
+    int64 end_time = 4;
+    eidos.common.v1.PaginationRequest pagination = 5;
+}
+
+message ListRiskEventsResponse {
+    repeated RiskEvent events = 1;
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+message RiskEvent {
+    string event_id = 1;
+    string wallet = 2;
+    string event_type = 3;
+    string rule_id = 4;
+    string description = 5;
+    map<string, string> context = 6;
+    int64 created_at = 7;
+}
+
+// === 限额查询 ===
+message GetUserLimitsRequest {
+    string wallet = 1;
+}
+
+message GetUserLimitsResponse {
+    string wallet = 1;
+    repeated Limit limits = 2;
+}
+
+message Limit {
+    string limit_type = 1;        // daily_withdraw, single_order, pending_settle
+    string token = 2;             // 适用代币，空表示所有
+    string max_value = 3;         // 最大限额
+    string used_value = 4;        // 已使用
+    string remaining_value = 5;   // 剩余
+    int64 reset_at = 6;           // 重置时间
+}
+
+// === Kafka 消息 ===
+
+// 风控告警消息 (Kafka: risk-alerts)
+message RiskAlertMessage {
+    string alert_id = 1;
+    string wallet = 2;
+    string alert_type = 3;
+    string severity = 4;     // info, warning, critical
+    string description = 5;
+    map<string, string> context = 6;
+    int64 created_at = 7;
+}

@@ -1,0 +1,158 @@
+# eidos-matching 撮合引擎告警规则
+groups:
+  - name: matching_engine
+    rules:
+      # ========== 高优先级告警 (P1) ==========
+
+      # 撮合引擎停止运行
+      - alert: MatchingEngineDown
+        expr: eidos_matching_engine_running == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: eidos-matching
+        annotations:
+          summary: "撮合引擎停止运行"
+          description: "市场 {{ $labels.market }} 的撮合引擎已停止运行超过 30 秒"
+
+      # 订单处理延迟过高
+      - alert: OrderProcessingLatencyHigh
+        expr: histogram_quantile(0.99, rate(eidos_matching_order_process_latency_seconds_bucket[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: eidos-matching
+        annotations:
+          summary: "订单处理延迟过高"
+          description: "市场 {{ $labels.market }} 的 P99 订单处理延迟超过 100ms，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # Kafka 消费延迟过高
+      - alert: KafkaConsumerLagHigh
+        expr: histogram_quantile(0.95, rate(eidos_matching_kafka_consumer_lag_seconds_bucket[5m])) > 5
+        for: 3m
+        labels:
+          severity: critical
+          service: eidos-matching
+        annotations:
+          summary: "Kafka 消费延迟过高"
+          description: "Topic {{ $labels.topic }} 的 P95 消费延迟超过 5 秒，当前值: {{ $value | printf \"%.2f\" }}s"
+
+      # 通道溢出 (消息丢失)
+      - alert: ChannelOverflow
+        expr: increase(eidos_matching_channel_overflow_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: eidos-matching
+        annotations:
+          summary: "通道溢出导致消息丢失"
+          description: "市场 {{ $labels.market }} 的 {{ $labels.channel }} 通道发生溢出，过去 5 分钟丢失 {{ $value }} 条消息"
+
+      # ========== 中优先级告警 (P2) ==========
+
+      # 订单处理错误率过高
+      - alert: OrderProcessingErrorRateHigh
+        expr: |
+          sum(rate(eidos_matching_orders_processed_total{status="error"}[5m])) by (market)
+          / sum(rate(eidos_matching_orders_processed_total[5m])) by (market) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-matching
+        annotations:
+          summary: "订单处理错误率过高"
+          description: "市场 {{ $labels.market }} 的订单处理错误率超过 1%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # Kafka 发送错误
+      - alert: KafkaSendErrorsHigh
+        expr: rate(eidos_matching_kafka_errors_total{type="send"}[5m]) > 1
+        for: 3m
+        labels:
+          severity: warning
+          service: eidos-matching
+        annotations:
+          summary: "Kafka 发送错误频繁"
+          description: "Topic {{ $labels.topic }} 的 Kafka 发送错误率超过 1/s，当前值: {{ $value | printf \"%.2f\" }}/s"
+
+      # 快照保存失败
+      - alert: SnapshotSaveFailed
+        expr: increase(eidos_matching_snapshot_errors_total{operation="save"}[10m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service: eidos-matching
+        annotations:
+          summary: "快照保存失败"
+          description: "市场 {{ $labels.market }} 在过去 10 分钟内快照保存失败超过 3 次"
+
+      # 订单簿价差过大
+      - alert: OrderBookSpreadHigh
+        expr: eidos_matching_orderbook_spread_percent > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: eidos-matching
+        annotations:
+          summary: "订单簿价差过大"
+          description: "市场 {{ $labels.market }} 的买卖价差超过 5%，当前值: {{ $value | printf \"%.2f\" }}%"
+
+      # ========== 低优先级告警 (P3) ==========
+
+      # 订单簿深度过浅
+      - alert: OrderBookDepthLow
+        expr: eidos_matching_orderbook_depth < 5
+        for: 10m
+        labels:
+          severity: info
+          service: eidos-matching
+        annotations:
+          summary: "订单簿深度过浅"
+          description: "市场 {{ $labels.market }} {{ $labels.side }} 侧的价格档位少于 5 档，当前值: {{ $value }}"
+
+      # gRPC 请求延迟过高
+      - alert: GRPCRequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(eidos_matching_grpc_request_latency_seconds_bucket[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: info
+          service: eidos-matching
+        annotations:
+          summary: "gRPC 请求延迟过高"
+          description: "方法 {{ $labels.method }} 的 P95 延迟超过 50ms，当前值: {{ $value | printf \"%.3f\" }}s"
+
+      # 快照保存延迟过高
+      - alert: SnapshotSaveLatencyHigh
+        expr: histogram_quantile(0.95, rate(eidos_matching_snapshot_save_latency_seconds_bucket[30m])) > 5
+        for: 0m
+        labels:
+          severity: info
+          service: eidos-matching
+        annotations:
+          summary: "快照保存延迟过高"
+          description: "市场 {{ $labels.market }} 的 P95 快照保存延迟超过 5 秒，当前值: {{ $value | printf \"%.2f\" }}s"
+
+  - name: matching_throughput
+    rules:
+      # 撮合吞吐量监控
+      - alert: MatchingThroughputLow
+        expr: sum(rate(eidos_matching_matches_total[5m])) by (market) < 0.1 and sum(rate(eidos_matching_orders_received_total[5m])) by (market) > 1
+        for: 10m
+        labels:
+          severity: warning
+          service: eidos-matching
+        annotations:
+          summary: "撮合吞吐量异常低"
+          description: "市场 {{ $labels.market }} 有订单流入但撮合成交极少，可能存在流动性问题"
+
+      # 订单取消率过高
+      - alert: OrderCancelRateHigh
+        expr: |
+          sum(rate(eidos_matching_cancels_processed_total{status="success"}[5m])) by (market)
+          / sum(rate(eidos_matching_orders_received_total[5m])) by (market) > 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: eidos-matching
+        annotations:
+          summary: "订单取消率过高"
+          description: "市场 {{ $labels.market }} 的订单取消率超过 50%，可能存在刷单行为"

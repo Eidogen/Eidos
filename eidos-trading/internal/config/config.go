@@ -23,6 +23,13 @@ type Config struct {
 	Tokens      []TokenConfig     `yaml:"tokens" json:"tokens"`
 	RiskControl RiskControlConfig `yaml:"risk_control" json:"risk_control"`
 	Worker      WorkerConfig      `yaml:"worker" json:"worker"`
+	Matching    MatchingConfig    `yaml:"matching" json:"matching"`
+}
+
+// MatchingConfig eidos-matching 服务配置
+type MatchingConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Addr    string `yaml:"addr" json:"addr"` // gRPC 地址 (host:port)
 }
 
 // RiskControlConfig 风控配置
@@ -297,6 +304,10 @@ func defaultConfig() *Config {
 				BatchSize:        100,
 			},
 			AsyncDBTimeoutSec: 30, // 异步 DB 写入超时 30 秒
+		},
+		Matching: MatchingConfig{
+			Enabled: false,                       // 默认不启用，开发时可选
+			Addr:    "localhost:50052",           // 默认撮合服务地址
 		},
 		Markets: []MarketConfig{
 			{

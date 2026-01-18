@@ -13,6 +13,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/publisher"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
 	"go.uber.org/zap"
@@ -31,13 +32,15 @@ type ClearingService interface {
 
 // clearingService 清算服务实现
 type clearingService struct {
-	db             *gorm.DB
-	tradeRepo      repository.TradeRepository
-	orderRepo      repository.OrderRepository
-	balanceRepo    repository.BalanceRepository
-	balanceCache   cache.BalanceRedisRepository // Redis 作为实时资金真相
-	marketProvider MarketConfigProvider
-	asyncTasks     *AsyncTaskManager // 异步任务管理器
+	db               *gorm.DB
+	tradeRepo        repository.TradeRepository
+	orderRepo        repository.OrderRepository
+	balanceRepo      repository.BalanceRepository
+	balanceCache     cache.BalanceRedisRepository // Redis 作为实时资金真相
+	marketProvider   MarketConfigProvider
+	orderPublisher   OrderPublisher   // 订单状态发布者
+	balancePublisher BalancePublisher // 余额变更发布者
+	asyncTasks       *AsyncTaskManager // 异步任务管理器
 }
 
 // NewClearingService 创建清算服务
@@ -48,15 +51,19 @@ func NewClearingService(
 	balanceRepo repository.BalanceRepository,
 	balanceCache cache.BalanceRedisRepository,
 	marketProvider MarketConfigProvider,
+	orderPublisher OrderPublisher,
+	balancePublisher BalancePublisher,
 ) ClearingService {
 	return &clearingService{
-		db:             db,
-		tradeRepo:      tradeRepo,
-		orderRepo:      orderRepo,
-		balanceRepo:    balanceRepo,
-		balanceCache:   balanceCache,
-		marketProvider: marketProvider,
-		asyncTasks:     GetAsyncTaskManager(),
+		db:               db,
+		tradeRepo:        tradeRepo,
+		orderRepo:        orderRepo,
+		balanceRepo:      balanceRepo,
+		balanceCache:     balanceCache,
+		marketProvider:   marketProvider,
+		orderPublisher:   orderPublisher,
+		balancePublisher: balancePublisher,
+		asyncTasks:       GetAsyncTaskManager(),
 	}
 }
 
@@ -150,6 +157,9 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 		zap.String("trade_id", msg.TradeID),
 		zap.String("market", msg.Market),
 	)
+
+	// 6. 发布订单和余额变更消息
+	s.publishTradeUpdates(ctx, msg, marketCfg)
 
 	return nil
 }
@@ -441,4 +451,55 @@ func (s *clearingService) Shutdown(ctx context.Context) error {
 	// 注意: 实际关闭由 app 层统一调用 GetAsyncTaskManager().Shutdown()
 	logger.Info("clearing service shutdown completed")
 	return nil
+}
+
+// publishTradeUpdates 发布成交相关的订单和余额变更消息
+// 异步发布，不阻塞主流程
+func (s *clearingService) publishTradeUpdates(ctx context.Context, msg *worker.TradeResultMessage, marketCfg *MarketConfig) {
+	// 异步发布，不阻塞主流程
+	go func() {
+		// 1. 发布订单状态变更 (maker 和 taker 订单)
+		if s.orderPublisher != nil {
+			// 获取 maker 订单并发布
+			if makerOrder, err := s.orderRepo.GetByOrderID(ctx, msg.MakerOrderID); err == nil {
+				_ = s.orderPublisher.PublishOrderUpdate(ctx, makerOrder)
+			}
+			// 获取 taker 订单并发布
+			if takerOrder, err := s.orderRepo.GetByOrderID(ctx, msg.TakerOrderID); err == nil {
+				_ = s.orderPublisher.PublishOrderUpdate(ctx, takerOrder)
+			}
+		}
+
+		// 2. 发布余额变更 (maker 和 taker 双方，涉及 base 和 quote token)
+		if s.balancePublisher != nil {
+			// Maker 的余额变更
+			s.publishBalanceSnapshot(ctx, msg.Maker, marketCfg.BaseToken, "trade", msg.TradeID)
+			s.publishBalanceSnapshot(ctx, msg.Maker, marketCfg.QuoteToken, "trade", msg.TradeID)
+			// Taker 的余额变更
+			s.publishBalanceSnapshot(ctx, msg.Taker, marketCfg.BaseToken, "trade", msg.TradeID)
+			s.publishBalanceSnapshot(ctx, msg.Taker, marketCfg.QuoteToken, "trade", msg.TradeID)
+		}
+	}()
+}
+
+// publishBalanceSnapshot 获取余额快照并发布
+func (s *clearingService) publishBalanceSnapshot(ctx context.Context, wallet, token, eventType, eventID string) {
+	if s.balancePublisher == nil {
+		return
+	}
+
+	balance, err := s.balanceCache.GetOrCreateBalance(ctx, wallet, token)
+	if err != nil {
+		return
+	}
+
+	snapshot := &publisher.BalanceSnapshot{
+		Wallet:    wallet,
+		Token:     token,
+		Available: balance.SettledAvailable.Add(balance.PendingAvailable),
+		Frozen:    balance.SettledFrozen.Add(balance.PendingFrozen),
+		Pending:   balance.PendingAvailable.Add(balance.PendingFrozen),
+	}
+
+	_ = s.balancePublisher.PublishTrade(ctx, snapshot, eventID)
 }

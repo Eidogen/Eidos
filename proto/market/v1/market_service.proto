@@ -1,0 +1,187 @@
+syntax = "proto3";
+
+package eidos.market.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/market/v1;marketv1";
+
+// MarketService 行情服务
+service MarketService {
+  // 获取交易对列表
+  rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse);
+
+  // 获取单个 Ticker
+  rpc GetTicker(GetTickerRequest) returns (GetTickerResponse);
+
+  // 获取所有 Ticker
+  rpc ListTickers(ListTickersRequest) returns (ListTickersResponse);
+
+  // 获取 K 线数据
+  rpc GetKlines(GetKlinesRequest) returns (GetKlinesResponse);
+
+  // 获取最近成交
+  rpc GetRecentTrades(GetRecentTradesRequest) returns (GetRecentTradesResponse);
+
+  // 获取订单簿深度
+  rpc GetDepth(GetDepthRequest) returns (GetDepthResponse);
+}
+
+// MarketStatus 市场状态
+enum MarketStatus {
+  MARKET_STATUS_UNSPECIFIED = 0;
+  MARKET_STATUS_INACTIVE = 1;
+  MARKET_STATUS_ACTIVE = 2;
+  MARKET_STATUS_SUSPEND = 3;
+}
+
+// KlineInterval K 线周期
+enum KlineInterval {
+  KLINE_INTERVAL_UNSPECIFIED = 0;
+  KLINE_INTERVAL_1M = 1;
+  KLINE_INTERVAL_5M = 2;
+  KLINE_INTERVAL_15M = 3;
+  KLINE_INTERVAL_30M = 4;
+  KLINE_INTERVAL_1H = 5;
+  KLINE_INTERVAL_4H = 6;
+  KLINE_INTERVAL_1D = 7;
+  KLINE_INTERVAL_1W = 8;
+}
+
+// TradeSide 成交方向
+enum TradeSide {
+  TRADE_SIDE_UNSPECIFIED = 0;
+  TRADE_SIDE_BUY = 1;
+  TRADE_SIDE_SELL = 2;
+}
+
+// --- Market ---
+
+// Market 交易对信息
+message Market {
+  string symbol = 1;           // 交易对，如 "BTC-USDC"
+  string base_token = 2;       // Base Token
+  string quote_token = 3;      // Quote Token
+  int32 price_decimals = 4;    // 价格精度
+  int32 size_decimals = 5;     // 数量精度
+  string min_size = 6;         // 最小下单量
+  string max_size = 7;         // 最大下单量
+  string min_notional = 8;     // 最小名义价值
+  string tick_size = 9;        // 最小价格变动
+  string maker_fee = 10;       // Maker 手续费率
+  string taker_fee = 11;       // Taker 手续费率
+  MarketStatus status = 12;    // 状态
+  bool trading_enabled = 13;   // 交易是否启用
+}
+
+message ListMarketsRequest {
+  MarketStatus status = 1;     // 筛选状态，UNSPECIFIED 表示全部
+}
+
+message ListMarketsResponse {
+  repeated Market markets = 1;
+}
+
+// --- Ticker ---
+
+// Ticker 24 小时行情
+message Ticker {
+  string market = 1;                    // 交易对
+  string last_price = 2;                // 最新价
+  string price_change = 3;              // 24h 价格变化
+  string price_change_percent = 4;      // 24h 价格变化百分比
+  string open = 5;                      // 24h 开盘价
+  string high = 6;                      // 24h 最高价
+  string low = 7;                       // 24h 最低价
+  string volume = 8;                    // 24h 成交量 (Base)
+  string quote_volume = 9;              // 24h 成交额 (Quote)
+  string best_bid = 10;                 // 最优买价
+  string best_bid_qty = 11;             // 最优买价数量
+  string best_ask = 12;                 // 最优卖价
+  string best_ask_qty = 13;             // 最优卖价数量
+  int32 trade_count = 14;               // 24h 成交笔数
+  int64 timestamp = 15;                 // 时间戳（毫秒）
+}
+
+message GetTickerRequest {
+  string market = 1;           // 交易对
+}
+
+message GetTickerResponse {
+  Ticker ticker = 1;
+}
+
+message ListTickersRequest {}
+
+message ListTickersResponse {
+  repeated Ticker tickers = 1;
+}
+
+// --- Kline ---
+
+// Kline K 线数据
+message Kline {
+  string market = 1;           // 交易对
+  string interval = 2;         // 周期
+  int64 open_time = 3;         // 开盘时间（毫秒）
+  string open = 4;             // 开盘价
+  string high = 5;             // 最高价
+  string low = 6;              // 最低价
+  string close = 7;            // 收盘价
+  string volume = 8;           // 成交量 (Base)
+  string quote_volume = 9;     // 成交额 (Quote)
+  int32 trade_count = 10;      // 成交笔数
+  int64 close_time = 11;       // 收盘时间（毫秒）
+}
+
+message GetKlinesRequest {
+  string market = 1;           // 交易对
+  string interval = 2;         // 周期: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w
+  int64 start_time = 3;        // 开始时间（毫秒）
+  int64 end_time = 4;          // 结束时间（毫秒）
+  int32 limit = 5;             // 返回数量，默认 500，最大 1500
+}
+
+message GetKlinesResponse {
+  repeated Kline klines = 1;
+}
+
+// --- RecentTrades ---
+
+// RecentTrade 最近成交
+message RecentTrade {
+  string trade_id = 1;         // 成交 ID
+  string market = 2;           // 交易对
+  string price = 3;            // 成交价格
+  string amount = 4;           // 成交数量
+  TradeSide side = 5;          // Taker 方向
+  int64 timestamp = 6;         // 成交时间（毫秒）
+}
+
+message GetRecentTradesRequest {
+  string market = 1;           // 交易对
+  int32 limit = 2;             // 返回数量，默认 50，最大 100
+}
+
+message GetRecentTradesResponse {
+  repeated RecentTrade trades = 1;
+}
+
+// --- Depth ---
+
+// PriceLevel 价格档位
+message PriceLevel {
+  string price = 1;            // 价格
+  string amount = 2;           // 数量
+}
+
+message GetDepthRequest {
+  string market = 1;           // 交易对
+  int32 limit = 2;             // 档位数: 5, 10, 20, 50, 100，默认 20
+}
+
+message GetDepthResponse {
+  string market = 1;
+  repeated PriceLevel bids = 2;        // 买单（价格降序）
+  repeated PriceLevel asks = 3;        // 卖单（价格升序）
+  uint64 sequence = 4;                 // 序列号
+  int64 timestamp = 5;                 // 时间戳（毫秒）
+}

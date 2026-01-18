@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package eidos.jobs.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/jobs/v1;jobsv1";
+
+import "common/pagination.proto";
+
+// 定时任务服务
+service JobsService {
+    // === 任务状态查询 ===
+    rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+    rpc ListJobStatus(ListJobStatusRequest) returns (ListJobStatusResponse);
+
+    // === 手动触发任务 ===
+    rpc TriggerJob(TriggerJobRequest) returns (TriggerJobResponse);
+
+    // === 执行历史查询 ===
+    rpc ListJobExecutions(ListJobExecutionsRequest) returns (ListJobExecutionsResponse);
+
+    // === 对账报告 ===
+    rpc GetReconciliationReport(GetReconciliationReportRequest) returns (GetReconciliationReportResponse);
+    rpc ListReconciliationRecords(ListReconciliationRecordsRequest) returns (ListReconciliationRecordsResponse);
+
+    // === 统计数据查询 ===
+    rpc GetStatistics(GetStatisticsRequest) returns (GetStatisticsResponse);
+}
+
+// === 任务状态 ===
+message GetJobStatusRequest {
+    string job_name = 1;
+}
+
+message GetJobStatusResponse {
+    JobStatus status = 1;
+}
+
+message ListJobStatusRequest {}
+
+message ListJobStatusResponse {
+    repeated JobStatus statuses = 1;
+}
+
+message JobStatus {
+    string job_name = 1;
+    bool enabled = 2;
+    string cron = 3;
+    int32 timeout_seconds = 4;
+    bool is_locked = 5;
+    string last_status = 6;      // pending, running, success, failed, skipped
+    int64 last_started_at = 7;
+    int64 last_finished_at = 8;
+    int32 last_duration_ms = 9;
+    string last_error = 10;
+}
+
+// === 手动触发 ===
+message TriggerJobRequest {
+    string job_name = 1;
+}
+
+message TriggerJobResponse {
+    bool accepted = 1;
+    string message = 2;
+}
+
+// === 执行历史 ===
+message ListJobExecutionsRequest {
+    string job_name = 1;         // 可选，为空则查询所有
+    string status = 2;           // 可选，过滤状态
+    int64 start_time = 3;        // 可选
+    int64 end_time = 4;          // 可选
+    eidos.common.v1.PaginationRequest pagination = 5;
+}
+
+message ListJobExecutionsResponse {
+    repeated JobExecution executions = 1;
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+message JobExecution {
+    int64 id = 1;
+    string job_name = 2;
+    string status = 3;
+    int64 started_at = 4;
+    int64 finished_at = 5;
+    int32 duration_ms = 6;
+    string error_message = 7;
+    map<string, string> result = 8;
+}
+
+// === 对账报告 ===
+message GetReconciliationReportRequest {
+    string job_type = 1;         // balance, deposit, withdrawal, settlement
+    int64 start_time = 2;
+    int64 end_time = 3;
+}
+
+message GetReconciliationReportResponse {
+    string job_type = 1;
+    int64 start_time = 2;
+    int64 end_time = 3;
+    int64 total_checked = 4;
+    int64 matched_count = 5;
+    int64 mismatched_count = 6;
+    string total_diff = 7;
+    repeated ReconciliationSummary by_token = 8;
+}
+
+message ReconciliationSummary {
+    string token = 1;
+    int64 checked_count = 2;
+    int64 mismatched_count = 3;
+    string total_diff = 4;
+}
+
+message ListReconciliationRecordsRequest {
+    string job_type = 1;
+    string status = 2;           // matched, mismatched
+    string wallet_address = 3;
+    int64 start_time = 4;
+    int64 end_time = 5;
+    eidos.common.v1.PaginationRequest pagination = 6;
+}
+
+message ListReconciliationRecordsResponse {
+    repeated ReconciliationRecord records = 1;
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+message ReconciliationRecord {
+    int64 id = 1;
+    string job_type = 2;
+    string reconcile_type = 3;   // incremental, full
+    string status = 4;
+    string wallet_address = 5;
+    string token = 6;
+    string offchain_value = 7;
+    string onchain_value = 8;
+    string diff_value = 9;
+    int64 created_at = 10;
+}
+
+// === 统计数据 ===
+message GetStatisticsRequest {
+    string stat_type = 1;        // hourly, daily
+    string start_date = 2;       // YYYY-MM-DD
+    string end_date = 3;         // YYYY-MM-DD
+    string market = 4;           // 可选
+    repeated string metric_names = 5;  // 可选，过滤指标
+}
+
+message GetStatisticsResponse {
+    repeated StatisticsData data = 1;
+}
+
+message StatisticsData {
+    string stat_type = 1;
+    string stat_date = 2;
+    int32 stat_hour = 3;         // 仅 hourly 类型
+    string market = 4;
+    string metric_name = 5;
+    string metric_value = 6;
+}

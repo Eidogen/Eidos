@@ -1,0 +1,268 @@
+syntax = "proto3";
+
+package eidos.chain.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/chain/v1;chainv1";
+
+// ChainService 链上服务
+service ChainService {
+    // Settlement 结算相关
+    rpc GetSettlementStatus(GetSettlementStatusRequest) returns (GetSettlementStatusResponse);
+    rpc RetrySettlement(RetrySettlementRequest) returns (RetrySettlementResponse);
+    rpc ListSettlementBatches(ListSettlementBatchesRequest) returns (ListSettlementBatchesResponse);
+
+    // Deposit 充值相关
+    rpc GetDepositStatus(GetDepositStatusRequest) returns (GetDepositStatusResponse);
+    rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
+
+    // Withdrawal 提现相关
+    rpc GetWithdrawalStatus(GetWithdrawalStatusRequest) returns (GetWithdrawalStatusResponse);
+    rpc RetryWithdrawal(RetryWithdrawalRequest) returns (RetryWithdrawalResponse);
+    rpc ListPendingWithdrawals(ListPendingWithdrawalsRequest) returns (ListPendingWithdrawalsResponse);
+
+    // Indexer 索引器相关
+    rpc GetIndexerStatus(GetIndexerStatusRequest) returns (GetIndexerStatusResponse);
+    rpc GetBlockHeight(GetBlockHeightRequest) returns (GetBlockHeightResponse);
+
+    // Reconciliation 对账相关
+    rpc TriggerReconciliation(TriggerReconciliationRequest) returns (TriggerReconciliationResponse);
+    rpc GetReconciliationStatus(GetReconciliationStatusRequest) returns (GetReconciliationStatusResponse);
+    rpc ListReconciliationRecords(ListReconciliationRecordsRequest) returns (ListReconciliationRecordsResponse);
+
+    // Wallet 热钱包相关
+    rpc GetWalletBalance(GetWalletBalanceRequest) returns (GetWalletBalanceResponse);
+    rpc GetWalletNonce(GetWalletNonceRequest) returns (GetWalletNonceResponse);
+}
+
+// Settlement messages
+message GetSettlementStatusRequest {
+    string batch_id = 1;
+}
+
+message GetSettlementStatusResponse {
+    SettlementBatch batch = 1;
+}
+
+message RetrySettlementRequest {
+    string batch_id = 1;
+    bool split_if_failed = 2;  // 失败时是否拆分批次
+}
+
+message RetrySettlementResponse {
+    bool success = 1;
+    string message = 2;
+    repeated string new_batch_ids = 3;  // 拆分后的新批次 ID
+}
+
+message ListSettlementBatchesRequest {
+    int32 status = 1;  // 可选，按状态过滤
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListSettlementBatchesResponse {
+    repeated SettlementBatch batches = 1;
+    int64 total = 2;
+}
+
+message SettlementBatch {
+    string batch_id = 1;
+    int32 trade_count = 2;
+    repeated string trade_ids = 3;
+    int64 chain_id = 4;
+    string tx_hash = 5;
+    int64 block_number = 6;
+    int64 gas_used = 7;
+    string gas_price = 8;
+    int32 status = 9;  // 0=pending, 1=submitted, 2=confirmed, 3=failed
+    string error_message = 10;
+    int32 retry_count = 11;
+    int64 submitted_at = 12;
+    int64 confirmed_at = 13;
+    int64 created_at = 14;
+}
+
+// Deposit messages
+message GetDepositStatusRequest {
+    string deposit_id = 1;
+}
+
+message GetDepositStatusResponse {
+    DepositRecord deposit = 1;
+}
+
+message ListDepositsRequest {
+    string wallet_address = 1;
+    int32 status = 2;  // 可选
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message ListDepositsResponse {
+    repeated DepositRecord deposits = 1;
+    int64 total = 2;
+}
+
+message DepositRecord {
+    string deposit_id = 1;
+    string wallet_address = 2;
+    string token = 3;
+    string token_address = 4;
+    string amount = 5;
+    int64 chain_id = 6;
+    string tx_hash = 7;
+    int64 block_number = 8;
+    int32 log_index = 9;
+    int32 confirmations = 10;
+    int32 required_confirmations = 11;
+    int32 status = 12;  // 0=pending, 1=confirmed, 2=credited
+    int64 credited_at = 13;
+    int64 created_at = 14;
+}
+
+// Withdrawal messages
+message GetWithdrawalStatusRequest {
+    string withdraw_id = 1;
+}
+
+message GetWithdrawalStatusResponse {
+    WithdrawalTx withdrawal = 1;
+}
+
+message RetryWithdrawalRequest {
+    string withdraw_id = 1;
+}
+
+message RetryWithdrawalResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ListPendingWithdrawalsRequest {
+    string wallet_address = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListPendingWithdrawalsResponse {
+    repeated WithdrawalTx withdrawals = 1;
+    int64 total = 2;
+}
+
+message WithdrawalTx {
+    string withdraw_id = 1;
+    string wallet_address = 2;
+    string to_address = 3;
+    string token = 4;
+    string token_address = 5;
+    string amount = 6;
+    int64 chain_id = 7;
+    string tx_hash = 8;
+    int64 block_number = 9;
+    int64 gas_used = 10;
+    int32 status = 11;  // 0=pending, 1=submitted, 2=confirmed, 3=failed
+    string error_message = 12;
+    int32 retry_count = 13;
+    int64 submitted_at = 14;
+    int64 confirmed_at = 15;
+    int64 created_at = 16;
+}
+
+// Indexer messages
+message GetIndexerStatusRequest {
+    int64 chain_id = 1;
+}
+
+message GetIndexerStatusResponse {
+    int64 chain_id = 1;
+    bool running = 2;
+    uint64 current_block = 3;
+    uint64 latest_block = 4;
+    int64 lag_blocks = 5;
+    int64 checkpoint_block = 6;
+}
+
+message GetBlockHeightRequest {
+    int64 chain_id = 1;
+}
+
+message GetBlockHeightResponse {
+    uint64 block_height = 1;
+    int64 timestamp = 2;
+}
+
+// Reconciliation messages
+message TriggerReconciliationRequest {
+    string wallet_address = 1;  // 可选，为空则全量
+    string token = 2;  // 可选
+}
+
+message TriggerReconciliationResponse {
+    bool success = 1;
+    string task_id = 2;
+    string message = 3;
+}
+
+message GetReconciliationStatusRequest {
+    string task_id = 1;
+}
+
+message GetReconciliationStatusResponse {
+    string task_id = 1;
+    string status = 2;  // running/completed/failed
+    int64 total_checked = 3;
+    int64 discrepancies = 4;
+    int64 started_at = 5;
+    int64 completed_at = 6;
+}
+
+message ListReconciliationRecordsRequest {
+    string wallet_address = 1;  // 可选
+    string status = 2;  // 可选: OK/DISCREPANCY/RESOLVED/IGNORED
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message ListReconciliationRecordsResponse {
+    repeated ReconciliationRecord records = 1;
+    int64 total = 2;
+}
+
+message ReconciliationRecord {
+    int64 id = 1;
+    string wallet_address = 2;
+    string token = 3;
+    string on_chain_balance = 4;
+    string off_chain_settled = 5;
+    string off_chain_available = 6;
+    string off_chain_frozen = 7;
+    string pending_settle = 8;
+    string difference = 9;
+    string status = 10;
+    string resolution = 11;
+    string resolved_by = 12;
+    int64 resolved_at = 13;
+    int64 checked_at = 14;
+}
+
+// Wallet messages
+message GetWalletBalanceRequest {
+    int64 chain_id = 1;
+    string token_address = 2;  // 空表示 ETH
+}
+
+message GetWalletBalanceResponse {
+    string wallet_address = 1;
+    string balance = 2;
+    string token = 3;
+}
+
+message GetWalletNonceRequest {
+    int64 chain_id = 1;
+}
+
+message GetWalletNonceResponse {
+    string wallet_address = 1;
+    uint64 current_nonce = 2;
+    int32 pending_count = 3;
+}

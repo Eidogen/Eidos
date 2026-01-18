@@ -1,0 +1,287 @@
+syntax = "proto3";
+
+package eidos.admin.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/admin/v1;adminv1";
+
+import "common/pagination.proto";
+
+// 管理后台服务
+service AdminService {
+    // === 市场管理 ===
+    rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse);
+    rpc CreateMarket(CreateMarketRequest) returns (CreateMarketResponse);
+    rpc UpdateMarket(UpdateMarketRequest) returns (UpdateMarketResponse);
+
+    // === 代币管理 ===
+    rpc ListTokens(ListTokensRequest) returns (ListTokensResponse);
+    rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+    rpc UpdateToken(UpdateTokenRequest) returns (UpdateTokenResponse);
+
+    // === 系统配置 ===
+    rpc GetSystemConfig(GetSystemConfigRequest) returns (GetSystemConfigResponse);
+    rpc UpdateSystemConfig(UpdateSystemConfigRequest) returns (UpdateSystemConfigResponse);
+
+    // === 管理员 ===
+    rpc ListAdmins(ListAdminsRequest) returns (ListAdminsResponse);
+    rpc CreateAdmin(CreateAdminRequest) returns (CreateAdminResponse);
+    rpc UpdateAdmin(UpdateAdminRequest) returns (UpdateAdminResponse);
+
+    // === 运营操作 ===
+    rpc ManualDeposit(ManualDepositRequest) returns (ManualDepositResponse);
+    rpc ApproveWithdraw(ApproveWithdrawRequest) returns (ApproveWithdrawResponse);
+    rpc RejectWithdraw(RejectWithdrawRequest) returns (RejectWithdrawResponse);
+
+    // === 数据统计 ===
+    rpc GetDashboardStats(GetDashboardStatsRequest) returns (GetDashboardStatsResponse);
+    rpc GetTradeStats(GetTradeStatsRequest) returns (GetTradeStatsResponse);
+}
+
+// === 市场管理 ===
+message ListMarketsRequest {
+    bool include_inactive = 1;
+}
+
+message ListMarketsResponse {
+    repeated MarketConfig markets = 1;
+}
+
+message MarketConfig {
+    string symbol = 1;
+    string base_token = 2;
+    string quote_token = 3;
+    int32 price_decimals = 4;
+    int32 amount_decimals = 5;
+    string min_amount = 6;
+    string min_notional = 7;
+    string maker_fee_rate = 8;
+    string taker_fee_rate = 9;
+    bool is_active = 10;
+    int64 created_at = 11;
+    int64 updated_at = 12;
+}
+
+message CreateMarketRequest {
+    string symbol = 1;
+    string base_token = 2;
+    string quote_token = 3;
+    int32 price_decimals = 4;
+    int32 amount_decimals = 5;
+    string min_amount = 6;
+    string min_notional = 7;
+    string maker_fee_rate = 8;
+    string taker_fee_rate = 9;
+    string operator_id = 10;
+}
+
+message CreateMarketResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message UpdateMarketRequest {
+    string symbol = 1;
+    string min_amount = 2;
+    string min_notional = 3;
+    string maker_fee_rate = 4;
+    string taker_fee_rate = 5;
+    bool is_active = 6;
+    string operator_id = 7;
+}
+
+message UpdateMarketResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// === 代币管理 ===
+message ListTokensRequest {
+    bool include_inactive = 1;
+}
+
+message ListTokensResponse {
+    repeated TokenConfig tokens = 1;
+}
+
+message TokenConfig {
+    string symbol = 1;
+    string name = 2;
+    string contract_address = 3;
+    int32 decimals = 4;
+    bool is_active = 5;
+    bool withdraw_enabled = 6;
+    bool deposit_enabled = 7;
+    string min_withdraw = 8;
+    string withdraw_fee = 9;
+    int64 created_at = 10;
+    int64 updated_at = 11;
+}
+
+message CreateTokenRequest {
+    string symbol = 1;
+    string name = 2;
+    string contract_address = 3;
+    int32 decimals = 4;
+    string min_withdraw = 5;
+    string withdraw_fee = 6;
+    string operator_id = 7;
+}
+
+message CreateTokenResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message UpdateTokenRequest {
+    string symbol = 1;
+    bool is_active = 2;
+    bool withdraw_enabled = 3;
+    bool deposit_enabled = 4;
+    string min_withdraw = 5;
+    string withdraw_fee = 6;
+    string operator_id = 7;
+}
+
+message UpdateTokenResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// === 系统配置 ===
+message GetSystemConfigRequest {}
+
+message GetSystemConfigResponse {
+    map<string, string> configs = 1;
+    int64 version = 2;
+}
+
+message UpdateSystemConfigRequest {
+    string key = 1;
+    string value = 2;
+    string operator_id = 3;
+}
+
+message UpdateSystemConfigResponse {
+    bool success = 1;
+    string error_message = 2;
+    int64 new_version = 3;
+}
+
+// === 管理员 ===
+message ListAdminsRequest {
+    eidos.common.v1.PaginationRequest pagination = 1;
+}
+
+message ListAdminsResponse {
+    repeated Admin admins = 1;
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+message Admin {
+    string admin_id = 1;
+    string username = 2;
+    string role = 3;
+    bool is_active = 4;
+    int64 last_login_at = 5;
+    int64 created_at = 6;
+}
+
+message CreateAdminRequest {
+    string username = 1;
+    string password = 2;
+    string role = 3;
+    string operator_id = 4;
+}
+
+message CreateAdminResponse {
+    bool success = 1;
+    string admin_id = 2;
+    string error_message = 3;
+}
+
+message UpdateAdminRequest {
+    string admin_id = 1;
+    string role = 2;
+    bool is_active = 3;
+    string operator_id = 4;
+}
+
+message UpdateAdminResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// === 运营操作 ===
+message ManualDepositRequest {
+    string wallet = 1;
+    string token = 2;
+    string amount = 3;
+    string reason = 4;
+    string operator_id = 5;
+}
+
+message ManualDepositResponse {
+    bool success = 1;
+    string deposit_id = 2;
+    string error_message = 3;
+}
+
+message ApproveWithdrawRequest {
+    string withdraw_id = 1;
+    string operator_id = 2;
+}
+
+message ApproveWithdrawResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message RejectWithdrawRequest {
+    string withdraw_id = 1;
+    string reason = 2;
+    string operator_id = 3;
+}
+
+message RejectWithdrawResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+// === 数据统计 ===
+message GetDashboardStatsRequest {}
+
+message GetDashboardStatsResponse {
+    int64 total_users = 1;
+    int64 active_users_24h = 2;
+    string total_volume_24h = 3;
+    int64 total_trades_24h = 4;
+    int64 pending_withdrawals = 5;
+    int64 pending_settlements = 6;
+    repeated TokenBalance platform_balances = 7;
+}
+
+message TokenBalance {
+    string token = 1;
+    string onchain_balance = 2;
+    string offchain_balance = 3;
+}
+
+message GetTradeStatsRequest {
+    string market = 1;
+    int64 start_time = 2;
+    int64 end_time = 3;
+    string interval = 4;  // 1h, 1d
+}
+
+message GetTradeStatsResponse {
+    repeated TradeStatPoint points = 1;
+}
+
+message TradeStatPoint {
+    int64 timestamp = 1;
+    string volume = 2;
+    string quote_volume = 3;
+    int64 trade_count = 4;
+    string high = 5;
+    string low = 6;
+}

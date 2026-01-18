@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package eidos.chain.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/gen/chain/v1;chainv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/chain/v1;chainv1";
 
 import "common/enums.proto";
 import "common/pagination.proto";

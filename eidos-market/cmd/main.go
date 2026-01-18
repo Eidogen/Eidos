@@ -1,75 +1,47 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
+	"flag"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-market/internal/app"
+	"github.com/eidos-exchange/eidos/eidos-market/internal/config"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-const (
-	serviceName = "eidos-market"
-	grpcPort    = 50053
-)
+const serviceName = "eidos-market"
 
 func main() {
+	// 解析命令行参数
+	configPath := flag.String("config", "config/config.yaml", "配置文件路径")
+	flag.Parse()
+
+	// 加载配置
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		panic("failed to load config: " + err.Error())
+	}
+
+	// 初始化日志
 	if err := logger.Init(&logger.Config{
-		Level:       "info",
-		Format:      "json",
+		Level:       cfg.Log.Level,
+		Format:      cfg.Log.Format,
 		ServiceName: serviceName,
 	}); err != nil {
-		panic(err)
+		panic("failed to init logger: " + err.Error())
 	}
 	defer logger.Sync()
 
-	logger.Info("starting service", zap.String("service", serviceName))
-
-	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.RecoveryUnaryServerInterceptor(),
-			middleware.UnaryServerInterceptor(),
-		),
+	log := logger.L()
+	log.Info("starting service",
+		zap.String("service", serviceName),
+		zap.String("config", *configPath),
+		zap.String("env", cfg.Service.Env),
 	)
 
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(server, healthServer)
-	healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_SERVING)
-
-	// TODO: 注册行情服务
-	// marketv1.RegisterMarketServiceServer(server, handler.NewMarketHandler(...))
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
-	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+	// 创建并运行应用
+	application := app.New(cfg, log)
+	if err := application.Run(); err != nil {
+		log.Fatal("application error", zap.Error(err))
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		logger.Info("shutting down...")
-		healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		server.GracefulStop()
-		cancel()
-	}()
-
-	logger.Info("gRPC server listening", zap.Int("port", grpcPort))
-	if err := server.Serve(lis); err != nil {
-		logger.Fatal("failed to serve", zap.Error(err))
-	}
-
-	<-ctx.Done()
-	logger.Info("service stopped")
 }

@@ -5,32 +5,40 @@ service:
   env: dev
 
 nacos:
+  enabled: true
   server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
 
-postgres:
+database:
   host: ${POSTGRES_HOST:postgres}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_trading}
   user: ${POSTGRES_USER:eidos}
   password: ${POSTGRES_PASSWORD:eidos123}
-  max_connections: 100
+  max_open_conns: 100
   max_idle_conns: 10
-  conn_max_lifetime: 3600
+  conn_max_lifetime_minutes: 60
 
 redis:
-  addresses:
-    - ${REDIS_ADDR:redis:6379}
+  host: ${REDIS_HOST:redis}
+  port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
 
 kafka:
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:kafka:9092}
   group_id: eidos-trading
-  client_id: eidos-trading
+
+node:
+  id: ${NODE_ID:1}
 
 eip712:
   domain:
@@ -42,3 +50,53 @@ eip712:
 log:
   level: ${LOG_LEVEL:info}
   format: json
+
+matching:
+  enabled: false
+  addr: ${MATCHING_ADDR:localhost:50052}
+
+risk_control:
+  user_pending_limit: 100000
+  global_pending_limit: 10000000
+  max_open_orders_per_user: 100
+
+worker:
+  order_expiry:
+    enabled: true
+    check_interval_sec: 30
+    batch_size: 100
+  reconciliation:
+    enabled: true
+    check_interval_sec: 300
+    batch_size: 100
+
+outbox:
+  relay_interval_ms: 100
+  batch_size: 100
+  max_retries: 5
+  cleanup_interval_ms: 3600000
+  retention_ms: 86400000
+
+markets:
+  - market: ETH-USDT
+    base_token: ETH
+    quote_token: USDT
+    min_amount: 0.001
+    max_amount: 1000
+    min_price: 1
+    max_price: 100000
+    price_precision: 2
+    amount_precision: 6
+    maker_fee_rate: 0.001
+    taker_fee_rate: 0.002
+    status: 1
+
+tokens:
+  - symbol: ETH
+    name: Ethereum
+    decimals: 18
+    address: "0x0000000000000000000000000000000000000000"
+  - symbol: USDT
+    name: Tether USD
+    decimals: 6
+    address: "0x0000000000000000000000000000000000000001"

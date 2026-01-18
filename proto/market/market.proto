@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package eidos.market.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/gen/market/v1;marketv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/market/v1;marketv1";
 
 // 行情服务
 service MarketService {
