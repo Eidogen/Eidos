@@ -56,7 +56,7 @@ type WithdrawalTx struct {
 
 // TableName 返回表名
 func (WithdrawalTx) TableName() string {
-	return "eidos_chain_withdrawal_txs"
+	return "chain_withdrawal_txs"
 }
 
 // WithdrawalRequest 提现请求 (从 Kafka 消费)

@@ -192,6 +192,20 @@ func applyDefaults(cfg *Config) {
 		cfg.Scheduler.MaxConcurrentJobs = 3
 	}
 
+	// gRPC clients defaults
+	if cfg.GRPCClients.Trading == "" {
+		cfg.GRPCClients.Trading = "localhost:50051"
+	}
+	if cfg.GRPCClients.Matching == "" {
+		cfg.GRPCClients.Matching = "localhost:50052"
+	}
+	if cfg.GRPCClients.Market == "" {
+		cfg.GRPCClients.Market = "localhost:50053"
+	}
+	if cfg.GRPCClients.Chain == "" {
+		cfg.GRPCClients.Chain = "localhost:50054"
+	}
+
 	// Log defaults
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"

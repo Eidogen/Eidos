@@ -64,10 +64,13 @@ type App struct {
 
 	// 外部服务客户端
 	matchingClient *client.MatchingClient
+	riskClient     *client.RiskClient
 
 	// 消息发布者
-	orderPublisher   *publisher.OrderPublisher
-	balancePublisher *publisher.BalancePublisher
+	orderPublisher       *publisher.OrderPublisher
+	balancePublisher     *publisher.BalancePublisher
+	settlementPublisher  *publisher.SettlementPublisher
+	withdrawalPublisher  *publisher.WithdrawalPublisher
 
 	// Workers
 	outboxRelay          *worker.OutboxRelay
@@ -241,8 +244,8 @@ func (a *App) initServices() {
 	a.balanceSvc = service.NewBalanceService(a.balanceRepo, a.outboxRepo, a.balanceCache, tokenCfg, nil)
 	a.tradeSvc = service.NewTradeService(a.tradeRepo, a.balanceRepo, a.balanceCache, a.idGen, marketCfg)
 	a.depositSvc = service.NewDepositService(a.depositRepo, a.balanceRepo, a.balanceCache, a.idGen, tokenCfg)
-	a.withdrawSvc = service.NewWithdrawalService(a.withdrawRepo, a.balanceRepo, a.balanceCache, a.nonceRepo, a.idGen, tokenCfg)
-	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, nil, nil)
+	a.withdrawSvc = service.NewWithdrawalService(a.withdrawRepo, a.balanceRepo, a.balanceCache, a.nonceRepo, a.idGen, tokenCfg, nil)
+	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, nil, nil, nil)
 }
 
 // initServicesWithKafka 在 Kafka 和 Publisher 初始化后重新创建需要它们的服务
@@ -257,7 +260,8 @@ func (a *App) initServicesWithKafka() {
 	// 重新创建需要 producer/publisher 的服务
 	a.orderSvc = service.NewOrderService(a.orderRepo, a.balanceRepo, a.nonceRepo, a.balanceCache, a.idGen, marketCfg, riskCfg, a.producer, a.orderPublisher)
 	a.balanceSvc = service.NewBalanceService(a.balanceRepo, a.outboxRepo, a.balanceCache, tokenCfg, a.balancePublisher)
-	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, a.orderPublisher, a.balancePublisher)
+	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, a.orderPublisher, a.balancePublisher, a.settlementPublisher)
+	a.withdrawSvc = service.NewWithdrawalService(a.withdrawRepo, a.balanceRepo, a.balanceCache, a.nonceRepo, a.idGen, tokenCfg, a.withdrawalPublisher)
 }
 
 // initPublishers 初始化消息发布者
@@ -269,7 +273,9 @@ func (a *App) initPublishers() {
 
 	a.orderPublisher = publisher.NewOrderPublisher(a.producer)
 	a.balancePublisher = publisher.NewBalancePublisher(a.producer)
-	logger.Info("message publishers initialized (order-updates, balance-updates)")
+	a.settlementPublisher = publisher.NewSettlementPublisher(a.producer)
+	a.withdrawalPublisher = publisher.NewWithdrawalPublisher(a.producer)
+	logger.Info("message publishers initialized (order-updates, balance-updates, settlements, withdrawals)")
 }
 
 // initClients 初始化外部服务客户端
@@ -291,6 +297,25 @@ func (a *App) initClients() error {
 			)
 		}
 	}
+
+	// 初始化 eidos-risk 客户端
+	if a.cfg.Risk.Enabled {
+		cfg := client.DefaultRiskClientConfig(a.cfg.Risk.Addr)
+		riskClient, err := client.NewRiskClient(cfg)
+		if err != nil {
+			logger.Warn("failed to connect to eidos-risk, continuing without it",
+				zap.String("addr", a.cfg.Risk.Addr),
+				zap.Error(err),
+			)
+			// 不返回错误，允许在没有 risk 服务的情况下启动
+		} else {
+			a.riskClient = riskClient
+			logger.Info("risk client initialized",
+				zap.String("addr", a.cfg.Risk.Addr),
+			)
+		}
+	}
+
 	return nil
 }
 
@@ -620,6 +645,11 @@ func (a *App) shutdown() {
 	// 关闭 matching 客户端
 	if a.matchingClient != nil {
 		a.matchingClient.Close()
+	}
+
+	// 关闭 risk 客户端
+	if a.riskClient != nil {
+		a.riskClient.Close()
 	}
 
 	// 优雅停止 gRPC 服务

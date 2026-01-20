@@ -54,5 +54,5 @@ type AuditLog struct {
 
 // TableName 表名
 func (AuditLog) TableName() string {
-	return "eidos_admin_audit_logs"
+	return "admin_audit_logs"
 }

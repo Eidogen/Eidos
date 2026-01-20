@@ -34,7 +34,7 @@ type OutboxMessage struct {
 
 // TableName 返回表名
 func (OutboxMessage) TableName() string {
-	return "outbox_messages"
+	return "trading_outbox_messages"
 }
 
 // SetPayload 设置消息内容

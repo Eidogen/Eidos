@@ -27,7 +27,7 @@ type SystemConfig struct {
 
 // TableName 表名
 func (SystemConfig) TableName() string {
-	return "eidos_admin_system_configs"
+	return "admin_system_configs"
 }
 
 // ConfigVersion 配置版本
@@ -41,7 +41,7 @@ type ConfigVersion struct {
 
 // TableName 表名
 func (ConfigVersion) TableName() string {
-	return "eidos_admin_config_versions"
+	return "admin_config_versions"
 }
 
 // 配置 scope 常量

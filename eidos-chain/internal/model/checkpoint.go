@@ -13,7 +13,7 @@ type BlockCheckpoint struct {
 
 // TableName 返回表名
 func (BlockCheckpoint) TableName() string {
-	return "eidos_chain_block_checkpoints"
+	return "chain_block_checkpoints"
 }
 
 // ChainEventType 链上事件类型
@@ -41,5 +41,5 @@ type ChainEvent struct {
 
 // TableName 返回表名
 func (ChainEvent) TableName() string {
-	return "eidos_chain_events"
+	return "chain_events"
 }

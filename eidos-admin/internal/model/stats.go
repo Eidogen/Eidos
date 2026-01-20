@@ -20,7 +20,7 @@ type DailyStats struct {
 
 // TableName 表名
 func (DailyStats) TableName() string {
-	return "eidos_admin_daily_stats"
+	return "admin_daily_stats"
 }
 
 // OverviewStats 总览统计

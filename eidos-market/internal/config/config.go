@@ -12,12 +12,21 @@ import (
 type Config struct {
 	Service    ServiceConfig         `yaml:"service" json:"service"`
 	Nacos      NacosConfig           `yaml:"nacos" json:"nacos"`
+	Matching   MatchingConfig        `yaml:"matching" json:"matching"`
 	Postgres   config.PostgresConfig `yaml:"postgres" json:"postgres"`
 	Redis      config.RedisConfig    `yaml:"redis" json:"redis"`
 	Kafka      config.KafkaConfig    `yaml:"kafka" json:"kafka"`
 	Kline      KlineConfig           `yaml:"kline" json:"kline"`
 	Aggregator AggregatorConfig      `yaml:"aggregator" json:"aggregator"`
 	Log        LogConfig             `yaml:"log" json:"log"`
+}
+
+// MatchingConfig 撮合服务连接配置
+type MatchingConfig struct {
+	Enabled        bool   `yaml:"enabled" json:"enabled"`                 // 是否启用（启用后才会连接 eidos-matching）
+	Addr           string `yaml:"addr" json:"addr"`                       // gRPC 地址 (host:port)
+	ConnectTimeout int    `yaml:"connect_timeout" json:"connect_timeout"` // 连接超时（秒）
+	RequestTimeout int    `yaml:"request_timeout" json:"request_timeout"` // 请求超时（秒）
 }
 
 // NacosConfig Nacos 配置
@@ -75,6 +84,12 @@ func DefaultConfig() *Config {
 			Group:      "EIDOS_GROUP",
 			LogDir:     "/tmp/nacos/log",
 			CacheDir:   "/tmp/nacos/cache",
+		},
+		Matching: MatchingConfig{
+			Enabled:        false,
+			Addr:           "eidos-matching:50052",
+			ConnectTimeout: 5,
+			RequestTimeout: 3,
 		},
 		Postgres: config.PostgresConfig{
 			Host:            "postgres",
@@ -173,6 +188,20 @@ func (c *Config) applyEnvOverrides() {
 		c.Nacos.Password = v
 	}
 
+	// Matching
+	if v := config.GetEnvBool("MATCHING_ENABLED", false); v {
+		c.Matching.Enabled = v
+	}
+	if v := os.Getenv("MATCHING_ADDR"); v != "" {
+		c.Matching.Addr = v
+	}
+	if v := config.GetEnvInt("MATCHING_CONNECT_TIMEOUT", 0); v > 0 {
+		c.Matching.ConnectTimeout = v
+	}
+	if v := config.GetEnvInt("MATCHING_REQUEST_TIMEOUT", 0); v > 0 {
+		c.Matching.RequestTimeout = v
+	}
+
 	// Postgres
 	if v := os.Getenv("POSTGRES_HOST"); v != "" {
 		c.Postgres.Host = v
@@ -232,4 +261,14 @@ func (c *Config) IsDev() bool {
 // IsProd 判断是否为生产环境
 func (c *Config) IsProd() bool {
 	return c.Service.Env == "prod"
+}
+
+// GetMatchingConnectTimeout 获取 Matching 连接超时
+func (c *Config) GetMatchingConnectTimeout() time.Duration {
+	return time.Duration(c.Matching.ConnectTimeout) * time.Second
+}
+
+// GetMatchingRequestTimeout 获取 Matching 请求超时
+func (c *Config) GetMatchingRequestTimeout() time.Duration {
+	return time.Duration(c.Matching.RequestTimeout) * time.Second
 }

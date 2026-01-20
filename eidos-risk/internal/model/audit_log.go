@@ -35,7 +35,7 @@ type AuditLog struct {
 
 // TableName 返回表名
 func (AuditLog) TableName() string {
-	return "eidos_risk_audit_logs"
+	return "risk_audit_logs"
 }
 
 // IsAllowed 检查是否允许

@@ -48,6 +48,8 @@ type App struct {
 	tradingConn   *grpc.ClientConn
 	marketClient  *client.MarketClient
 	marketConn    *grpc.ClientConn
+	riskClient    *client.RiskClient
+	riskConn      *grpc.ClientConn
 
 	// Handlers
 	healthHandler     *handler.HealthHandler
@@ -149,6 +151,11 @@ func (a *App) Stop(ctx context.Context) error {
 			a.logger.Error("market gRPC connection close error", zap.Error(err))
 		}
 	}
+	if a.riskConn != nil {
+		if err := a.riskConn.Close(); err != nil {
+			a.logger.Error("risk gRPC connection close error", zap.Error(err))
+		}
+	}
 
 	// 关闭 Redis
 	if a.redis != nil {
@@ -201,14 +208,17 @@ func (a *App) initDependencies(ctx context.Context) error {
 	// 初始化 gRPC 连接
 	tradingAddr := a.cfg.GRPCClients.Trading
 	marketAddr := a.cfg.GRPCClients.Market
+	riskAddr := a.cfg.GRPCClients.Risk
 
 	// 如果启用 Nacos，使用 Nacos 服务发现
 	if a.cfg.Nacos.Enabled && a.nacosDiscovery != nil {
 		tradingAddr = nacos.BuildTarget("eidos-trading")
 		marketAddr = nacos.BuildTarget("eidos-market")
+		riskAddr = nacos.BuildTarget("eidos-risk")
 		a.logger.Info("using nacos service discovery",
 			zap.String("trading", tradingAddr),
-			zap.String("market", marketAddr))
+			zap.String("market", marketAddr),
+			zap.String("risk", riskAddr))
 	}
 
 	a.tradingConn, err = grpc.NewClient(
@@ -237,6 +247,21 @@ func (a *App) initDependencies(ctx context.Context) error {
 
 	// 初始化 Market Client
 	a.marketClient = client.NewMarketClient(a.marketConn)
+
+	// 初始化 Risk gRPC 连接 (可选，风控服务不可用时继续运行)
+	if riskAddr != "" {
+		a.riskConn, err = grpc.NewClient(
+			riskAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+		)
+		if err != nil {
+			a.logger.Warn("risk gRPC connection failed, continuing without risk service", zap.Error(err))
+		} else {
+			a.logger.Info("risk gRPC connected", zap.String("addr", riskAddr))
+			a.riskClient = client.NewRiskClient(a.riskConn)
+		}
+	}
 
 	// 初始化限流组件
 	a.slidingWindow = ratelimit.NewSlidingWindow(a.redis)

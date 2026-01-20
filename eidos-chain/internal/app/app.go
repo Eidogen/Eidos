@@ -55,6 +55,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	chainv1 "github.com/eidos-exchange/eidos/proto/chain/v1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
@@ -87,9 +88,10 @@ type App struct {
 	reconciliationRepo repository.ReconciliationRepository
 
 	// 服务
-	settlementSvc *service.SettlementService
-	withdrawalSvc *service.WithdrawalService
-	indexerSvc    *service.IndexerService
+	settlementSvc     *service.SettlementService
+	withdrawalSvc     *service.WithdrawalService
+	indexerSvc        *service.IndexerService
+	reconciliationSvc *service.ReconciliationService
 
 	// Kafka
 	kafkaConsumer *kafka.Consumer
@@ -164,6 +166,12 @@ func (a *App) initInfrastructure() error {
 
 	a.db = db
 	logger.Info("database connected", zap.String("host", a.cfg.Postgres.Host))
+
+	// 自动迁移
+	if err := AutoMigrate(a.db); err != nil {
+		return fmt.Errorf("auto migrate: %w", err)
+	}
+	logger.Info("database migrated")
 
 	// Redis
 	redisAddr := "localhost:6379"
@@ -342,10 +350,29 @@ func (a *App) initGRPC() {
 		a.nonceManager,
 	)
 
-	// TODO: 注册 gRPC 服务 (需要先生成 proto)
-	// chainv1.RegisterChainServiceServer(a.grpcServer, a.chainHandler)
+	// 创建对账服务
+	a.reconciliationSvc = service.NewReconciliationService(
+		a.blockchainClient,
+		a.reconciliationRepo,
+		nil, // TODO: 配置 BalanceProvider (需要连接 eidos-trading)
+	)
 
-	logger.Info("grpc server initialized")
+	// 创建 gRPC Handler 并注册服务
+	grpcHandler := handler.NewGRPCHandler(
+		a.settlementSvc,
+		a.withdrawalSvc,
+		a.indexerSvc,
+		a.reconciliationSvc,
+		a.settlementRepo,
+		a.withdrawalRepo,
+		a.depositRepo,
+		a.reconciliationRepo,
+		a.blockchainClient,
+		a.nonceManager,
+	)
+	chainv1.RegisterChainServiceServer(a.grpcServer, grpcHandler)
+
+	logger.Info("grpc server initialized with ChainService")
 }
 
 // Run 运行应用

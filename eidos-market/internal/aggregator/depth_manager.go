@@ -19,25 +19,8 @@ type DepthPublisher interface {
 }
 
 // DepthSnapshotProvider 深度快照提供者（来自 eidos-matching）
-// TODO [eidos-matching]: 需要 eidos-matching 提供此 gRPC 接口
-//   Proto 定义建议:
-//   ```protobuf
-//   service MatchingService {
-//     rpc GetOrderBookSnapshot(GetOrderBookSnapshotRequest) returns (GetOrderBookSnapshotResponse);
-//   }
-//
-//   message GetOrderBookSnapshotRequest {
-//     string market = 1;
-//   }
-//
-//   message GetOrderBookSnapshotResponse {
-//     string market = 1;
-//     repeated PriceLevel bids = 2;
-//     repeated PriceLevel asks = 3;
-//     uint64 sequence = 4;
-//   }
-//   ```
-//   用途: 当检测到序列号缺口时，触发全量快照同步以恢复数据一致性
+// 实现: eidos-market/internal/client/matching_client.go
+// 用途: 当检测到序列号缺口时，调用 eidos-matching 的 GetOrderbook gRPC 接口获取全量快照
 type DepthSnapshotProvider interface {
 	GetSnapshot(ctx context.Context, market string) (*model.Depth, error)
 }
@@ -156,10 +139,7 @@ func (dm *DepthManager) ApplyUpdate(ctx context.Context, update *model.DepthUpda
 			zap.Uint64("expected", dm.sequence+1),
 			zap.Uint64("got", update.Sequence))
 
-		// TODO [eidos-matching]: 触发全量同步
-		// 当前实现：继续应用增量，可能导致短暂的数据不一致
-		// 正确实现：需要 eidos-matching 提供 GetOrderBookSnapshot gRPC 接口
-		// 调用 snapshotProvider.GetSnapshot() 获取全量快照后覆盖本地数据
+		// 触发全量同步（通过 DepthSnapshotProvider 从 eidos-matching 获取快照）
 		if dm.snapshotProvider != nil {
 			go dm.syncSnapshot(ctx)
 		}

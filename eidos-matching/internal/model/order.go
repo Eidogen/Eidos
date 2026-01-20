@@ -260,3 +260,34 @@ func (m *OrderBookUpdateMessage) AddAsk(price, amount decimal.Decimal) {
 func (m *OrderBookUpdateMessage) IsEmpty() bool {
 	return len(m.Bids) == 0 && len(m.Asks) == 0
 }
+
+// OrderRejectedMessage 订单被拒绝消息
+// 发送到 order-updates topic，通知 eidos-trading 和 eidos-api
+type OrderRejectedMessage struct {
+	OrderID      string `json:"order_id"`
+	Wallet       string `json:"wallet"`
+	Market       string `json:"market"`
+	Side         int8   `json:"side"`          // 1=买, 2=卖
+	OrderType    int8   `json:"order_type"`    // 1=限价, 2=市价
+	Price        string `json:"price"`
+	Amount       string `json:"amount"`
+	Status       string `json:"status"`        // rejected
+	RejectReason string `json:"reject_reason"` // 拒绝原因
+	Timestamp    int64  `json:"timestamp"`
+}
+
+// NewOrderRejectedMessage 从订单消息创建拒绝消息
+func NewOrderRejectedMessage(order *OrderMessage, reason string, timestamp int64) *OrderRejectedMessage {
+	return &OrderRejectedMessage{
+		OrderID:      order.OrderID,
+		Wallet:       order.Wallet,
+		Market:       order.Market,
+		Side:         order.Side,
+		OrderType:    order.OrderType,
+		Price:        order.Price,
+		Amount:       order.Amount,
+		Status:       "rejected",
+		RejectReason: reason,
+		Timestamp:    timestamp,
+	}
+}

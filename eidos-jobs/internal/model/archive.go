@@ -11,7 +11,7 @@ type ArchiveProgress struct {
 
 // TableName 表名
 func (ArchiveProgress) TableName() string {
-	return "eidos_jobs_archive_progress"
+	return "jobs_archive_progress"
 }
 
 // ArchiveConfig 归档配置

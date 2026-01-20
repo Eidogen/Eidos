@@ -16,5 +16,5 @@ type RPCEndpoint struct {
 
 // TableName 返回表名
 func (RPCEndpoint) TableName() string {
-	return "eidos_chain_rpc_endpoints"
+	return "chain_rpc_endpoints"
 }

@@ -18,6 +18,7 @@ type ProducerConfig struct {
 	TradeResultsTopic     string
 	OrderCancelledTopic   string
 	OrderbookUpdatesTopic string
+	OrderUpdatesTopic     string // 订单状态更新 topic
 	BatchSize             int
 	BatchTimeout          time.Duration
 	Compression           string // "none", "gzip", "snappy", "lz4"
@@ -26,10 +27,11 @@ type ProducerConfig struct {
 
 // Producer Kafka 生产者
 type Producer struct {
-	tradesWriter  *kafkago.Writer
-	cancelsWriter *kafkago.Writer
-	updatesWriter *kafkago.Writer
-	config        *ProducerConfig
+	tradesWriter       *kafkago.Writer
+	cancelsWriter      *kafkago.Writer
+	updatesWriter      *kafkago.Writer
+	orderUpdatesWriter *kafkago.Writer // 订单状态更新写入器
+	config             *ProducerConfig
 
 	// 统计
 	messagesSent int64
@@ -99,6 +101,20 @@ func NewProducer(cfg *ProducerConfig) *Producer {
 		RequiredAcks: kafkago.RequireOne, // 更新消息可以接受较低的可靠性
 		Compression:  compression,
 		Async:        true, // 异步写入，提高吞吐
+	}
+
+	// 订单状态更新写入器 (如果配置了 topic)
+	if cfg.OrderUpdatesTopic != "" {
+		p.orderUpdatesWriter = &kafkago.Writer{
+			Addr:         kafkago.TCP(cfg.Brokers...),
+			Topic:        cfg.OrderUpdatesTopic,
+			Balancer:     &kafkago.Hash{},
+			BatchSize:    cfg.BatchSize,
+			BatchTimeout: cfg.BatchTimeout,
+			RequiredAcks: requiredAcks,
+			Compression:  compression,
+			Async:        false, // 同步写入，确保可靠性
+		}
 	}
 
 	return p
@@ -268,6 +284,32 @@ func (p *Producer) SendOrderBookUpdateMessage(ctx context.Context, msg *model.Or
 	return nil
 }
 
+// SendOrderRejected 发送订单被拒绝消息
+func (p *Producer) SendOrderRejected(ctx context.Context, msg *model.OrderRejectedMessage) error {
+	if p.orderUpdatesWriter == nil {
+		return nil // order-updates topic 未配置
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("marshal order rejected: %w", err)
+	}
+
+	kafkaMsg := kafkago.Message{
+		Key:   []byte(msg.Wallet), // 按钱包分区，保证同一用户消息有序
+		Value: data,
+		Time:  time.Now(),
+	}
+
+	if err := p.orderUpdatesWriter.WriteMessages(ctx, kafkaMsg); err != nil {
+		p.incrementErrors()
+		return fmt.Errorf("write order rejected: %w", err)
+	}
+
+	p.incrementSent()
+	return nil
+}
+
 // Close 关闭生产者
 func (p *Producer) Close() error {
 	var errs []error
@@ -280,6 +322,11 @@ func (p *Producer) Close() error {
 	}
 	if err := p.updatesWriter.Close(); err != nil {
 		errs = append(errs, err)
+	}
+	if p.orderUpdatesWriter != nil {
+		if err := p.orderUpdatesWriter.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {

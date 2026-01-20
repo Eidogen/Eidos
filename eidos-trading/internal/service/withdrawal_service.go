@@ -90,15 +90,21 @@ type CreateWithdrawalRequest struct {
 	Signature []byte          // EIP-712 签名
 }
 
+// WithdrawalPublisher 提现消息发布接口
+type WithdrawalPublisher interface {
+	PublishWithdrawalRequest(ctx context.Context, withdrawal *model.Withdrawal) error
+}
+
 // withdrawalService 提现服务实现
 type withdrawalService struct {
-	withdrawRepo repository.WithdrawalRepository
-	balanceRepo  repository.BalanceRepository
-	balanceCache cache.BalanceRedisRepository // Redis 作为实时资金真相
-	nonceRepo    repository.NonceRepository
-	idGenerator  IDGenerator
-	tokenConfig  TokenConfigProvider
-	asyncTasks   *AsyncTaskManager // 异步任务管理器
+	withdrawRepo         repository.WithdrawalRepository
+	balanceRepo          repository.BalanceRepository
+	balanceCache         cache.BalanceRedisRepository // Redis 作为实时资金真相
+	nonceRepo            repository.NonceRepository
+	idGenerator          IDGenerator
+	tokenConfig          TokenConfigProvider
+	withdrawalPublisher  WithdrawalPublisher // 提现消息发布者 (发送到 eidos-chain)
+	asyncTasks           *AsyncTaskManager   // 异步任务管理器
 }
 
 // NewWithdrawalService 创建提现服务
@@ -109,15 +115,17 @@ func NewWithdrawalService(
 	nonceRepo repository.NonceRepository,
 	idGenerator IDGenerator,
 	tokenConfig TokenConfigProvider,
+	withdrawalPublisher WithdrawalPublisher,
 ) WithdrawalService {
 	return &withdrawalService{
-		withdrawRepo: withdrawRepo,
-		balanceRepo:  balanceRepo,
-		balanceCache: balanceCache,
-		nonceRepo:    nonceRepo,
-		idGenerator:  idGenerator,
-		tokenConfig:  tokenConfig,
-		asyncTasks:   GetAsyncTaskManager(),
+		withdrawRepo:        withdrawRepo,
+		balanceRepo:         balanceRepo,
+		balanceCache:        balanceCache,
+		nonceRepo:           nonceRepo,
+		idGenerator:         idGenerator,
+		tokenConfig:         tokenConfig,
+		withdrawalPublisher: withdrawalPublisher,
+		asyncTasks:          GetAsyncTaskManager(),
 	}
 }
 
@@ -238,8 +246,31 @@ func (s *withdrawalService) ListWithdrawals(ctx context.Context, wallet string, 
 }
 
 // ApproveWithdrawal 审批通过提现
+// 风控审核通过后：更新状态为 Processing，并发送 Kafka 消息到 eidos-chain 执行链上提现
 func (s *withdrawalService) ApproveWithdrawal(ctx context.Context, withdrawID string) error {
-	return s.withdrawRepo.MarkProcessing(ctx, withdrawID)
+	// 1. 获取提现详情
+	withdrawal, err := s.withdrawRepo.GetByWithdrawID(ctx, withdrawID)
+	if err != nil {
+		return fmt.Errorf("get withdrawal: %w", err)
+	}
+
+	// 2. 更新状态为 Processing
+	if err := s.withdrawRepo.MarkProcessing(ctx, withdrawID); err != nil {
+		return fmt.Errorf("mark processing: %w", err)
+	}
+
+	// 3. 发送提现请求到 eidos-chain
+	if s.withdrawalPublisher != nil {
+		if err := s.withdrawalPublisher.PublishWithdrawalRequest(ctx, withdrawal); err != nil {
+			// 发送失败不影响审批结果，记录日志后继续
+			// eidos-jobs 定时任务会扫描 Processing 状态的提现并重新发送
+			logger.Warn("publish withdrawal request failed, will be retried by jobs",
+				zap.String("withdrawal_id", withdrawID),
+				zap.Error(err))
+		}
+	}
+
+	return nil
 }
 
 // RejectWithdrawal 拒绝提现

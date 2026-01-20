@@ -22,7 +22,7 @@ type Statistics struct {
 
 // TableName 表名
 func (Statistics) TableName() string {
-	return "eidos_jobs_statistics"
+	return "jobs_statistics"
 }
 
 // MetricNames 指标名称常量

@@ -63,7 +63,7 @@ type Trade struct {
 
 // TableName 返回表名
 func (Trade) TableName() string {
-	return "trades"
+	return "trading_trades"
 }
 
 // TakerSide 返回 Taker 方向 (与 Maker 相反)
@@ -95,5 +95,5 @@ type SettlementBatch struct {
 
 // TableName 返回表名
 func (SettlementBatch) TableName() string {
-	return "settlement_batches"
+	return "trading_settlement_batches"
 }

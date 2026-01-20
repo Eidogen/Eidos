@@ -6,7 +6,7 @@
 -- 结算批次表 (settlement_batches)
 -- 记录批量结算交易
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_settlement_batches (
+CREATE TABLE IF NOT EXISTS chain_settlement_batches (
     id              BIGSERIAL PRIMARY KEY,
     batch_id        VARCHAR(64) NOT NULL,
     trade_count     INT NOT NULL,
@@ -25,15 +25,15 @@ CREATE TABLE IF NOT EXISTS eidos_chain_settlement_batches (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_settlement_batches_batch_id ON eidos_chain_settlement_batches(batch_id);
-CREATE INDEX IF NOT EXISTS idx_settlement_batches_status ON eidos_chain_settlement_batches(status);
-CREATE INDEX IF NOT EXISTS idx_settlement_batches_created_at ON eidos_chain_settlement_batches(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_settlement_batches_batch_id ON chain_settlement_batches(batch_id);
+CREATE INDEX IF NOT EXISTS idx_settlement_batches_status ON chain_settlement_batches(status);
+CREATE INDEX IF NOT EXISTS idx_settlement_batches_created_at ON chain_settlement_batches(created_at);
 
 -- ============================================
 -- 提现交易表 (withdrawal_txs)
 -- 记录提现链上交易
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_withdrawal_txs (
+CREATE TABLE IF NOT EXISTS chain_withdrawal_txs (
     id              BIGSERIAL PRIMARY KEY,
     withdraw_id     VARCHAR(64) NOT NULL,
     wallet_address  VARCHAR(42) NOT NULL,
@@ -54,16 +54,16 @@ CREATE TABLE IF NOT EXISTS eidos_chain_withdrawal_txs (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_withdrawal_txs_withdraw_id ON eidos_chain_withdrawal_txs(withdraw_id);
-CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_wallet ON eidos_chain_withdrawal_txs(wallet_address);
-CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_status ON eidos_chain_withdrawal_txs(status);
-CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_created_at ON eidos_chain_withdrawal_txs(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_withdrawal_txs_withdraw_id ON chain_withdrawal_txs(withdraw_id);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_wallet ON chain_withdrawal_txs(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_status ON chain_withdrawal_txs(status);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_txs_created_at ON chain_withdrawal_txs(created_at);
 
 -- ============================================
 -- 充值记录表 (deposit_records)
 -- 按月分区，记录链上充值事件
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records (
+CREATE TABLE IF NOT EXISTS chain_deposit_records (
     id                      BIGSERIAL,
     deposit_id              VARCHAR(64) NOT NULL,
     wallet_address          VARCHAR(42) NOT NULL,
@@ -84,43 +84,43 @@ CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records (
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX IF NOT EXISTS idx_deposit_records_deposit_id ON eidos_chain_deposit_records(deposit_id);
-CREATE INDEX IF NOT EXISTS idx_deposit_records_tx_hash ON eidos_chain_deposit_records(tx_hash);
-CREATE INDEX IF NOT EXISTS idx_deposit_records_wallet ON eidos_chain_deposit_records(wallet_address, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_deposit_records_status ON eidos_chain_deposit_records(status) WHERE status < 2;
-CREATE INDEX IF NOT EXISTS idx_deposit_records_block ON eidos_chain_deposit_records(chain_id, block_number);
+CREATE INDEX IF NOT EXISTS idx_deposit_records_deposit_id ON chain_deposit_records(deposit_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_records_tx_hash ON chain_deposit_records(tx_hash);
+CREATE INDEX IF NOT EXISTS idx_deposit_records_wallet ON chain_deposit_records(wallet_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_deposit_records_status ON chain_deposit_records(status) WHERE status < 2;
+CREATE INDEX IF NOT EXISTS idx_deposit_records_block ON chain_deposit_records(chain_id, block_number);
 
 -- 创建 2025 年分区
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_01 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_01 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1735689600000) TO (1738368000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_02 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_02 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1738368000000) TO (1740787200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_03 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_03 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1740787200000) TO (1743465600000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_04 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_04 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1743465600000) TO (1746057600000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_05 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_05 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1746057600000) TO (1748736000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_06 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_06 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1748736000000) TO (1751328000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_07 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_07 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1751328000000) TO (1754006400000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_08 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_08 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1754006400000) TO (1756684800000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_09 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_09 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1756684800000) TO (1759276800000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_10 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_10 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1759276800000) TO (1761955200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_11 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_11 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1761955200000) TO (1764547200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_deposit_records_2025_12 PARTITION OF eidos_chain_deposit_records
+CREATE TABLE IF NOT EXISTS chain_deposit_records_2025_12 PARTITION OF chain_deposit_records
     FOR VALUES FROM (1764547200000) TO (1767225600000);
 
 -- ============================================
 -- 区块检查点表 (block_checkpoints)
 -- 记录索引器进度
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_block_checkpoints (
+CREATE TABLE IF NOT EXISTS chain_block_checkpoints (
     id              BIGSERIAL PRIMARY KEY,
     chain_id        INT NOT NULL,
     block_number    BIGINT NOT NULL,
@@ -130,13 +130,13 @@ CREATE TABLE IF NOT EXISTS eidos_chain_block_checkpoints (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_block_checkpoints_chain_id ON eidos_chain_block_checkpoints(chain_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_block_checkpoints_chain_id ON chain_block_checkpoints(chain_id);
 
 -- ============================================
 -- 链上事件表 (events)
 -- 按月分区，记录所有链上事件
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_events (
+CREATE TABLE IF NOT EXISTS chain_events (
     id              BIGSERIAL,
     chain_id        INT NOT NULL,
     block_number    BIGINT NOT NULL,
@@ -150,42 +150,42 @@ CREATE TABLE IF NOT EXISTS eidos_chain_events (
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX IF NOT EXISTS idx_events_block ON eidos_chain_events(chain_id, block_number);
-CREATE INDEX IF NOT EXISTS idx_events_type ON eidos_chain_events(event_type, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_events_tx ON eidos_chain_events(tx_hash);
-CREATE INDEX IF NOT EXISTS idx_events_unprocessed ON eidos_chain_events(processed) WHERE processed = FALSE;
+CREATE INDEX IF NOT EXISTS idx_events_block ON chain_events(chain_id, block_number);
+CREATE INDEX IF NOT EXISTS idx_events_type ON chain_events(event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_tx ON chain_events(tx_hash);
+CREATE INDEX IF NOT EXISTS idx_events_unprocessed ON chain_events(processed) WHERE processed = FALSE;
 
 -- 创建 2025 年分区
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_01 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_01 PARTITION OF chain_events
     FOR VALUES FROM (1735689600000) TO (1738368000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_02 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_02 PARTITION OF chain_events
     FOR VALUES FROM (1738368000000) TO (1740787200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_03 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_03 PARTITION OF chain_events
     FOR VALUES FROM (1740787200000) TO (1743465600000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_04 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_04 PARTITION OF chain_events
     FOR VALUES FROM (1743465600000) TO (1746057600000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_05 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_05 PARTITION OF chain_events
     FOR VALUES FROM (1746057600000) TO (1748736000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_06 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_06 PARTITION OF chain_events
     FOR VALUES FROM (1748736000000) TO (1751328000000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_07 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_07 PARTITION OF chain_events
     FOR VALUES FROM (1751328000000) TO (1754006400000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_08 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_08 PARTITION OF chain_events
     FOR VALUES FROM (1754006400000) TO (1756684800000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_09 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_09 PARTITION OF chain_events
     FOR VALUES FROM (1756684800000) TO (1759276800000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_10 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_10 PARTITION OF chain_events
     FOR VALUES FROM (1759276800000) TO (1761955200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_11 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_11 PARTITION OF chain_events
     FOR VALUES FROM (1761955200000) TO (1764547200000);
-CREATE TABLE IF NOT EXISTS eidos_chain_events_2025_12 PARTITION OF eidos_chain_events
+CREATE TABLE IF NOT EXISTS chain_events_2025_12 PARTITION OF chain_events
     FOR VALUES FROM (1764547200000) TO (1767225600000);
 
 -- ============================================
 -- 结算回滚审计表 (settlement_rollback_logs)
 -- 记录结算回滚操作
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_settlement_rollback_logs (
+CREATE TABLE IF NOT EXISTS chain_settlement_rollback_logs (
     id                  BIGSERIAL PRIMARY KEY,
     batch_id            VARCHAR(64) NOT NULL,
     trade_count         INT NOT NULL,
@@ -201,14 +201,14 @@ CREATE TABLE IF NOT EXISTS eidos_chain_settlement_rollback_logs (
     created_at          BIGINT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_rollback_logs_batch ON eidos_chain_settlement_rollback_logs(batch_id);
-CREATE INDEX IF NOT EXISTS idx_rollback_logs_time ON eidos_chain_settlement_rollback_logs(rollback_at);
+CREATE INDEX IF NOT EXISTS idx_rollback_logs_batch ON chain_settlement_rollback_logs(batch_id);
+CREATE INDEX IF NOT EXISTS idx_rollback_logs_time ON chain_settlement_rollback_logs(rollback_at);
 
 -- ============================================
 -- 对账记录表 (reconciliation_records)
 -- 记录链上链下对账结果
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_reconciliation_records (
+CREATE TABLE IF NOT EXISTS chain_reconciliation_records (
     id                  BIGSERIAL PRIMARY KEY,
     wallet_address      VARCHAR(42) NOT NULL,
     token               VARCHAR(20) NOT NULL,
@@ -226,15 +226,15 @@ CREATE TABLE IF NOT EXISTS eidos_chain_reconciliation_records (
     created_at          BIGINT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_reconciliation_wallet ON eidos_chain_reconciliation_records(wallet_address);
-CREATE INDEX IF NOT EXISTS idx_reconciliation_status ON eidos_chain_reconciliation_records(status);
-CREATE INDEX IF NOT EXISTS idx_reconciliation_checked ON eidos_chain_reconciliation_records(checked_at);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_wallet ON chain_reconciliation_records(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_status ON chain_reconciliation_records(status);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_checked ON chain_reconciliation_records(checked_at);
 
 -- ============================================
 -- 热钱包 Nonce 表 (wallet_nonces)
 -- 管理热钱包 nonce
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_wallet_nonces (
+CREATE TABLE IF NOT EXISTS chain_wallet_nonces (
     id              BIGSERIAL PRIMARY KEY,
     wallet_address  VARCHAR(42) NOT NULL,
     chain_id        INT NOT NULL,
@@ -244,13 +244,13 @@ CREATE TABLE IF NOT EXISTS eidos_chain_wallet_nonces (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_wallet_nonces_wallet_chain ON eidos_chain_wallet_nonces(wallet_address, chain_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_wallet_nonces_wallet_chain ON chain_wallet_nonces(wallet_address, chain_id);
 
 -- ============================================
 -- 待确认交易表 (pending_txs)
 -- 跟踪已提交但未确认的交易
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_pending_txs (
+CREATE TABLE IF NOT EXISTS chain_pending_txs (
     id              BIGSERIAL PRIMARY KEY,
     tx_hash         VARCHAR(66) NOT NULL,
     tx_type         VARCHAR(20) NOT NULL,                   -- settlement/withdrawal
@@ -267,15 +267,15 @@ CREATE TABLE IF NOT EXISTS eidos_chain_pending_txs (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_pending_txs_tx_hash ON eidos_chain_pending_txs(tx_hash);
-CREATE INDEX IF NOT EXISTS idx_pending_txs_status ON eidos_chain_pending_txs(status);
-CREATE INDEX IF NOT EXISTS idx_pending_txs_ref ON eidos_chain_pending_txs(tx_type, ref_id);
-CREATE INDEX IF NOT EXISTS idx_pending_txs_timeout ON eidos_chain_pending_txs(timeout_at) WHERE status = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_pending_txs_tx_hash ON chain_pending_txs(tx_hash);
+CREATE INDEX IF NOT EXISTS idx_pending_txs_status ON chain_pending_txs(status);
+CREATE INDEX IF NOT EXISTS idx_pending_txs_ref ON chain_pending_txs(tx_type, ref_id);
+CREATE INDEX IF NOT EXISTS idx_pending_txs_timeout ON chain_pending_txs(timeout_at) WHERE status = 0;
 
 -- ============================================
 -- RPC 节点健康状态表 (rpc_endpoints)
 -- ============================================
-CREATE TABLE IF NOT EXISTS eidos_chain_rpc_endpoints (
+CREATE TABLE IF NOT EXISTS chain_rpc_endpoints (
     id              BIGSERIAL PRIMARY KEY,
     chain_id        INT NOT NULL,
     endpoint_url    VARCHAR(255) NOT NULL,
@@ -288,19 +288,19 @@ CREATE TABLE IF NOT EXISTS eidos_chain_rpc_endpoints (
     updated_at      BIGINT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_rpc_endpoints_chain_url ON eidos_chain_rpc_endpoints(chain_id, endpoint_url);
-CREATE INDEX IF NOT EXISTS idx_rpc_endpoints_healthy ON eidos_chain_rpc_endpoints(chain_id, is_healthy);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_rpc_endpoints_chain_url ON chain_rpc_endpoints(chain_id, endpoint_url);
+CREATE INDEX IF NOT EXISTS idx_rpc_endpoints_healthy ON chain_rpc_endpoints(chain_id, is_healthy);
 
 -- ============================================
 -- 注释说明
 -- ============================================
-COMMENT ON TABLE eidos_chain_settlement_batches IS '结算批次表 - 记录批量链上结算';
-COMMENT ON TABLE eidos_chain_withdrawal_txs IS '提现交易表 - 记录链上提现交易';
-COMMENT ON TABLE eidos_chain_deposit_records IS '充值记录表 - 按月分区，记录链上充值事件';
-COMMENT ON TABLE eidos_chain_block_checkpoints IS '区块检查点表 - 记录索引器扫描进度';
-COMMENT ON TABLE eidos_chain_events IS '链上事件表 - 按月分区，记录所有解析的链上事件';
-COMMENT ON TABLE eidos_chain_settlement_rollback_logs IS '结算回滚审计表 - 记录回滚操作用于审计';
-COMMENT ON TABLE eidos_chain_reconciliation_records IS '对账记录表 - 链上链下余额对账';
-COMMENT ON TABLE eidos_chain_wallet_nonces IS '热钱包 Nonce 表 - 管理交易 nonce';
-COMMENT ON TABLE eidos_chain_pending_txs IS '待确认交易表 - 跟踪已提交未确认的交易';
-COMMENT ON TABLE eidos_chain_rpc_endpoints IS 'RPC 节点表 - 管理 RPC 端点健康状态';
+COMMENT ON TABLE chain_settlement_batches IS '结算批次表 - 记录批量链上结算';
+COMMENT ON TABLE chain_withdrawal_txs IS '提现交易表 - 记录链上提现交易';
+COMMENT ON TABLE chain_deposit_records IS '充值记录表 - 按月分区，记录链上充值事件';
+COMMENT ON TABLE chain_block_checkpoints IS '区块检查点表 - 记录索引器扫描进度';
+COMMENT ON TABLE chain_events IS '链上事件表 - 按月分区，记录所有解析的链上事件';
+COMMENT ON TABLE chain_settlement_rollback_logs IS '结算回滚审计表 - 记录回滚操作用于审计';
+COMMENT ON TABLE chain_reconciliation_records IS '对账记录表 - 链上链下余额对账';
+COMMENT ON TABLE chain_wallet_nonces IS '热钱包 Nonce 表 - 管理交易 nonce';
+COMMENT ON TABLE chain_pending_txs IS '待确认交易表 - 跟踪已提交未确认的交易';
+COMMENT ON TABLE chain_rpc_endpoints IS 'RPC 节点表 - 管理 RPC 端点健康状态';

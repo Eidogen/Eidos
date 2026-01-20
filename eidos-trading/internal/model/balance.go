@@ -23,7 +23,7 @@ type Balance struct {
 
 // TableName 返回表名
 func (Balance) TableName() string {
-	return "balances"
+	return "trading_balances"
 }
 
 // TotalAvailable 返回总可用余额 (交易可用)
@@ -114,7 +114,7 @@ type BalanceLog struct {
 
 // TableName 返回表名
 func (BalanceLog) TableName() string {
-	return "balance_logs"
+	return "trading_balance_logs"
 }
 
 // FeeAccount 手续费账户 (分桶)
@@ -130,5 +130,5 @@ type FeeAccount struct {
 
 // TableName 返回表名
 func (FeeAccount) TableName() string {
-	return "fee_accounts"
+	return "trading_fee_accounts"
 }

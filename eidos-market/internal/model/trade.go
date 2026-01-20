@@ -39,7 +39,7 @@ type Trade struct {
 
 // TableName GORM表名
 func (Trade) TableName() string {
-	return "eidos_market_trades"
+	return "market_trades"
 }
 
 // Clone 克隆成交记录

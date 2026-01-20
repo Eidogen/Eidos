@@ -45,7 +45,7 @@ type BlacklistEntry struct {
 
 // TableName 返回表名
 func (BlacklistEntry) TableName() string {
-	return "eidos_risk_blacklist"
+	return "risk_blacklist"
 }
 
 // IsActive 检查是否活跃

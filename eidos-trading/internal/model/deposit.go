@@ -50,7 +50,7 @@ type Deposit struct {
 
 // TableName 返回表名
 func (Deposit) TableName() string {
-	return "deposits"
+	return "trading_deposits"
 }
 
 // GetIdempotencyKey 获取幂等键

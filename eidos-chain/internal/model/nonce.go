@@ -13,7 +13,7 @@ type WalletNonce struct {
 
 // TableName 返回表名
 func (WalletNonce) TableName() string {
-	return "eidos_chain_wallet_nonces"
+	return "chain_wallet_nonces"
 }
 
 // PendingTxStatus 待确认交易状态
@@ -69,5 +69,5 @@ type PendingTx struct {
 
 // TableName 返回表名
 func (PendingTx) TableName() string {
-	return "eidos_chain_pending_txs"
+	return "chain_pending_txs"
 }

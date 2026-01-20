@@ -134,7 +134,7 @@ type Order struct {
 
 // TableName 返回表名
 func (Order) TableName() string {
-	return "orders"
+	return "trading_orders"
 }
 
 // CanTransitionTo 检查状态转换是否合法

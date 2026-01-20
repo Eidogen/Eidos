@@ -65,7 +65,7 @@ type Kline struct {
 
 // TableName GORM表名
 func (Kline) TableName() string {
-	return "eidos_market_klines"
+	return "market_klines"
 }
 
 // IsEmpty 检查K线是否为空（无成交）

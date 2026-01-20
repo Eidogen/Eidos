@@ -37,5 +37,5 @@ type MarketConfig struct {
 
 // TableName 表名
 func (MarketConfig) TableName() string {
-	return "eidos_admin_market_configs"
+	return "admin_market_configs"
 }

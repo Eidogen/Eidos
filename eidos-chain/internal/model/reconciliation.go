@@ -33,7 +33,7 @@ type ReconciliationRecord struct {
 
 // TableName 返回表名
 func (ReconciliationRecord) TableName() string {
-	return "eidos_chain_reconciliation_records"
+	return "chain_reconciliation_records"
 }
 
 // HasDiscrepancy 是否有差异

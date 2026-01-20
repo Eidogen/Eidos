@@ -49,6 +49,12 @@ func main() {
 		logger.Fatal("failed to init database", zap.Error(err))
 	}
 
+	// 自动迁移
+	if err := app.AutoMigrate(db); err != nil {
+		logger.Fatal("failed to auto migrate", zap.Error(err))
+	}
+	logger.Info("database migrated")
+
 	// 初始化 Redis
 	redisClient, err := initRedis(cfg)
 	if err != nil {

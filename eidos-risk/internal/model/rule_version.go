@@ -26,5 +26,5 @@ type RiskRuleVersion struct {
 
 // TableName 返回表名
 func (RiskRuleVersion) TableName() string {
-	return "eidos_risk_rule_versions"
+	return "risk_rule_versions"
 }

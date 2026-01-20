@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,9 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var (
@@ -52,26 +48,9 @@ func main() {
 		logger.Fatal("create app", zap.Error(err))
 	}
 
-	// 启动 gRPC 服务器
-	grpcServer := grpc.NewServer()
-
-	// 注册健康检查
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
-	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-
-	// 启动 gRPC 监听
-	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Service.GRPCPort))
-	if err != nil {
-		logger.Fatal("listen grpc", zap.Error(err))
-	}
-
-	go func() {
-		logger.Info("gRPC server listening", zap.Int("port", cfg.Service.GRPCPort))
-		if err := grpcServer.Serve(grpcLis); err != nil {
-			logger.Error("grpc serve", zap.Error(err))
-		}
-	}()
+	// 注意: gRPC 服务器在 app.Start() 中启动，包含:
+	// - MatchingService 注册 (GetOrderbook, GetDepth, HealthCheck)
+	// - gRPC 监听在 cfg.Service.GRPCPort
 
 	// 启动 HTTP 服务器 (健康检查 + Metrics)
 	httpMux := http.NewServeMux()
@@ -108,13 +87,11 @@ func main() {
 		}
 	}()
 
-	// 启动应用
+	// 启动应用 (包含 gRPC 服务器启动和健康状态设置)
 	if err := application.Start(); err != nil {
 		logger.Fatal("start app", zap.Error(err))
 	}
 
-	// 标记服务就绪
-	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
 	logger.Info("service ready",
 		zap.String("service", cfg.Service.Name),
 		zap.Int("grpc_port", cfg.Service.GRPCPort),
@@ -137,10 +114,7 @@ func main() {
 	// 优雅关闭
 	logger.Info("shutting down...")
 
-	// 标记服务不可用
-	healthServer.SetServingStatus(cfg.Service.Name, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-
-	// 停止应用
+	// 停止应用 (包含 gRPC 服务器关闭)
 	if err := application.Stop(); err != nil {
 		logger.Error("stop app", zap.Error(err))
 	}
@@ -151,9 +125,6 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("shutdown http", zap.Error(err))
 	}
-
-	// 停止 gRPC 服务器
-	grpcServer.GracefulStop()
 
 	logger.Info("service stopped")
 }

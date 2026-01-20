@@ -32,15 +32,21 @@ type ClearingService interface {
 
 // clearingService 清算服务实现
 type clearingService struct {
-	db               *gorm.DB
-	tradeRepo        repository.TradeRepository
-	orderRepo        repository.OrderRepository
-	balanceRepo      repository.BalanceRepository
-	balanceCache     cache.BalanceRedisRepository // Redis 作为实时资金真相
-	marketProvider   MarketConfigProvider
-	orderPublisher   OrderPublisher   // 订单状态发布者
-	balancePublisher BalancePublisher // 余额变更发布者
-	asyncTasks       *AsyncTaskManager // 异步任务管理器
+	db                   *gorm.DB
+	tradeRepo            repository.TradeRepository
+	orderRepo            repository.OrderRepository
+	balanceRepo          repository.BalanceRepository
+	balanceCache         cache.BalanceRedisRepository // Redis 作为实时资金真相
+	marketProvider       MarketConfigProvider
+	orderPublisher       OrderPublisher       // 订单状态发布者
+	balancePublisher     BalancePublisher     // 余额变更发布者
+	settlementPublisher  SettlementPublisher  // 结算消息发布者 (发送到 eidos-chain)
+	asyncTasks           *AsyncTaskManager    // 异步任务管理器
+}
+
+// SettlementPublisher 结算消息发布接口
+type SettlementPublisher interface {
+	PublishSettlementTradeFromResult(ctx context.Context, tradeID, market, makerWallet, takerWallet, makerOrderID, takerOrderID string, price, amount, quoteAmount, makerFee, takerFee decimal.Decimal, makerIsBuyer bool, matchedAt int64) error
 }
 
 // NewClearingService 创建清算服务
@@ -53,17 +59,19 @@ func NewClearingService(
 	marketProvider MarketConfigProvider,
 	orderPublisher OrderPublisher,
 	balancePublisher BalancePublisher,
+	settlementPublisher SettlementPublisher,
 ) ClearingService {
 	return &clearingService{
-		db:               db,
-		tradeRepo:        tradeRepo,
-		orderRepo:        orderRepo,
-		balanceRepo:      balanceRepo,
-		balanceCache:     balanceCache,
-		marketProvider:   marketProvider,
-		orderPublisher:   orderPublisher,
-		balancePublisher: balancePublisher,
-		asyncTasks:       GetAsyncTaskManager(),
+		db:                  db,
+		tradeRepo:           tradeRepo,
+		orderRepo:           orderRepo,
+		balanceRepo:         balanceRepo,
+		balanceCache:        balanceCache,
+		marketProvider:      marketProvider,
+		orderPublisher:      orderPublisher,
+		balancePublisher:    balancePublisher,
+		settlementPublisher: settlementPublisher,
+		asyncTasks:          GetAsyncTaskManager(),
 	}
 }
 
@@ -160,6 +168,32 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 
 	// 6. 发布订单和余额变更消息
 	s.publishTradeUpdates(ctx, msg, marketCfg)
+
+	// 7. 发送结算消息到 eidos-chain (异步上链结算)
+	if s.settlementPublisher != nil {
+		if err := s.settlementPublisher.PublishSettlementTradeFromResult(
+			ctx,
+			msg.TradeID,
+			msg.Market,
+			msg.Maker,
+			msg.Taker,
+			msg.MakerOrderID,
+			msg.TakerOrderID,
+			price,
+			size,
+			quoteAmount,
+			makerFee,
+			takerFee,
+			msg.MakerIsBuyer,
+			msg.Timestamp,
+		); err != nil {
+			// 结算消息发送失败不影响清算结果，记录错误后继续
+			// eidos-jobs 定时任务会扫描未结算的成交并重新发送
+			logger.Warn("publish settlement trade failed, will be retried by jobs",
+				zap.String("trade_id", msg.TradeID),
+				zap.Error(err))
+		}
+	}
 
 	return nil
 }

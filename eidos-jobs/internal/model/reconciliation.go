@@ -43,7 +43,7 @@ type ReconciliationRecord struct {
 
 // TableName 表名
 func (ReconciliationRecord) TableName() string {
-	return "eidos_jobs_reconciliation_records"
+	return "jobs_reconciliation_records"
 }
 
 // ReconciliationCheckpoint 对账检查点
@@ -57,7 +57,7 @@ type ReconciliationCheckpoint struct {
 
 // TableName 表名
 func (ReconciliationCheckpoint) TableName() string {
-	return "eidos_jobs_reconciliation_checkpoints"
+	return "jobs_reconciliation_checkpoints"
 }
 
 // DiffThreshold 差异阈值 (USDC)

@@ -40,7 +40,7 @@ type Admin struct {
 
 // TableName 表名
 func (Admin) TableName() string {
-	return "eidos_admin_admins"
+	return "admin_admins"
 }
 
 // Permission 权限常量

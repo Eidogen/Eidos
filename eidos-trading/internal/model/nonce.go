@@ -38,7 +38,7 @@ type UsedNonce struct {
 
 // TableName 返回表名
 func (UsedNonce) TableName() string {
-	return "used_nonces"
+	return "trading_used_nonces"
 }
 
 // GetRedisKey 获取 Redis 缓存键

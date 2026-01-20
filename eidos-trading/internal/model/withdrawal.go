@@ -72,7 +72,7 @@ type Withdrawal struct {
 
 // TableName 返回表名
 func (Withdrawal) TableName() string {
-	return "withdrawals"
+	return "trading_withdrawals"
 }
 
 // GetIdempotencyKey 获取幂等键

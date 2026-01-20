@@ -74,15 +74,16 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	jobsv1 "github.com/eidos-exchange/eidos/proto/jobs/v1"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-jobs/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/jobs"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
+	jobsv1 "github.com/eidos-exchange/eidos/proto/jobs/v1"
 )
 
 // App 定时任务服务应用
@@ -98,10 +99,16 @@ type App struct {
 	scheduler *scheduler.Scheduler
 
 	// 仓储层
-	execRepo   *repository.ExecutionRepository
-	statsRepo  *repository.StatisticsRepository
-	reconRepo  *repository.ReconciliationRepository
+	execRepo    *repository.ExecutionRepository
+	statsRepo   *repository.StatisticsRepository
+	reconRepo   *repository.ReconciliationRepository
 	archiveRepo *repository.ArchiveRepository
+
+	// gRPC 客户端
+	tradingClient  *client.TradingClient
+	matchingClient *client.MatchingClient
+	marketClient   *client.MarketClient
+	chainClient    *client.ChainClient
 
 	// 上下文
 	ctx    context.Context
@@ -133,16 +140,19 @@ func (a *App) Run() error {
 	// 3. 初始化仓储层
 	a.initRepositories()
 
-	// 4. 初始化调度器
+	// 4. 初始化 gRPC 客户端 (可选，失败不阻止启动)
+	a.initClients()
+
+	// 5. 初始化调度器
 	a.initScheduler()
 
-	// 5. 注册任务
+	// 6. 注册任务
 	a.registerJobs()
 
-	// 6. 启动调度器
+	// 7. 启动调度器
 	a.scheduler.Start()
 
-	// 7. 启动 gRPC 服务
+	// 8. 启动 gRPC 服务
 	if err := a.startGRPC(); err != nil {
 		return fmt.Errorf("failed to start gRPC: %w", err)
 	}
@@ -162,6 +172,20 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// 停止调度器
 	if a.scheduler != nil {
 		a.scheduler.Stop()
+	}
+
+	// 关闭 gRPC 客户端
+	if a.tradingClient != nil {
+		a.tradingClient.Close()
+	}
+	if a.matchingClient != nil {
+		a.matchingClient.Close()
+	}
+	if a.marketClient != nil {
+		a.marketClient.Close()
+	}
+	if a.chainClient != nil {
+		a.chainClient.Close()
 	}
 
 	// 关闭 Redis
@@ -216,6 +240,12 @@ func (a *App) initDB() error {
 		zap.String("host", a.cfg.Postgres.Host),
 		zap.String("database", a.cfg.Postgres.Database))
 
+	// 自动迁移
+	if err := AutoMigrate(a.db); err != nil {
+		return fmt.Errorf("auto migrate: %w", err)
+	}
+	logger.Info("database migrated")
+
 	return nil
 }
 
@@ -250,6 +280,54 @@ func (a *App) initRepositories() {
 	a.archiveRepo = repository.NewArchiveRepository(a.db)
 
 	logger.Info("repositories initialized")
+}
+
+// initClients 初始化 gRPC 客户端
+// 客户端初始化失败不阻止服务启动，任务会使用 Mock 实现
+func (a *App) initClients() {
+	var err error
+
+	// Trading 客户端
+	if a.cfg.GRPCClients.Trading != "" {
+		a.tradingClient, err = client.NewTradingClient(a.cfg.GRPCClients.Trading)
+		if err != nil {
+			logger.Warn("failed to connect to trading service, using mock",
+				zap.String("addr", a.cfg.GRPCClients.Trading),
+				zap.Error(err))
+		}
+	}
+
+	// Matching 客户端
+	if a.cfg.GRPCClients.Matching != "" {
+		a.matchingClient, err = client.NewMatchingClient(a.cfg.GRPCClients.Matching, nil) // TODO: pass Kafka producer
+		if err != nil {
+			logger.Warn("failed to connect to matching service, using mock",
+				zap.String("addr", a.cfg.GRPCClients.Matching),
+				zap.Error(err))
+		}
+	}
+
+	// Market 客户端
+	if a.cfg.GRPCClients.Market != "" {
+		a.marketClient, err = client.NewMarketClient(a.cfg.GRPCClients.Market)
+		if err != nil {
+			logger.Warn("failed to connect to market service, using mock",
+				zap.String("addr", a.cfg.GRPCClients.Market),
+				zap.Error(err))
+		}
+	}
+
+	// Chain 客户端
+	if a.cfg.GRPCClients.Chain != "" {
+		a.chainClient, err = client.NewChainClient(a.cfg.GRPCClients.Chain)
+		if err != nil {
+			logger.Warn("failed to connect to chain service, using mock",
+				zap.String("addr", a.cfg.GRPCClients.Chain),
+				zap.Error(err))
+		}
+	}
+
+	logger.Info("gRPC clients initialized")
 }
 
 // initScheduler 初始化调度器
@@ -288,10 +366,15 @@ func (a *App) registerJobs() {
 
 	// 2. 清理过期订单任务
 	if a.cfg.Jobs.CleanupOrders.Enabled {
-		cleanupJob := jobs.NewCleanupOrdersJob(
-			&jobs.MockTradingClient{},  // TODO: 替换为实际的 gRPC 客户端
-			&jobs.MockMatchingClient{}, // TODO: 替换为实际的 gRPC 客户端
-		)
+		var tradingClient jobs.TradingClient = &jobs.MockTradingClient{}
+		var matchingClient jobs.MatchingClient = &jobs.MockMatchingClient{}
+		if a.tradingClient != nil {
+			tradingClient = a.tradingClient
+		}
+		if a.matchingClient != nil {
+			matchingClient = a.matchingClient
+		}
+		cleanupJob := jobs.NewCleanupOrdersJob(tradingClient, matchingClient)
 		a.scheduler.RegisterJob(cleanupJob, scheduler.JobConfig{
 			Cron:    a.getJobCron(scheduler.JobNameCleanupOrders, a.cfg.Jobs.CleanupOrders.Cron),
 			Enabled: true,
@@ -300,10 +383,11 @@ func (a *App) registerJobs() {
 
 	// 3. 统计汇总任务
 	if a.cfg.Jobs.StatsAgg.Enabled {
-		statsJob := jobs.NewStatsAggJob(
-			a.statsRepo,
-			&jobs.MockStatsDataProvider{}, // TODO: 替换为实际的 gRPC 客户端
-		)
+		var statsProvider jobs.StatsDataProvider = &jobs.MockStatsDataProvider{}
+		if a.tradingClient != nil {
+			statsProvider = client.NewStatsDataProvider(a.tradingClient)
+		}
+		statsJob := jobs.NewStatsAggJob(a.statsRepo, statsProvider)
 		a.scheduler.RegisterJob(statsJob, scheduler.JobConfig{
 			Cron:    a.getJobCron(scheduler.JobNameStatsAgg, a.cfg.Jobs.StatsAgg.Cron),
 			Enabled: true,
@@ -312,9 +396,11 @@ func (a *App) registerJobs() {
 
 	// 4. K线聚合任务
 	if a.cfg.Jobs.KlineAgg.Enabled {
-		klineJob := jobs.NewKlineAggJob(
-			&jobs.MockKlineDataProvider{}, // TODO: 替换为实际的 gRPC 客户端
-		)
+		var klineProvider jobs.KlineDataProvider = &jobs.MockKlineDataProvider{}
+		if a.marketClient != nil {
+			klineProvider = a.marketClient
+		}
+		klineJob := jobs.NewKlineAggJob(klineProvider)
 		a.scheduler.RegisterJob(klineJob, scheduler.JobConfig{
 			Cron:    a.getJobCron(scheduler.JobNameKlineAgg, a.cfg.Jobs.KlineAgg.Cron),
 			Enabled: true,
@@ -323,10 +409,11 @@ func (a *App) registerJobs() {
 
 	// 5. 对账任务
 	if a.cfg.Jobs.Reconciliation.Enabled {
-		reconJob := jobs.NewReconciliationJob(
-			a.reconRepo,
-			&jobs.MockReconciliationDataProvider{}, // TODO: 替换为实际的 gRPC 客户端
-		)
+		var reconProvider jobs.ReconciliationDataProvider = &jobs.MockReconciliationDataProvider{}
+		if a.chainClient != nil && a.tradingClient != nil {
+			reconProvider = client.NewReconciliationDataProvider(a.chainClient, a.tradingClient)
+		}
+		reconJob := jobs.NewReconciliationJob(a.reconRepo, reconProvider)
 		a.scheduler.RegisterJob(reconJob, scheduler.JobConfig{
 			Cron:    a.getJobCron(scheduler.JobNameReconciliation, a.cfg.Jobs.Reconciliation.Cron),
 			Enabled: true,

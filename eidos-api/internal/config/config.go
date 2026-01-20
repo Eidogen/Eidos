@@ -182,6 +182,7 @@ func defaultConfig() *Config {
 		GRPCClients: GRPCClientsConfig{
 			Trading: "localhost:50051",
 			Market:  "localhost:50053",
+			Risk:    "localhost:50055",
 		},
 		EIP712: EIP712Config{
 			Domain: EIP712DomainConfig{

@@ -218,6 +218,12 @@ func (a *App) initDB() error {
 		zap.String("host", a.cfg.Postgres.Host),
 		zap.String("database", a.cfg.Postgres.Database))
 
+	// 自动迁移
+	if err := AutoMigrate(a.db); err != nil {
+		return fmt.Errorf("auto migrate: %w", err)
+	}
+	logger.Info("database migrated")
+
 	return nil
 }
 

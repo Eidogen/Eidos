@@ -58,7 +58,7 @@ type SettlementBatch struct {
 
 // TableName 返回表名
 func (SettlementBatch) TableName() string {
-	return "eidos_chain_settlement_batches"
+	return "chain_settlement_batches"
 }
 
 // GetTradeIDList 解析 TradeIDs 为字符串数组
@@ -100,7 +100,7 @@ type SettlementRollbackLog struct {
 
 // TableName 返回表名
 func (SettlementRollbackLog) TableName() string {
-	return "eidos_chain_settlement_rollback_logs"
+	return "chain_settlement_rollback_logs"
 }
 
 // SettlementTrade 待结算的成交信息 (从 Kafka 消费)

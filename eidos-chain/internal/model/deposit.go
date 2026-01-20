@@ -47,7 +47,7 @@ type DepositRecord struct {
 
 // TableName 返回表名
 func (DepositRecord) TableName() string {
-	return "eidos_chain_deposit_records"
+	return "chain_deposit_records"
 }
 
 // DepositEvent 充值事件 (发送到 Kafka)

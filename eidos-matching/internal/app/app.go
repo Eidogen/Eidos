@@ -226,6 +226,7 @@ func (a *App) initKafka() error {
 		TradeResultsTopic:     "trade-results",
 		OrderCancelledTopic:   "order-cancelled",
 		OrderbookUpdatesTopic: "orderbook-updates",
+		OrderUpdatesTopic:     "order-updates", // 订单状态更新 (用于风控拒绝等)
 		BatchSize:             a.cfg.Kafka.Producer.BatchSize,
 		BatchTimeout:          time.Duration(a.cfg.Kafka.Producer.BatchTimeout) * time.Millisecond,
 		Compression:           a.cfg.Kafka.Producer.Compression,
@@ -523,7 +524,25 @@ func (a *App) handleOrder(ctx context.Context, order *model.Order) error {
 				zap.String("order_id", order.OrderID),
 				zap.String("wallet", order.Wallet),
 				zap.String("reason", rejectReason))
-			// TODO: 发送 order-rejected 消息到 Kafka
+
+			// 发送 order-rejected 消息到 Kafka
+			rejectedMsg := &model.OrderRejectedMessage{
+				OrderID:      order.OrderID,
+				Wallet:       order.Wallet,
+				Market:       order.Market,
+				Side:         int8(order.Side),
+				OrderType:    int8(order.Type),
+				Price:        order.Price.String(),
+				Amount:       order.Amount.String(),
+				Status:       "rejected",
+				RejectReason: rejectReason,
+				Timestamp:    time.Now().UnixMilli(),
+			}
+			if err := a.producer.SendOrderRejected(ctx, rejectedMsg); err != nil {
+				zap.L().Error("send order rejected message failed",
+					zap.String("order_id", order.OrderID),
+					zap.Error(err))
+			}
 			return nil
 		}
 	}

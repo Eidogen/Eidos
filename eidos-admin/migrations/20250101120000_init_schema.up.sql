@@ -1,5 +1,5 @@
 -- 管理员表
-CREATE TABLE IF NOT EXISTS admins (
+CREATE TABLE IF NOT EXISTS admin_admins (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(64) NOT NULL UNIQUE,
     password_hash VARCHAR(256) NOT NULL,
@@ -15,17 +15,17 @@ CREATE TABLE IF NOT EXISTS admins (
     updated_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_admins_username ON admins(username);
-CREATE INDEX idx_admins_role ON admins(role);
-CREATE INDEX idx_admins_status ON admins(status);
+CREATE INDEX idx_admin_admins_username ON admin_admins(username);
+CREATE INDEX idx_admin_admins_role ON admin_admins(role);
+CREATE INDEX idx_admin_admins_status ON admin_admins(status);
 
 -- 插入默认超级管理员 (密码: admin123)
-INSERT INTO admins (username, password_hash, role, status, created_at, updated_at)
+INSERT INTO admin_admins (username, password_hash, role, status, created_at, updated_at)
 VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'super_admin', 'active',
         (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT);
 
 -- 市场配置表
-CREATE TABLE IF NOT EXISTS market_configs (
+CREATE TABLE IF NOT EXISTS admin_market_configs (
     id BIGSERIAL PRIMARY KEY,
     symbol VARCHAR(32) NOT NULL UNIQUE,
     base_asset VARCHAR(16) NOT NULL,
@@ -45,13 +45,13 @@ CREATE TABLE IF NOT EXISTS market_configs (
     updated_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_market_configs_symbol ON market_configs(symbol);
-CREATE INDEX idx_market_configs_status ON market_configs(status);
-CREATE INDEX idx_market_configs_base_asset ON market_configs(base_asset);
-CREATE INDEX idx_market_configs_quote_asset ON market_configs(quote_asset);
+CREATE INDEX idx_admin_market_configs_symbol ON admin_market_configs(symbol);
+CREATE INDEX idx_admin_market_configs_status ON admin_market_configs(status);
+CREATE INDEX idx_admin_market_configs_base_asset ON admin_market_configs(base_asset);
+CREATE INDEX idx_admin_market_configs_quote_asset ON admin_market_configs(quote_asset);
 
 -- 系统配置表
-CREATE TABLE IF NOT EXISTS system_configs (
+CREATE TABLE IF NOT EXISTS admin_system_configs (
     id BIGSERIAL PRIMARY KEY,
     config_key VARCHAR(128) NOT NULL UNIQUE,
     config_value TEXT NOT NULL,
@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS system_configs (
     updated_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_system_configs_key ON system_configs(config_key);
-CREATE INDEX idx_system_configs_category ON system_configs(category);
+CREATE INDEX idx_admin_system_configs_key ON admin_system_configs(config_key);
+CREATE INDEX idx_admin_system_configs_category ON admin_system_configs(category);
 
 -- 配置版本表
-CREATE TABLE IF NOT EXISTS config_versions (
+CREATE TABLE IF NOT EXISTS admin_config_versions (
     id BIGSERIAL PRIMARY KEY,
     version BIGINT NOT NULL UNIQUE,
     change_type VARCHAR(32) NOT NULL,
@@ -78,14 +78,14 @@ CREATE TABLE IF NOT EXISTS config_versions (
     changed_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_config_versions_version ON config_versions(version);
+CREATE INDEX idx_admin_config_versions_version ON admin_config_versions(version);
 
 -- 初始化配置版本
-INSERT INTO config_versions (version, change_type, change_detail, changed_by, changed_at)
+INSERT INTO admin_config_versions (version, change_type, change_detail, changed_by, changed_at)
 VALUES (1, 'init', 'Initial configuration version', 1, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT);
 
 -- 审计日志表
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
     id BIGSERIAL PRIMARY KEY,
     admin_id BIGINT NOT NULL,
     admin_username VARCHAR(64) NOT NULL,
@@ -100,14 +100,14 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_audit_logs_admin_id ON audit_logs(admin_id);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_resource_type ON audit_logs(resource_type);
-CREATE INDEX idx_audit_logs_resource_id ON audit_logs(resource_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_admin_audit_logs_admin_id ON admin_audit_logs(admin_id);
+CREATE INDEX idx_admin_audit_logs_action ON admin_audit_logs(action);
+CREATE INDEX idx_admin_audit_logs_resource_type ON admin_audit_logs(resource_type);
+CREATE INDEX idx_admin_audit_logs_resource_id ON admin_audit_logs(resource_id);
+CREATE INDEX idx_admin_audit_logs_created_at ON admin_audit_logs(created_at);
 
 -- 每日统计表
-CREATE TABLE IF NOT EXISTS daily_stats (
+CREATE TABLE IF NOT EXISTS admin_daily_stats (
     id BIGSERIAL PRIMARY KEY,
     stats_date VARCHAR(10) NOT NULL UNIQUE,
     total_users BIGINT NOT NULL DEFAULT 0,
@@ -123,12 +123,12 @@ CREATE TABLE IF NOT EXISTS daily_stats (
     updated_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
-CREATE INDEX idx_daily_stats_date ON daily_stats(stats_date);
+CREATE INDEX idx_admin_daily_stats_date ON admin_daily_stats(stats_date);
 
 -- 添加注释
-COMMENT ON TABLE admins IS '管理员表';
-COMMENT ON TABLE market_configs IS '市场/交易对配置表';
-COMMENT ON TABLE system_configs IS '系统配置表';
-COMMENT ON TABLE config_versions IS '配置版本表';
-COMMENT ON TABLE audit_logs IS '审计日志表';
-COMMENT ON TABLE daily_stats IS '每日统计表';
+COMMENT ON TABLE admin_admins IS '管理员表';
+COMMENT ON TABLE admin_market_configs IS '市场/交易对配置表';
+COMMENT ON TABLE admin_system_configs IS '系统配置表';
+COMMENT ON TABLE admin_config_versions IS '配置版本表';
+COMMENT ON TABLE admin_audit_logs IS '审计日志表';
+COMMENT ON TABLE admin_daily_stats IS '每日统计表';

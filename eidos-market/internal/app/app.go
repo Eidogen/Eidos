@@ -24,6 +24,7 @@ import (
 	marketv1 "github.com/eidos-exchange/eidos/proto/market/v1"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/aggregator"
+	"github.com/eidos-exchange/eidos/eidos-market/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/handler"
@@ -40,10 +41,11 @@ type App struct {
 	logger *zap.Logger
 
 	// 基础设施
-	db          *gorm.DB
-	redisClient redis.UniversalClient
-	consumer    *kafka.Consumer
-	nacosHelper *nacos.ServiceHelper
+	db             *gorm.DB
+	redisClient    redis.UniversalClient
+	consumer       *kafka.Consumer
+	nacosHelper    *nacos.ServiceHelper
+	matchingClient *client.MatchingClient
 
 	// 缓存和发布
 	redisCache *cache.RedisCache
@@ -158,6 +160,12 @@ func (a *App) initInfrastructure(ctx context.Context) error {
 	a.db = db
 	a.logger.Info("postgres connected")
 
+	// 自动迁移
+	if err := AutoMigrate(a.db, a.logger); err != nil {
+		return fmt.Errorf("auto migrate: %w", err)
+	}
+	a.logger.Info("database migrated")
+
 	// 初始化 Redis
 	if len(a.cfg.Redis.Addresses) == 1 {
 		a.redisClient = redis.NewClient(&redis.Options{
@@ -190,6 +198,15 @@ func (a *App) initInfrastructure(ctx context.Context) error {
 	}
 	a.consumer = consumer
 	a.logger.Info("kafka consumer created")
+
+	// 初始化 Matching 客户端（用于深度快照恢复）
+	if a.cfg.Matching.Enabled {
+		if err := a.initMatchingClient(); err != nil {
+			// 非致命错误，记录警告继续运行（深度数据将只能通过增量更新维护）
+			a.logger.Warn("failed to init matching client, depth snapshot recovery disabled",
+				zap.Error(err))
+		}
+	}
 
 	return nil
 }
@@ -229,19 +246,23 @@ func (a *App) initServices(ctx context.Context) error {
 	// 创建发布者（实现 Publisher 接口）
 	publisher := NewPublisher(a.pubsub, a.redisCache)
 
+	// 准备 DepthSnapshotProvider
+	// matchingClient 实现了 aggregator.DepthSnapshotProvider 接口
+	var snapshotProvider aggregator.DepthSnapshotProvider
+	if a.matchingClient != nil {
+		snapshotProvider = a.matchingClient
+		a.logger.Info("depth snapshot provider enabled via eidos-matching")
+	} else {
+		a.logger.Warn("depth snapshot provider disabled, sequence gaps cannot be recovered")
+	}
+
 	// 创建行情服务
-	// TODO [eidos-matching]: 对接 DepthSnapshotProvider
-	//   当前 snapshotProvider 为 nil，深度数据只能通过增量更新维护
-	//   若检测到序列号缺口，无法恢复一致性
-	//   正式上线前需要:
-	//   1. eidos-matching 实现 GetOrderBookSnapshot gRPC 接口
-	//   2. 这里创建 gRPC client 并传入
 	a.marketService = service.NewMarketService(
 		a.klineRepo,
 		a.marketRepo,
 		a.tradeRepo,
 		publisher,
-		nil, // snapshotProvider - 待对接 eidos-matching
+		snapshotProvider,
 		a.logger,
 		svcConfig,
 	)
@@ -350,6 +371,26 @@ func (a *App) waitForSignal(cancel context.CancelFunc) {
 	cancel()
 }
 
+// initMatchingClient 初始化 Matching 服务客户端
+func (a *App) initMatchingClient() error {
+	cfg := &client.MatchingClientConfig{
+		Addr:           a.cfg.Matching.Addr,
+		ConnectTimeout: a.cfg.GetMatchingConnectTimeout(),
+		RequestTimeout: a.cfg.GetMatchingRequestTimeout(),
+	}
+
+	matchingClient, err := client.NewMatchingClient(cfg, a.logger)
+	if err != nil {
+		return fmt.Errorf("create matching client: %w", err)
+	}
+
+	a.matchingClient = matchingClient
+	a.logger.Info("matching client initialized",
+		zap.String("addr", a.cfg.Matching.Addr))
+
+	return nil
+}
+
 // initNacos 初始化 Nacos 服务注册
 func (a *App) initNacos() error {
 	nacosCfg := &nacos.Config{
@@ -425,6 +466,13 @@ func (a *App) shutdown(ctx context.Context) error {
 	// 关闭行情服务
 	if a.marketService != nil {
 		a.marketService.Stop()
+	}
+
+	// 关闭 Matching 客户端
+	if a.matchingClient != nil {
+		if err := a.matchingClient.Close(); err != nil {
+			a.logger.Error("failed to close matching client", zap.Error(err))
+		}
 	}
 
 	// 关闭 Redis

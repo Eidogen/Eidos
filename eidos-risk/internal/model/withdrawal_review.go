@@ -42,7 +42,7 @@ type WithdrawalReview struct {
 
 // TableName 返回表名
 func (WithdrawalReview) TableName() string {
-	return "eidos_risk_withdrawal_reviews"
+	return "risk_withdrawal_reviews"
 }
 
 // IsPending 检查是否待审核

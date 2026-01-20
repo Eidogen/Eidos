@@ -50,7 +50,7 @@ type Market struct {
 
 // TableName GORM表名
 func (Market) TableName() string {
-	return "eidos_market_markets"
+	return "market_markets"
 }
 
 // IsActive 检查交易对是否激活

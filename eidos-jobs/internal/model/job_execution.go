@@ -32,7 +32,7 @@ type JobExecution struct {
 
 // TableName 表名
 func (JobExecution) TableName() string {
-	return "eidos_jobs_executions"
+	return "jobs_executions"
 }
 
 // JSONResult JSON 结果类型

@@ -1,12 +1,12 @@
 -- Eidos Trading Service Database Migration
 -- Version: 002
--- Description: Add outbox_messages table for reliable async writes (Transactional Outbox Pattern)
+-- Description: Add trading_outbox_messages table for reliable async writes (Transactional Outbox Pattern)
 -- Created: 2024
 
 -- ============================================
 -- Outbox Messages 表 (transactional outbox pattern)
 -- ============================================
-CREATE TABLE IF NOT EXISTS outbox_messages (
+CREATE TABLE IF NOT EXISTS trading_outbox_messages (
     id BIGSERIAL PRIMARY KEY,
     message_id VARCHAR(64) NOT NULL,                  -- 全局唯一 ID (幂等)
     topic VARCHAR(100) NOT NULL,                      -- Kafka topic / 操作类型
@@ -23,9 +23,9 @@ CREATE TABLE IF NOT EXISTS outbox_messages (
 );
 
 -- Outbox Messages 表索引
-CREATE UNIQUE INDEX IF NOT EXISTS uk_outbox_message_id ON outbox_messages(message_id);
-CREATE INDEX IF NOT EXISTS idx_outbox_status_created ON outbox_messages(status, created_at) WHERE status = 'pending';
-CREATE INDEX IF NOT EXISTS idx_outbox_aggregate ON outbox_messages(aggregate_type, aggregate_id);
-CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON outbox_messages(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_trading_outbox_message_id ON trading_outbox_messages(message_id);
+CREATE INDEX IF NOT EXISTS idx_trading_outbox_status_created ON trading_outbox_messages(status, created_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_trading_outbox_aggregate ON trading_outbox_messages(aggregate_type, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_trading_outbox_created_at ON trading_outbox_messages(created_at);
 
-COMMENT ON TABLE outbox_messages IS 'Transactional Outbox 表，保证异步写入可靠性';
+COMMENT ON TABLE trading_outbox_messages IS 'Transactional Outbox 表，保证异步写入可靠性';
