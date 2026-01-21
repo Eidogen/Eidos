@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Engine 规则引擎
@@ -43,8 +42,8 @@ func (e *Engine) RegisterChecker(checker RuleChecker, priority RulePriority) {
 	})
 
 	logger.Info("rule checker registered",
-		zap.String("name", checker.Name()),
-		zap.Int("priority", int(priority)))
+		"name", checker.Name(),
+		"priority", int(priority))
 }
 
 // CheckOrder 执行下单检查
@@ -70,11 +69,11 @@ func (e *Engine) CheckOrder(ctx context.Context, req *OrderCheckRequest) *CheckR
 		// 如果检查未通过，立即返回
 		if !result.Passed {
 			logger.Warn("order check rejected",
-				zap.String("checker", c.checker.Name()),
-				zap.String("wallet", req.Wallet),
-				zap.String("market", req.Market),
-				zap.String("rule_id", result.RuleID),
-				zap.String("reason", result.Reason))
+				"checker", c.checker.Name(),
+				"wallet", req.Wallet,
+				"market", req.Market,
+				"rule_id", result.RuleID,
+				"reason", result.Reason)
 			return result
 		}
 	}
@@ -117,11 +116,11 @@ func (e *Engine) CheckWithdraw(ctx context.Context, req *WithdrawCheckRequest) *
 		// 如果检查未通过，立即返回
 		if !result.Passed {
 			logger.Warn("withdraw check rejected",
-				zap.String("checker", c.checker.Name()),
-				zap.String("wallet", req.Wallet),
-				zap.String("token", req.Token),
-				zap.String("rule_id", result.RuleID),
-				zap.String("reason", result.Reason))
+				"checker", c.checker.Name(),
+				"wallet", req.Wallet,
+				"token", req.Token,
+				"rule_id", result.RuleID,
+				"reason", result.Reason)
 			return result
 		}
 	}

@@ -4,20 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
 
 func TestPubSub_PublishTicker(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	pubsub := NewPubSub(db, zap.NewNop())
+	pubsub := NewPubSub(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	ticker := &model.Ticker{
@@ -38,7 +39,7 @@ func TestPubSub_PublishTicker(t *testing.T) {
 
 func TestPubSub_PublishDepth(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	pubsub := NewPubSub(db, zap.NewNop())
+	pubsub := NewPubSub(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	depth := &model.Depth{
@@ -64,7 +65,7 @@ func TestPubSub_PublishDepth(t *testing.T) {
 
 func TestPubSub_PublishTrade(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	pubsub := NewPubSub(db, zap.NewNop())
+	pubsub := NewPubSub(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	trade := &model.Trade{
@@ -87,7 +88,7 @@ func TestPubSub_PublishTrade(t *testing.T) {
 
 func TestPubSub_PublishKline(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	pubsub := NewPubSub(db, zap.NewNop())
+	pubsub := NewPubSub(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	kline := &model.Kline{

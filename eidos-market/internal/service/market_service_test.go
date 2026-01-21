@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/aggregator"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -250,7 +251,7 @@ func newTestMarketService() (*MarketService, *mockKlineRepo, *mockMarketRepo, *m
 	tradeRepo := &mockTradeRepo{}
 	publisher := &mockPublisher{}
 	snapshotProvider := &mockSnapshotProvider{}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := MarketServiceConfig{
 		KlineConfig: aggregator.KlineAggregatorConfig{

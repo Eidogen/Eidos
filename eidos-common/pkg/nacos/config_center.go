@@ -11,7 +11,6 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
-	"go.uber.org/zap"
 )
 
 // ConfigCenterConfig 配置中心配置
@@ -93,8 +92,8 @@ func NewConfigCenter(cfg *ConfigCenterConfig) (*ConfigCenter, error) {
 	}
 
 	logger.Info("nacos config center created",
-		zap.String("server_addr", cfg.ServerAddr),
-		zap.String("namespace", cfg.Namespace),
+		"server_addr", cfg.ServerAddr,
+		"namespace", cfg.Namespace,
 	)
 
 	return &ConfigCenter{
@@ -129,9 +128,9 @@ func (c *ConfigCenter) GetConfigWithGroup(dataId, group string) (string, error) 
 	c.cache.Store(cacheKey, content)
 
 	logger.Debug("config loaded from nacos",
-		zap.String("data_id", dataId),
-		zap.String("group", group),
-		zap.Int("length", len(content)),
+		"data_id", dataId,
+		"group", group,
+		"length", len(content),
 	)
 
 	return content, nil
@@ -161,8 +160,8 @@ func (c *ConfigCenter) PublishConfigWithGroup(dataId, group, content string) err
 	c.cache.Store(cacheKey, content)
 
 	logger.Info("config published to nacos",
-		zap.String("data_id", dataId),
-		zap.String("group", group),
+		"data_id", dataId,
+		"group", group,
 	)
 
 	return nil
@@ -191,8 +190,8 @@ func (c *ConfigCenter) DeleteConfigWithGroup(dataId, group string) error {
 	c.cache.Delete(cacheKey)
 
 	logger.Info("config deleted from nacos",
-		zap.String("data_id", dataId),
-		zap.String("group", group),
+		"data_id", dataId,
+		"group", group,
 	)
 
 	return nil
@@ -214,9 +213,9 @@ func (c *ConfigCenter) ListenWithGroup(dataId, group string, listener ConfigChan
 			c.cache.Store(cacheKey, data)
 
 			logger.Info("config changed",
-				zap.String("namespace", namespace),
-				zap.String("group", group),
-				zap.String("data_id", dataId),
+				"namespace", namespace,
+				"group", group,
+				"data_id", dataId,
 			)
 
 			// 调用监听器
@@ -233,8 +232,8 @@ func (c *ConfigCenter) ListenWithGroup(dataId, group string, listener ConfigChan
 	}
 
 	logger.Info("started listening config changes",
-		zap.String("data_id", dataId),
-		zap.String("group", group),
+		"data_id", dataId,
+		"group", group,
 	)
 
 	return nil
@@ -284,8 +283,8 @@ func (c *ConfigCenter) CancelListenWithGroup(dataId, group string) error {
 	}
 
 	logger.Info("stopped listening config changes",
-		zap.String("data_id", dataId),
-		zap.String("group", group),
+		"data_id", dataId,
+		"group", group,
 	)
 
 	return nil
@@ -410,9 +409,9 @@ func (w *ConfigWatcher) runRefresh() {
 			content, err := w.center.GetConfigWithGroup(w.dataId, w.group)
 			if err != nil {
 				logger.Warn("failed to refresh config",
-					zap.String("data_id", w.dataId),
-					zap.String("group", w.group),
-					zap.Error(err),
+					"data_id", w.dataId,
+					"group", w.group,
+					"error", err,
 				)
 				continue
 			}

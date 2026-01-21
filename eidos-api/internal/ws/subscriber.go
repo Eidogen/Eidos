@@ -3,11 +3,11 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/metrics"
 )
@@ -17,13 +17,13 @@ import (
 type Subscriber struct {
 	hub    *Hub
 	redis  *redis.Client
-	logger *zap.Logger
+	logger *slog.Logger
 
 	done chan struct{}
 }
 
 // NewSubscriber 创建订阅器
-func NewSubscriber(hub *Hub, redis *redis.Client, logger *zap.Logger) *Subscriber {
+func NewSubscriber(hub *Hub, redis *redis.Client, logger *slog.Logger) *Subscriber {
 	return &Subscriber{
 		hub:    hub,
 		redis:  redis,
@@ -70,7 +70,7 @@ func (s *Subscriber) Start(ctx context.Context) error {
 		}
 	}()
 
-	s.logger.Info("subscriber started", zap.Strings("patterns", allPatterns))
+	s.logger.Info("subscriber started", "patterns", allPatterns)
 	return nil
 }
 
@@ -86,7 +86,7 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 	parts := strings.Split(msg.Channel, ":")
 	if len(parts) < 3 {
 		metrics.RecordRedisMessage(msg.Channel, false, "invalid_format")
-		s.logger.Warn("invalid channel format", zap.String("channel", msg.Channel))
+		s.logger.Warn("invalid channel format", "channel", msg.Channel)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 		isPrivate = true
 	default:
 		metrics.RecordRedisMessage(channelType, false, "unknown_channel")
-		s.logger.Warn("unknown channel type", zap.String("type", channelType))
+		s.logger.Warn("unknown channel type", "type", channelType)
 		return
 	}
 
@@ -124,8 +124,8 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 	if err := json.Unmarshal([]byte(msg.Payload), &data); err != nil {
 		metrics.RecordRedisMessage(channelType, false, "unmarshal_error")
 		s.logger.Error("failed to unmarshal message",
-			zap.String("channel", msg.Channel),
-			zap.Error(err),
+			"channel", msg.Channel,
+			"error", err,
 		)
 		return
 	}

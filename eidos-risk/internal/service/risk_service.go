@@ -15,7 +15,7 @@
 // - 消息类型: RiskAlertMessage
 // - 触发条件: 检测到高风险行为、触发风控规则
 //
-// ## TODO: eidos-api 对接
+// ## eidos-api 对接
 // 1. 下单前调用 CheckOrder
 //    - 时机: 签名验证通过后，发送到 matching 之前
 //    - 处理: approved=false 时直接返回错误给用户
@@ -24,7 +24,7 @@
 //    - 时机: 签名验证通过后，创建提现记录之前
 //    - 处理: require_manual_review=true 时创建待审核记录
 //
-// ## TODO: eidos-trading 对接
+// ## eidos-trading 对接
 // 1. 订单状态变更时同步到风控缓存
 //    - 新订单创建: 调用 cache 更新挂单计数
 //    - 订单完成/取消: 调用 cache 更新挂单计数和待结算金额
@@ -45,7 +45,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/rules"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // RiskService 风控服务
@@ -194,7 +193,7 @@ func (s *RiskService) initEngine() {
 	)
 
 	logger.Info("risk engine initialized",
-		zap.Strings("checkers", s.engine.GetCheckerNames()))
+		"checkers", s.engine.GetCheckerNames())
 }
 
 // CheckOrder 检查下单请求
@@ -401,7 +400,7 @@ func (s *RiskService) recordAuditLog(ctx context.Context, action model.AuditActi
 	}
 
 	if err := s.auditRepo.Create(ctx, log); err != nil {
-		logger.Error("failed to create audit log", zap.Error(err))
+		logger.Error("failed to create audit log", "error", err)
 	}
 }
 
@@ -423,7 +422,7 @@ func (s *RiskService) recordRiskEvent(ctx context.Context, params *RiskEventPara
 	}
 
 	if err := s.eventRepo.Create(ctx, event); err != nil {
-		logger.Error("failed to create risk event", zap.Error(err))
+		logger.Error("failed to create risk event", "error", err)
 	}
 }
 
@@ -453,7 +452,7 @@ func (s *RiskService) createWithdrawReview(ctx context.Context, req *CheckWithdr
 	}
 
 	if err := s.withdrawRepo.Create(ctx, review); err != nil {
-		logger.Error("failed to create withdrawal review", zap.Error(err))
+		logger.Error("failed to create withdrawal review", "error", err)
 	}
 }
 
@@ -462,8 +461,8 @@ func (s *RiskService) sendAlert(ctx context.Context, alert *RiskAlertMessage) {
 	if s.onRiskAlert != nil {
 		if err := s.onRiskAlert(ctx, alert); err != nil {
 			logger.Error("failed to send risk alert",
-				zap.String("alert_id", alert.AlertID),
-				zap.Error(err))
+				"alert_id", alert.AlertID,
+				"error", err)
 		}
 	}
 }

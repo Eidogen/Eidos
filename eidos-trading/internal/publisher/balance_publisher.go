@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // BalancePublisher 余额变更发布者
@@ -78,17 +77,17 @@ func (p *BalancePublisher) PublishBalanceUpdate(ctx context.Context, snapshot *B
 
 	if err := p.producer.SendWithContext(ctx, kafka.TopicBalanceUpdates, key, data); err != nil {
 		logger.Error("publish balance update failed",
-			zap.String("wallet", snapshot.Wallet),
-			zap.String("token", snapshot.Token),
-			zap.Error(err),
+			"wallet", snapshot.Wallet,
+			"token", snapshot.Token,
+			"error", err,
 		)
 		return fmt.Errorf("send balance update: %w", err)
 	}
 
 	logger.Debug("balance update published",
-		zap.String("wallet", snapshot.Wallet),
-		zap.String("token", snapshot.Token),
-		zap.String("event_type", eventType),
+		"wallet", snapshot.Wallet,
+		"token", snapshot.Token,
+		"event_type", eventType,
 	)
 
 	return nil

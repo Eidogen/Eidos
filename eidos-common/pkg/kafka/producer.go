@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -108,9 +107,9 @@ func NewProducer(cfg *ProducerConfig) (*Producer, error) {
 	go p.asyncResultLoop()
 
 	logger.Info("kafka producer created",
-		zap.Strings("brokers", cfg.Brokers),
-		zap.String("client_id", cfg.ClientID),
-		zap.Bool("idempotent", cfg.Idempotent),
+		"brokers", cfg.Brokers,
+		"client_id", cfg.ClientID,
+		"idempotent", cfg.Idempotent,
 	)
 
 	return p, nil
@@ -267,8 +266,8 @@ func (p *Producer) Send(ctx context.Context, msg *Message) (*SendResult, error) 
 	if err != nil {
 		atomic.AddInt64(&p.metrics.MessagesFailed, 1)
 		logger.Error("send message failed",
-			zap.String("topic", msg.Topic),
-			zap.Error(err),
+			"topic", msg.Topic,
+			"error", err,
 		)
 		return &SendResult{
 			Topic:     msg.Topic,
@@ -283,9 +282,9 @@ func (p *Producer) Send(ctx context.Context, msg *Message) (*SendResult, error) 
 	p.metrics.LastSendTime = time.Now()
 
 	logger.Debug("message sent",
-		zap.String("topic", msg.Topic),
-		zap.Int32("partition", partition),
-		zap.Int64("offset", offset),
+		"topic", msg.Topic,
+		"partition", partition,
+		"offset", offset,
 	)
 
 	return &SendResult{
@@ -436,17 +435,17 @@ func (p *Producer) asyncResultLoop() {
 				p.metrics.LastSendTime = time.Now()
 
 				logger.Debug("async message sent",
-					zap.String("topic", success.Topic),
-					zap.Int32("partition", success.Partition),
-					zap.Int64("offset", success.Offset),
+					"topic", success.Topic,
+					"partition", success.Partition,
+					"offset", success.Offset,
 				)
 			}
 		case err := <-p.asyncProducer.Errors():
 			if err != nil {
 				atomic.AddInt64(&p.metrics.MessagesFailed, 1)
 				logger.Error("async message failed",
-					zap.String("topic", err.Msg.Topic),
-					zap.Error(err.Err),
+					"topic", err.Msg.Topic,
+					"error", err.Err,
 				)
 			}
 		}
@@ -501,10 +500,10 @@ func (p *Producer) SendWithRetry(ctx context.Context, msg *Message, maxRetries i
 		atomic.AddInt64(&p.metrics.RetryCount, 1)
 
 		logger.Warn("send message failed, retrying",
-			zap.String("topic", msg.Topic),
-			zap.Int("retry", i+1),
-			zap.Int("max_retries", maxRetries),
-			zap.Error(err),
+			"topic", msg.Topic,
+			"retry", i+1,
+			"max_retries", maxRetries,
+			"error", err,
 		)
 
 		// 指数退避
@@ -574,9 +573,9 @@ func (p *Producer) Close() error {
 	}
 
 	logger.Info("kafka producer closed",
-		zap.Int64("messages_sent", p.metrics.MessagesSent),
-		zap.Int64("messages_succeeded", p.metrics.MessagesSucceeded),
-		zap.Int64("messages_failed", p.metrics.MessagesFailed),
+		"messages_sent", p.metrics.MessagesSent,
+		"messages_succeeded", p.metrics.MessagesSucceeded,
+		"messages_failed", p.metrics.MessagesFailed,
 	)
 
 	return nil

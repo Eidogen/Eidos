@@ -11,7 +11,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/repository"
-	"go.uber.org/zap"
 )
 
 // Scheduler 任务调度器
@@ -75,7 +74,7 @@ func (s *Scheduler) RegisterJob(job Job, config JobConfig) error {
 	s.jobConfigs[job.Name()] = config
 
 	if !config.Enabled {
-		logger.Info("job registered but disabled", zap.String("job", job.Name()))
+		logger.Info("job registered but disabled", "job", job.Name())
 		return nil
 	}
 
@@ -90,8 +89,8 @@ func (s *Scheduler) RegisterJob(job Job, config JobConfig) error {
 	}
 
 	logger.Info("job registered",
-		zap.String("job", job.Name()),
-		zap.String("cron", config.Cron))
+		"job", job.Name(),
+		"cron", config.Cron)
 
 	return nil
 }
@@ -132,7 +131,7 @@ func (s *Scheduler) executeJob(job Job) {
 		defer func() { <-s.running }()
 	default:
 		logger.Warn("max concurrent jobs reached, skipping",
-			zap.String("job", job.Name()))
+			"job", job.Name())
 		s.recordExecution(job.Name(), model.JobStatusSkipped, nil, nil, "max concurrent jobs reached")
 		return
 	}
@@ -155,22 +154,22 @@ func (s *Scheduler) executeJob(job Job) {
 		acquired, err := lock.TryLock(ctx)
 		if err != nil {
 			logger.Error("failed to acquire lock",
-				zap.String("job", job.Name()),
-				zap.Error(err))
+				"job", job.Name(),
+				"error", err)
 			s.recordExecution(job.Name(), model.JobStatusFailed, nil, nil, "failed to acquire lock: "+err.Error())
 			return
 		}
 		if !acquired {
 			logger.Debug("job is already running on another instance",
-				zap.String("job", job.Name()))
+				"job", job.Name())
 			s.recordExecution(job.Name(), model.JobStatusSkipped, nil, nil, "job is running on another instance")
 			return
 		}
 		defer func() {
 			if err := lock.Unlock(context.Background()); err != nil {
 				logger.Error("failed to release lock",
-					zap.String("job", job.Name()),
-					zap.Error(err))
+					"job", job.Name(),
+					"error", err)
 			}
 		}()
 	}
@@ -184,12 +183,12 @@ func (s *Scheduler) executeJob(job Job) {
 	}
 	if err := s.execRepo.Create(ctx, exec); err != nil {
 		logger.Error("failed to record job start",
-			zap.String("job", job.Name()),
-			zap.Error(err))
+			"job", job.Name(),
+			"error", err)
 	}
 
 	// 执行任务
-	logger.Info("starting job", zap.String("job", job.Name()))
+	logger.Info("starting job", "job", job.Name())
 
 	result, err := job.Execute(ctx)
 
@@ -204,24 +203,24 @@ func (s *Scheduler) executeJob(job Job) {
 		errMsg := err.Error()
 		exec.ErrorMessage = &errMsg
 		logger.Error("job failed",
-			zap.String("job", job.Name()),
-			zap.Duration("duration", finishTime.Sub(startTime)),
-			zap.Error(err))
+			"job", job.Name(),
+			"duration", finishTime.Sub(startTime),
+			"error", err)
 	} else {
 		exec.Status = model.JobStatusSuccess
 		if result != nil {
 			exec.Result = result.ToJSONResult()
 		}
 		logger.Info("job completed",
-			zap.String("job", job.Name()),
-			zap.Duration("duration", finishTime.Sub(startTime)),
-			zap.Any("result", result))
+			"job", job.Name(),
+			"duration", finishTime.Sub(startTime),
+			"result", result)
 	}
 
 	if err := s.execRepo.Update(context.Background(), exec); err != nil {
 		logger.Error("failed to update job execution",
-			zap.String("job", job.Name()),
-			zap.Error(err))
+			"job", job.Name(),
+			"error", err)
 	}
 }
 
@@ -252,8 +251,8 @@ func (s *Scheduler) recordExecution(jobName string, status model.JobStatus, resu
 
 	if err := s.execRepo.Create(ctx, exec); err != nil {
 		logger.Error("failed to record job execution",
-			zap.String("job", jobName),
-			zap.Error(err))
+			"job", jobName,
+			"error", err)
 	}
 }
 
@@ -319,8 +318,8 @@ func (s *Scheduler) ListJobStatus() ([]*JobStatus, error) {
 		status, err := s.GetJobStatus(name)
 		if err != nil {
 			logger.Error("failed to get job status",
-				zap.String("job", name),
-				zap.Error(err))
+				"job", name,
+				"error", err)
 			continue
 		}
 		statuses = append(statuses, status)

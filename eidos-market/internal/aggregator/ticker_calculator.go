@@ -2,12 +2,12 @@ package aggregator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -59,7 +59,7 @@ type TickerCalculator struct {
 	lastTradeTime int64
 
 	publisher TickerPublisher
-	logger    *zap.Logger
+	logger    *slog.Logger
 
 	closeCh   chan struct{}
 	closeOnce sync.Once
@@ -75,14 +75,14 @@ type TickerCalculator struct {
 func NewTickerCalculator(
 	market string,
 	publisher TickerPublisher,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config TickerCalculatorConfig,
 ) *TickerCalculator {
 	tc := &TickerCalculator{
 		market:    market,
 		config:    config,
 		publisher: publisher,
-		logger:    logger.With(zap.String("market", market)),
+		logger:    logger.With("market", market),
 		closeCh:   make(chan struct{}),
 	}
 	return tc
@@ -104,8 +104,8 @@ func (tc *TickerCalculator) Stop() {
 		close(tc.closeCh)
 		tc.wg.Wait()
 		tc.logger.Info("ticker calculator stopped",
-			zap.Int64("total_trades", tc.tradeCount.Load()),
-			zap.Int64("total_publishes", tc.publishCount.Load()))
+			"total_trades", tc.tradeCount.Load(),
+			"total_publishes", tc.publishCount.Load())
 	})
 }
 
@@ -117,17 +117,17 @@ func (tc *TickerCalculator) ProcessTrade(ctx context.Context, trade *model.Trade
 
 	price, err := trade.GetPrice()
 	if err != nil {
-		tc.logger.Error("invalid trade price", zap.String("price", trade.Price), zap.Error(err))
+		tc.logger.Error("invalid trade price", "price", trade.Price, "error", err)
 		return err
 	}
 	amount, err := trade.GetAmount()
 	if err != nil {
-		tc.logger.Error("invalid trade amount", zap.String("amount", trade.Amount), zap.Error(err))
+		tc.logger.Error("invalid trade amount", "amount", trade.Amount, "error", err)
 		return err
 	}
 	quoteAmount, err := trade.GetQuoteAmount()
 	if err != nil {
-		tc.logger.Error("invalid trade quote_amount", zap.String("quote_amount", trade.QuoteAmount), zap.Error(err))
+		tc.logger.Error("invalid trade quote_amount", "quote_amount", trade.QuoteAmount, "error", err)
 		return err
 	}
 	timestamp := trade.Timestamp
@@ -284,7 +284,7 @@ func (tc *TickerCalculator) publish() {
 	defer cancel()
 
 	if err := tc.publisher.PublishTicker(ctx, tc.market, t); err != nil {
-		tc.logger.Warn("failed to publish ticker", zap.Error(err))
+		tc.logger.Warn("failed to publish ticker", "error", err)
 		metrics.PubSubPublishErrors.WithLabelValues("ticker").Inc()
 	} else {
 		tc.publishCount.Add(1)

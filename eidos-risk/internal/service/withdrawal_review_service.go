@@ -13,7 +13,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // WithdrawalReviewStatus represents the review state
@@ -171,17 +170,17 @@ func (s *WithdrawalReviewService) CreateReview(ctx context.Context, req *CreateR
 	})
 
 	logger.Info("withdrawal review created",
-		zap.String("review_id", review.ReviewID),
-		zap.String("wallet", req.WalletAddress),
-		zap.Int("risk_score", req.RiskScore),
-		zap.String("auto_decision", string(autoDecision)))
+		"review_id", review.ReviewID,
+		"wallet", req.WalletAddress,
+		"risk_score", req.RiskScore,
+		"auto_decision", string(autoDecision))
 
 	// Handle auto-approve for low-risk withdrawals
 	if autoDecision == model.AutoDecisionAutoApprove {
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Small delay for consistency
 			if err := s.Approve(context.Background(), review.ReviewID, "system", "Auto-approved (low risk)"); err != nil {
-				logger.Error("auto-approve failed", zap.Error(err))
+				logger.Error("auto-approve failed", "error", err)
 			}
 		}()
 	}
@@ -212,7 +211,7 @@ func (s *WithdrawalReviewService) Approve(ctx context.Context, reviewID, reviewe
 	// Trigger callback
 	if s.onApproved != nil {
 		if err := s.onApproved(ctx, review); err != nil {
-			logger.Error("onApproved callback failed", zap.Error(err))
+			logger.Error("onApproved callback failed", "error", err)
 		}
 	}
 
@@ -234,8 +233,8 @@ func (s *WithdrawalReviewService) Approve(ctx context.Context, reviewID, reviewe
 	})
 
 	logger.Info("withdrawal review approved",
-		zap.String("review_id", reviewID),
-		zap.String("reviewer", reviewer))
+		"review_id", reviewID,
+		"reviewer", reviewer)
 
 	return nil
 }
@@ -263,7 +262,7 @@ func (s *WithdrawalReviewService) Reject(ctx context.Context, reviewID, reviewer
 	// Trigger callback
 	if s.onRejected != nil {
 		if err := s.onRejected(ctx, review); err != nil {
-			logger.Error("onRejected callback failed", zap.Error(err))
+			logger.Error("onRejected callback failed", "error", err)
 		}
 	}
 
@@ -285,9 +284,9 @@ func (s *WithdrawalReviewService) Reject(ctx context.Context, reviewID, reviewer
 	})
 
 	logger.Info("withdrawal review rejected",
-		zap.String("review_id", reviewID),
-		zap.String("reviewer", reviewer),
-		zap.String("reason", comment))
+		"review_id", reviewID,
+		"reviewer", reviewer,
+		"reason", comment)
 
 	return nil
 }
@@ -347,8 +346,8 @@ func (s *WithdrawalReviewService) ProcessExpiredReviews(ctx context.Context) (ap
 
 	if approved > 0 || rejected > 0 {
 		logger.Info("processed expired withdrawal reviews",
-			zap.Int64("auto_approved", approved),
-			zap.Int64("auto_rejected", rejected))
+			"auto_approved", approved,
+			"auto_rejected", rejected)
 	}
 
 	return approved, rejected, nil
@@ -374,8 +373,8 @@ func (s *WithdrawalReviewService) sendAlert(ctx context.Context, alert *RiskAler
 	if s.onRiskAlert != nil {
 		if err := s.onRiskAlert(ctx, alert); err != nil {
 			logger.Error("failed to send risk alert",
-				zap.String("alert_id", alert.AlertID),
-				zap.Error(err))
+				"alert_id", alert.AlertID,
+				"error", err)
 		}
 	}
 }

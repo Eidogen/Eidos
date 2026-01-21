@@ -19,40 +19,40 @@
 // - 消费: order-updates, trade-results, balance-updates, withdrawals
 // - 生产: risk-alerts
 //
-// ## TODO: 上游对接 (eidos-api)
+// ## 上游对接 (eidos-api)
 // eidos-api 需要在以下时机调用本服务:
 //
 // 1. 下单前调用 CheckOrder
-//    - 时机: 签名验证通过后，发送到 matching 之前
-//    - 调用: riskv1.CheckOrder(wallet, market, side, type, price, amount)
-//    - 处理: approved=false 时返回 reject_code 给客户端
+//   - 时机: 签名验证通过后，发送到 matching 之前
+//   - 调用: riskv1.CheckOrder(wallet, market, side, type, price, amount)
+//   - 处理: approved=false 时返回 reject_code 给客户端
 //
 // 2. 提现前调用 CheckWithdraw
-//    - 时机: 签名验证通过后，创建提现记录之前
-//    - 调用: riskv1.CheckWithdraw(wallet, token, amount, to_address)
-//    - 处理: require_manual_review=true 时标记提现为待审核
+//   - 时机: 签名验证通过后，创建提现记录之前
+//   - 调用: riskv1.CheckWithdraw(wallet, token, amount, to_address)
+//   - 处理: require_manual_review=true 时标记提现为待审核
 //
-// ## TODO: 上游对接 (eidos-trading)
+// ## 上游对接 (eidos-trading)
 // eidos-trading 需要发送以下 Kafka 消息:
 //
 // 1. 订单状态变更 -> order-updates
-//    - OPEN/PARTIAL: 订单进入订单簿
-//    - FILLED/CANCELLED: 订单从订单簿移除
+//   - OPEN/PARTIAL: 订单进入订单簿
+//   - FILLED/CANCELLED: 订单从订单簿移除
 //
 // 2. 成交通知 -> trade-results
-//    - 每笔成交后发送，用于更新待结算金额
+//   - 每笔成交后发送，用于更新待结算金额
 //
 // 3. 余额变更 -> balance-updates
-//    - 结算完成后发送 SETTLE 类型
+//   - 结算完成后发送 SETTLE 类型
 //
-// ## TODO: 上游对接 (eidos-chain)
+// ## 上游对接 (eidos-chain)
 // 1. 提现确认 -> withdrawals
-//    - 链上提现确认后发送 CONFIRMED 状态
+//   - 链上提现确认后发送 CONFIRMED 状态
 //
-// ## TODO: 下游对接 (监控告警)
+// ## 下游对接 (监控告警)
 // 1. 消费 risk-alerts 主题
-//    - 接入告警系统 (钉钉/Slack/PagerDuty)
-//    - severity: info/warning/critical
+//   - 接入告警系统 (钉钉/Slack/PagerDuty)
+//   - severity: info/warning/critical
 //
 // ========================================
 package app
@@ -63,17 +63,17 @@ import (
 	"net"
 	"time"
 
-	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/service"
+	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -118,19 +118,24 @@ func New(cfg *config.Config) *App {
 
 // Run 启动应用
 func (a *App) Run() error {
-	// 1. 初始化数据库
+	// 1. 确保数据库存在
+	if err := migrate.EnsureDatabase(a.cfg.Postgres.Host, a.cfg.Postgres.Port, a.cfg.Postgres.User, a.cfg.Postgres.Password, a.cfg.Postgres.Database); err != nil {
+		return fmt.Errorf("failed to ensure database: %w", err)
+	}
+
+	// 2. 初始化数据库
 	if err := a.initDB(); err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
 
-	// 2. 初始化 Redis
+	// 3. 初始化 Redis
 	if err := a.initRedis(); err != nil {
 		return fmt.Errorf("failed to init redis: %w", err)
 	}
 
 	// 3. 初始化 Kafka
 	if err := a.initKafka(); err != nil {
-		logger.Warn("failed to init kafka, running without kafka", zap.Error(err))
+		logger.Warn("failed to init kafka, running without kafka", "error", err)
 	}
 
 	// 4. 初始化服务层
@@ -215,8 +220,8 @@ func (a *App) initDB() error {
 
 	a.db = db
 	logger.Info("database connected",
-		zap.String("host", a.cfg.Postgres.Host),
-		zap.String("database", a.cfg.Postgres.Database))
+		"host", a.cfg.Postgres.Host,
+		"database", a.cfg.Postgres.Database)
 
 	// 自动迁移
 	if err := AutoMigrate(a.db); err != nil {
@@ -244,8 +249,8 @@ func (a *App) initRedis() error {
 	}
 
 	logger.Info("redis connected",
-		zap.String("host", a.cfg.Redis.Host),
-		zap.Int("db", a.cfg.Redis.DB))
+		"host", a.cfg.Redis.Host,
+		"db", a.cfg.Redis.DB)
 
 	return nil
 }
@@ -265,7 +270,7 @@ func (a *App) initKafka() error {
 	a.kafkaProducer = producer
 
 	logger.Info("kafka producer initialized",
-		zap.Strings("brokers", a.cfg.Kafka.Brokers))
+		"brokers", a.cfg.Kafka.Brokers)
 
 	return nil
 }
@@ -328,12 +333,12 @@ func (a *App) initServices() {
 			withdrawCache,
 		)
 		if err != nil {
-			logger.Error("failed to create kafka consumer", zap.Error(err))
+			logger.Error("failed to create kafka consumer", "error", err)
 		} else {
 			a.kafkaConsumer = consumer
 			go func() {
 				if err := consumer.Start(a.ctx); err != nil {
-					logger.Error("kafka consumer error", zap.Error(err))
+					logger.Error("kafka consumer error", "error", err)
 				}
 			}()
 		}
@@ -349,7 +354,7 @@ func (a *App) warmupCache() {
 
 	// 加载黑名单到缓存
 	if err := a.blacklistSvc.SyncCacheFromDB(ctx); err != nil {
-		logger.Error("failed to sync blacklist cache", zap.Error(err))
+		logger.Error("failed to sync blacklist cache", "error", err)
 	}
 
 	logger.Info("cache warmup completed")
@@ -387,12 +392,12 @@ func (a *App) startGRPC() error {
 	healthServer.SetServingStatus(a.cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	logger.Info("starting gRPC server",
-		zap.String("addr", addr),
-		zap.String("service", a.cfg.Service.Name))
+		"addr", addr,
+		"service", a.cfg.Service.Name)
 
 	go func() {
 		if err := a.grpcServer.Serve(lis); err != nil {
-			logger.Error("gRPC server error", zap.Error(err))
+			logger.Error("gRPC server error", "error", err)
 		}
 	}()
 

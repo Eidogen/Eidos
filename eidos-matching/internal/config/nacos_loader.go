@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // NacosMarketConfig Nacos 市场配置格式
@@ -86,28 +86,28 @@ func (l *NacosConfigLoader) Start() error {
 
 	// 注册配置监听
 	err := l.client.ListenWithGroup(l.dataID, l.group, func(namespace, group, dataId, data string) {
-		zap.L().Info("nacos config changed",
-			zap.String("dataId", dataId),
-			zap.String("group", group),
-			zap.Int("data_len", len(data)))
+		slog.Info("nacos config changed",
+			"dataId", dataId,
+			"group", group,
+			"data_len", len(data))
 
 		if err := l.handleConfigChange(data); err != nil {
 			l.errorCount++
-			zap.L().Error("handle config change failed",
-				zap.String("dataId", dataId),
-				zap.Error(err))
+			slog.Error("handle config change failed",
+				"dataId", dataId,
+				"error", err)
 		}
 	})
 	if err != nil {
-		zap.L().Warn("listen config failed, falling back to polling",
-			zap.Error(err))
+		slog.Warn("listen config failed, falling back to polling",
+			"error", err)
 		// 降级到轮询模式
 		go l.pollLoop()
 	}
 
-	zap.L().Info("nacos config loader started",
-		zap.String("dataId", l.dataID),
-		zap.String("group", l.group))
+	slog.Info("nacos config loader started",
+		"dataId", l.dataID,
+		"group", l.group)
 
 	return nil
 }
@@ -115,7 +115,7 @@ func (l *NacosConfigLoader) Start() error {
 // Stop 停止配置监听
 func (l *NacosConfigLoader) Stop() {
 	l.cancel()
-	zap.L().Info("nacos config loader stopped")
+	slog.Info("nacos config loader stopped")
 }
 
 // loadConfig 加载配置
@@ -160,10 +160,10 @@ func (l *NacosConfigLoader) handleConfigChange(data string) error {
 
 	// 触发回调
 	if l.callback != nil && (len(added) > 0 || len(updated) > 0 || len(removed) > 0) {
-		zap.L().Info("market config changed",
-			zap.Int("added", len(added)),
-			zap.Int("updated", len(updated)),
-			zap.Int("removed", len(removed)))
+		slog.Info("market config changed",
+			"added", len(added),
+			"updated", len(updated),
+			"removed", len(removed))
 		l.callback(added, updated, removed)
 	}
 
@@ -234,7 +234,7 @@ func (l *NacosConfigLoader) pollLoop() {
 		case <-ticker.C:
 			if err := l.loadConfig(); err != nil {
 				l.errorCount++
-				zap.L().Warn("poll config failed", zap.Error(err))
+				slog.Warn("poll config failed", "error", err)
 			}
 		}
 	}

@@ -11,7 +11,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/app"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/config"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -30,22 +29,23 @@ func main() {
 		Level:       cfg.Log.Level,
 		Format:      cfg.Log.Format,
 		ServiceName: cfg.Service.Name,
+		Environment: cfg.Service.Env,
 	}); err != nil {
 		panic("failed to init logger: " + err.Error())
 	}
 	defer logger.Sync()
 
 	logger.Info("starting service",
-		zap.String("service", cfg.Service.Name),
-		zap.String("env", cfg.Service.Env),
-		zap.Int("grpc_port", cfg.Service.GRPCPort))
+		"service", cfg.Service.Name,
+		"env", cfg.Service.Env,
+		"grpc_port", cfg.Service.GRPCPort)
 
 	// 创建应用实例
 	application := app.New(cfg)
 
 	// 启动应用
 	if err := application.Run(); err != nil {
-		logger.Fatal("failed to start application", zap.Error(err))
+		logger.Fatal("failed to start application", "error", err)
 	}
 
 	// 等待退出信号
@@ -60,7 +60,7 @@ func main() {
 	defer cancel()
 
 	if err := application.Shutdown(ctx); err != nil {
-		logger.Error("failed to shutdown gracefully", zap.Error(err))
+		logger.Error("failed to shutdown gracefully", "error", err)
 	}
 
 	logger.Info("service stopped")

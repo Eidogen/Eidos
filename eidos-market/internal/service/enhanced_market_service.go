@@ -3,10 +3,9 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/aggregator"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/cache"
@@ -67,7 +66,7 @@ type EnhancedMarketService struct {
 	tradeBufferSize int
 	tradeFlushCh    chan struct{}
 
-	logger *zap.Logger
+	logger *slog.Logger
 
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -83,7 +82,7 @@ func NewEnhancedMarketService(
 	cacheManager *cache.CacheManager,
 	publisher Publisher,
 	snapshotProvider aggregator.DepthSnapshotProvider,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config EnhancedMarketServiceConfig,
 ) *EnhancedMarketService {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -110,7 +109,7 @@ func NewEnhancedMarketService(
 		tradeBuffer:     make([]*model.Trade, 0, 1000),
 		tradeBufferSize: 1000,
 		tradeFlushCh:    make(chan struct{}, 1),
-		logger:          logger.Named("enhanced_market_service"),
+		logger:          logger.With("component", "enhanced_market_service"),
 		ctx:             ctx,
 		cancel:          cancel,
 	}
@@ -127,7 +126,7 @@ func (s *EnhancedMarketService) Start(ctx context.Context) error {
 
 	// Initialize markets
 	if err := s.InitMarkets(ctx); err != nil {
-		s.logger.Warn("failed to init markets", zap.Error(err))
+		s.logger.Warn("failed to init markets", "error", err)
 	}
 
 	// Start trade buffer flusher
@@ -170,7 +169,7 @@ func (s *EnhancedMarketService) GetTickerWithCache(ctx context.Context, market s
 		// Try cache first
 		ticker, err := s.cacheManager.TickerCache.GetTicker24h(ctx, market)
 		if err != nil {
-			s.logger.Warn("cache error, falling back to memory", zap.Error(err))
+			s.logger.Warn("cache error, falling back to memory", "error", err)
 		} else if ticker != nil {
 			return ticker, nil
 		}
@@ -188,7 +187,7 @@ func (s *EnhancedMarketService) GetTickerWithCache(ctx context.Context, market s
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			if err := s.cacheManager.TickerCache.SaveTicker24h(ctx, market, ticker); err != nil {
-				s.logger.Warn("failed to cache ticker", zap.Error(err))
+				s.logger.Warn("failed to cache ticker", "error", err)
 			}
 		}()
 	}
@@ -202,7 +201,7 @@ func (s *EnhancedMarketService) GetDepthWithCache(ctx context.Context, market st
 		// Try cache first
 		depth, err := s.cacheManager.DepthCache.GetDepthAtLevel(ctx, market, limit)
 		if err != nil {
-			s.logger.Warn("cache error, falling back to memory", zap.Error(err))
+			s.logger.Warn("cache error, falling back to memory", "error", err)
 		} else if depth != nil {
 			return depth, nil
 		}
@@ -220,7 +219,7 @@ func (s *EnhancedMarketService) GetDepthWithCache(ctx context.Context, market st
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			if err := s.cacheManager.DepthCache.SaveDepthWithLevels(ctx, market, depth); err != nil {
-				s.logger.Warn("failed to cache depth", zap.Error(err))
+				s.logger.Warn("failed to cache depth", "error", err)
 			}
 		}()
 	}
@@ -234,7 +233,7 @@ func (s *EnhancedMarketService) GetKlinesWithCache(ctx context.Context, market s
 		// Try cache first
 		klines, err := s.cacheManager.KlineCache.GetKlines(ctx, market, interval, startTime, endTime, limit)
 		if err != nil {
-			s.logger.Warn("cache error, falling back to db", zap.Error(err))
+			s.logger.Warn("cache error, falling back to db", "error", err)
 		} else if len(klines) > 0 {
 			// Check if we have enough data in cache
 			if limit <= 0 || len(klines) >= limit {
@@ -255,7 +254,7 @@ func (s *EnhancedMarketService) GetKlinesWithCache(ctx context.Context, market s
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.cacheManager.KlineCache.SaveCompletedKlines(ctx, market, interval, klines); err != nil {
-				s.logger.Warn("failed to cache klines", zap.Error(err))
+				s.logger.Warn("failed to cache klines", "error", err)
 			}
 		}()
 	}
@@ -293,7 +292,7 @@ func (s *EnhancedMarketService) ProcessTradeWithBuffer(ctx context.Context, trad
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if err := s.cacheManager.TickerCache.SaveLastTradePrice(ctx, trade.Market, trade.Price, trade.Timestamp); err != nil {
-			s.logger.Warn("failed to cache last price", zap.Error(err))
+			s.logger.Warn("failed to cache last price", "error", err)
 		}
 	}()
 
@@ -313,7 +312,7 @@ func (s *EnhancedMarketService) ProcessOrderBookUpdateWithCache(ctx context.Cont
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			if err := s.cacheManager.DepthCache.SaveDepthWithLevels(ctx, update.Market, depth); err != nil {
-				s.logger.Warn("failed to cache depth", zap.Error(err))
+				s.logger.Warn("failed to cache depth", "error", err)
 			}
 		}()
 	}
@@ -355,10 +354,10 @@ func (s *EnhancedMarketService) flushTradeBuffer() {
 	defer cancel()
 
 	if err := s.tradeRepo.BatchCreate(ctx, trades); err != nil {
-		s.logger.Error("failed to batch create trades", zap.Error(err), zap.Int("count", len(trades)))
+		s.logger.Error("failed to batch create trades", "error", err, "count", len(trades))
 		metrics.TradeProcessingErrors.WithLabelValues("batch", "db_error").Inc()
 	} else {
-		s.logger.Debug("flushed trade buffer", zap.Int("count", len(trades)))
+		s.logger.Debug("flushed trade buffer", "count", len(trades))
 	}
 }
 
@@ -371,7 +370,7 @@ func (s *EnhancedMarketService) warmAllCaches() {
 
 	markets, err := s.marketRepo.ListActiveMarkets(ctx)
 	if err != nil {
-		s.logger.Error("failed to list markets for warming", zap.Error(err))
+		s.logger.Error("failed to list markets for warming", "error", err)
 		return
 	}
 
@@ -382,13 +381,13 @@ func (s *EnhancedMarketService) warmAllCaches() {
 		default:
 			if err := s.cacheManager.WarmMarketCache(ctx, market.Symbol, s.config.CacheConfig); err != nil {
 				s.logger.Warn("failed to warm cache",
-					zap.String("market", market.Symbol),
-					zap.Error(err))
+					"market", market.Symbol,
+					"error", err)
 			}
 		}
 	}
 
-	s.logger.Info("cache warming completed", zap.Int("markets", len(markets)))
+	s.logger.Info("cache warming completed", "markets", len(markets))
 }
 
 // OnMarketAdded implements MarketChangeListener
@@ -401,8 +400,8 @@ func (s *EnhancedMarketService) OnMarketAdded(ctx context.Context, market *model
 		defer cancel()
 		if err := s.cacheManager.WarmMarketCache(ctx, market.Symbol, s.config.CacheConfig); err != nil {
 			s.logger.Warn("failed to warm cache for new market",
-				zap.String("market", market.Symbol),
-				zap.Error(err))
+				"market", market.Symbol,
+				"error", err)
 		}
 	}()
 
@@ -412,7 +411,7 @@ func (s *EnhancedMarketService) OnMarketAdded(ctx context.Context, market *model
 // OnMarketUpdated implements MarketChangeListener
 func (s *EnhancedMarketService) OnMarketUpdated(ctx context.Context, market *model.Market) error {
 	// Market config updated - may need to invalidate some caches
-	s.logger.Info("market updated", zap.String("symbol", market.Symbol))
+	s.logger.Info("market updated", "symbol", market.Symbol)
 	return nil
 }
 
@@ -421,8 +420,8 @@ func (s *EnhancedMarketService) OnMarketRemoved(ctx context.Context, symbol stri
 	// Invalidate all caches for removed market
 	if err := s.cacheManager.InvalidateMarketCache(ctx, symbol); err != nil {
 		s.logger.Warn("failed to invalidate cache for removed market",
-			zap.String("market", symbol),
-			zap.Error(err))
+			"market", symbol,
+			"error", err)
 	}
 	return nil
 }

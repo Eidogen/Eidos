@@ -4,23 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
 
 // Redis Pub/Sub 频道格式
 const (
-	ChannelTicker = "eidos:ticker:%s"       // market
-	ChannelDepth  = "eidos:depth:%s"        // market
-	ChannelTrades = "eidos:trades:%s"       // market
-	ChannelKline  = "eidos:kline:%s:%s"     // market:interval
+	ChannelTicker = "eidos:ticker:%s"   // market
+	ChannelDepth  = "eidos:depth:%s"    // market
+	ChannelTrades = "eidos:trades:%s"   // market
+	ChannelKline  = "eidos:kline:%s:%s" // market:interval
 )
 
 // PubSub Redis Pub/Sub 实现
-// TODO [eidos-api]: 需要订阅以下 Redis 频道，推送到 WebSocket:
+// [eidos-api] 订阅以下 Redis 频道，推送到 WebSocket:
 //
 //	频道格式:
 //	  - eidos:ticker:{market}   - Ticker 更新 (如 eidos:ticker:BTC-USDC)
@@ -37,14 +37,14 @@ const (
 //	  - Kline: 直接转发 (约 1s 间隔)
 type PubSub struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewPubSub 创建 Pub/Sub
-func NewPubSub(client redis.UniversalClient, logger *zap.Logger) *PubSub {
+func NewPubSub(client redis.UniversalClient, logger *slog.Logger) *PubSub {
 	return &PubSub{
 		client: client,
-		logger: logger.Named("pubsub"),
+		logger: logger.With("component", "pubsub"),
 	}
 }
 

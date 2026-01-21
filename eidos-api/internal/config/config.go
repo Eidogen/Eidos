@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -169,7 +170,9 @@ func Load(path string) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read config file: %w", err)
 		}
-		if err := yaml.Unmarshal(data, cfg); err != nil {
+		// 展开环境变量: ${VAR:DEFAULT}
+		expanded := config.ExpandEnv(string(data))
+		if err := yaml.Unmarshal([]byte(expanded), cfg); err != nil {
 			return nil, fmt.Errorf("parse config file: %w", err)
 		}
 	}

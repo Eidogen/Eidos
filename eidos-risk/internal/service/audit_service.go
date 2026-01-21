@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
-	"go.uber.org/zap"
 )
 
 // AuditService provides audit logging functionality
@@ -227,13 +226,13 @@ func (s *AuditService) saveLogs(logs []*model.AuditLog) {
 
 	if err := s.repo.BatchCreate(ctx, logs); err != nil {
 		logger.Error("failed to save audit logs",
-			zap.Int("count", len(logs)),
-			zap.Error(err))
+			"count", len(logs),
+			"error", err)
 		return
 	}
 
 	logger.Debug("audit logs saved",
-		zap.Int("count", len(logs)))
+		"count", len(logs))
 }
 
 // Query queries audit logs

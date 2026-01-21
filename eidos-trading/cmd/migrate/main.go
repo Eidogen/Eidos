@@ -14,7 +14,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/config"
-	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -71,7 +70,7 @@ func main() {
 	if dsn == "" {
 		cfg, err := config.Load()
 		if err != nil {
-			logger.Fatal("load config failed", zap.Error(err))
+			logger.Fatal("load config failed", "error", err)
 		}
 		dsn = fmt.Sprintf(
 			"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
@@ -88,12 +87,12 @@ func main() {
 		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
 	})
 	if err != nil {
-		logger.Fatal("connect database failed", zap.Error(err))
+		logger.Fatal("connect database failed", "error", err)
 	}
 
 	// 确保迁移记录表存在
 	if err := db.AutoMigrate(&MigrationRecord{}); err != nil {
-		logger.Fatal("create migration table failed", zap.Error(err))
+		logger.Fatal("create migration table failed", "error", err)
 	}
 
 	ctx := context.Background()
@@ -101,19 +100,19 @@ func main() {
 	switch command {
 	case "up":
 		if err := runUp(ctx, db, migrateDir); err != nil {
-			logger.Fatal("migration up failed", zap.Error(err))
+			logger.Fatal("migration up failed", "error", err)
 		}
 		logger.Info("all migrations applied successfully")
 
 	case "down":
 		if err := runDown(ctx, db, migrateDir); err != nil {
-			logger.Fatal("migration down failed", zap.Error(err))
+			logger.Fatal("migration down failed", "error", err)
 		}
 		logger.Info("migration rolled back successfully")
 
 	case "status":
 		if err := runStatus(ctx, db, migrateDir); err != nil {
-			logger.Fatal("get migration status failed", zap.Error(err))
+			logger.Fatal("get migration status failed", "error", err)
 		}
 
 	case "create":
@@ -122,11 +121,11 @@ func main() {
 			logger.Fatal("migration name required, usage: -cmd create <name>")
 		}
 		if err := createMigration(migrateDir, name); err != nil {
-			logger.Fatal("create migration failed", zap.Error(err))
+			logger.Fatal("create migration failed", "error", err)
 		}
 
 	default:
-		logger.Fatal("unknown command", zap.String("command", command))
+		logger.Fatal("unknown command", "command", command)
 	}
 }
 
@@ -235,11 +234,11 @@ func runUp(ctx context.Context, db *gorm.DB, dir string) error {
 	for _, migration := range migrations {
 		key := migration.Version + "_" + migration.Name
 		if _, ok := applied[key]; ok {
-			logger.Info("skip applied migration", zap.String("version", migration.Version), zap.String("name", migration.Name))
+			logger.Info("skip applied migration", "version", migration.Version, "name", migration.Name)
 			continue
 		}
 
-		logger.Info("applying migration", zap.String("version", migration.Version), zap.String("name", migration.Name))
+		logger.Info("applying migration", "version", migration.Version, "name", migration.Name)
 
 		err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// 执行 SQL
@@ -264,7 +263,7 @@ func runUp(ctx context.Context, db *gorm.DB, dir string) error {
 			return fmt.Errorf("apply migration %s failed: %w", key, err)
 		}
 
-		logger.Info("migration applied", zap.String("version", migration.Version), zap.String("name", migration.Name))
+		logger.Info("migration applied", "version", migration.Version, "name", migration.Name)
 	}
 
 	return nil
@@ -305,7 +304,7 @@ func runDown(ctx context.Context, db *gorm.DB, dir string) error {
 		return fmt.Errorf("migration %s has no down script", key)
 	}
 
-	logger.Info("rolling back migration", zap.String("version", lastMigration.Version), zap.String("name", lastMigration.Name))
+	logger.Info("rolling back migration", "version", lastMigration.Version, "name", lastMigration.Name)
 
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 执行回滚 SQL
@@ -390,8 +389,8 @@ func createMigration(dir string, name string) error {
 	}
 
 	logger.Info("created migration files",
-		zap.String("up", upFile),
-		zap.String("down", downFile))
+		"up", upFile,
+		"down", downFile)
 
 	return nil
 }

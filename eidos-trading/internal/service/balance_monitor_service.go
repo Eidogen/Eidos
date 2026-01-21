@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
@@ -164,14 +163,14 @@ func (s *balanceMonitorService) CheckAndCancelInsufficientOrders(ctx context.Con
 			if errors.Is(err, cache.ErrRedisBalanceNotFound) {
 				// 余额不存在，需要取消所有订单
 				logger.Warn("balance not found for wallet with open orders",
-					zap.String("wallet", key.wallet),
-					zap.String("token", key.token),
-					zap.Int("order_count", len(ordersByWalletToken[key])))
+					"wallet", key.wallet,
+					"token", key.token,
+					"order_count", len(ordersByWalletToken[key]))
 			} else {
 				logger.Error("get balance failed",
-					zap.String("wallet", key.wallet),
-					zap.String("token", key.token),
-					zap.Error(err))
+					"wallet", key.wallet,
+					"token", key.token,
+					"error", err)
 				continue
 			}
 		}
@@ -198,10 +197,10 @@ func (s *balanceMonitorService) CheckAndCancelInsufficientOrders(ctx context.Con
 
 	duration := time.Since(startTime)
 	logger.Info("balance check completed",
-		zap.Int("wallets_with_issues", len(results)),
-		zap.Int("orders_cancelled", totalCancelled),
-		zap.Int("orders_failed", totalFailed),
-		zap.Duration("duration", duration))
+		"wallets_with_issues", len(results),
+		"orders_cancelled", totalCancelled,
+		"orders_failed", totalFailed,
+		"duration", duration)
 
 	metrics.RecordBalanceMonitorRun(len(results), totalCancelled)
 
@@ -224,12 +223,12 @@ func (s *balanceMonitorService) processInsufficientBalance(
 	}
 
 	logger.Warn("insufficient balance detected",
-		zap.String("wallet", wallet),
-		zap.String("token", token),
-		zap.String("total_frozen", totalFrozen.String()),
-		zap.String("available", availableAmount.String()),
-		zap.String("shortfall", shortfall.String()),
-		zap.Int("order_count", len(orders)))
+		"wallet", wallet,
+		"token", token,
+		"total_frozen", totalFrozen.String(),
+		"available", availableAmount.String(),
+		"shortfall", shortfall.String(),
+		"order_count", len(orders))
 
 	// 按创建时间排序 (FIFO 取消最新的订单)
 	// 在实际场景中可能需要考虑其他因素如订单价值、用户等级等
@@ -257,9 +256,9 @@ func (s *balanceMonitorService) processInsufficientBalance(
 	// 干跑模式不实际取消
 	if s.cfg.DryRun {
 		logger.Info("dry run: would cancel orders",
-			zap.String("wallet", wallet),
-			zap.String("token", token),
-			zap.Strings("orders", result.OrdersToCancel))
+			"wallet", wallet,
+			"token", token,
+			"orders", result.OrdersToCancel)
 		return result
 	}
 
@@ -268,15 +267,15 @@ func (s *balanceMonitorService) processInsufficientBalance(
 		err := s.orderService.CancelOrder(ctx, wallet, order.OrderID)
 		if err != nil {
 			logger.Error("cancel order failed",
-				zap.String("wallet", wallet),
-				zap.String("order_id", order.OrderID),
-				zap.Error(err))
+				"wallet", wallet,
+				"order_id", order.OrderID,
+				"error", err)
 			result.FailedOrders = append(result.FailedOrders, order.OrderID)
 		} else {
 			logger.Info("order cancelled due to insufficient balance",
-				zap.String("wallet", wallet),
-				zap.String("order_id", order.OrderID),
-				zap.String("freeze_amount", order.FreezeAmount.String()))
+				"wallet", wallet,
+				"order_id", order.OrderID,
+				"freeze_amount", order.FreezeAmount.String())
 			result.CancelledOrders = append(result.CancelledOrders, order.OrderID)
 		}
 	}
@@ -416,9 +415,9 @@ func (s *balanceMonitorService) Start(ctx context.Context) {
 	}()
 
 	logger.Info("balance monitor service started",
-		zap.Duration("check_interval", s.cfg.CheckInterval),
-		zap.Int("batch_size", s.cfg.BatchSize),
-		zap.Bool("dry_run", s.cfg.DryRun))
+		"check_interval", s.cfg.CheckInterval,
+		"batch_size", s.cfg.BatchSize,
+		"dry_run", s.cfg.DryRun)
 }
 
 // runLoop 后台监控循环
@@ -433,7 +432,7 @@ func (s *balanceMonitorService) runLoop(ctx context.Context) {
 		case <-ticker.C:
 			_, err := s.CheckAndCancelInsufficientOrders(ctx)
 			if err != nil {
-				logger.Error("balance monitor check failed", zap.Error(err))
+				logger.Error("balance monitor check failed", "error", err)
 			}
 		}
 	}

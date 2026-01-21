@@ -3,12 +3,13 @@ package event
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -69,7 +70,7 @@ func toDepthUpdateForTest(msg *OrderBookUpdateMessage) (*model.DepthUpdate, erro
 }
 
 func TestOrderBookHandler_Handle(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("success", func(t *testing.T) {
 		mockSvc := &mockOrderBookProcessor{}
@@ -161,7 +162,7 @@ func TestOrderBookHandler_Handle(t *testing.T) {
 
 func TestOrderBookHandler_Topic(t *testing.T) {
 	handler := &OrderBookHandler{
-		logger: zap.NewNop(),
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	assert.Equal(t, "orderbook-updates", handler.Topic())
 }

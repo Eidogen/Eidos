@@ -3,8 +3,7 @@ package event
 import (
 	"context"
 	"encoding/json"
-
-	"go.uber.org/zap"
+	"log/slog"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/service"
@@ -19,27 +18,27 @@ type TradeProcessor interface {
 // 消费 Kafka trade-results Topic
 type TradeHandler struct {
 	svc    TradeProcessor
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewTradeHandler 创建成交事件处理器
-func NewTradeHandler(svc *service.MarketService, logger *zap.Logger) *TradeHandler {
+func NewTradeHandler(svc *service.MarketService, logger *slog.Logger) *TradeHandler {
 	return &TradeHandler{
 		svc:    svc,
-		logger: logger.Named("trade_handler"),
+		logger: logger.With("component", "trade_handler"),
 	}
 }
 
 // NewTradeHandlerWithProcessor 创建成交事件处理器 (用于测试)
-func NewTradeHandlerWithProcessor(svc TradeProcessor, logger *zap.Logger) *TradeHandler {
+func NewTradeHandlerWithProcessor(svc TradeProcessor, logger *slog.Logger) *TradeHandler {
 	return &TradeHandler{
 		svc:    svc,
-		logger: logger.Named("trade_handler"),
+		logger: logger.With("component", "trade_handler"),
 	}
 }
 
 // Handle 处理成交事件
-// TODO [eidos-matching]: 需要 eidos-matching 发送成交结果到 Kafka
+// [eidos-matching] 发送成交结果到 Kafka
 //
 //	Topic: trade-results
 //	Key: market 字段 (用于分区，如 "BTC-USDC")
@@ -61,21 +60,21 @@ func (h *TradeHandler) Handle(ctx context.Context, key, value []byte) error {
 	var trade model.TradeEvent
 	if err := json.Unmarshal(value, &trade); err != nil {
 		h.logger.Error("failed to unmarshal trade event",
-			zap.Error(err),
-			zap.ByteString("value", value))
+			"error", err,
+			"value", string(value))
 		return err
 	}
 
 	h.logger.Debug("received trade event",
-		zap.String("trade_id", trade.TradeID),
-		zap.String("market", trade.Market),
-		zap.String("price", trade.Price),
-		zap.String("amount", trade.Amount))
+		"trade_id", trade.TradeID,
+		"market", trade.Market,
+		"price", trade.Price,
+		"amount", trade.Amount)
 
 	if err := h.svc.ProcessTrade(ctx, &trade); err != nil {
 		h.logger.Error("failed to process trade",
-			zap.String("trade_id", trade.TradeID),
-			zap.Error(err))
+			"trade_id", trade.TradeID,
+			"error", err)
 		return err
 	}
 

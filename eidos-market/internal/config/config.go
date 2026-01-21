@@ -140,7 +140,7 @@ func Load(path string) (*Config, error) {
 		}
 
 		// 先展开环境变量
-		expandedData := os.ExpandEnv(string(data))
+		expandedData := config.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(expandedData), cfg); err != nil {
 			return nil, err
 		}

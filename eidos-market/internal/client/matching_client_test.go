@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	matchingpb "github.com/eidos-exchange/eidos/proto/matching/v1"
@@ -98,7 +99,7 @@ func TestNewMatchingClient(t *testing.T) {
 	addr, cleanup := startMockServer(t, mockServer)
 	defer cleanup()
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &MatchingClientConfig{
 		Addr:           addr,
 		ConnectTimeout: 5 * time.Second,
@@ -113,7 +114,7 @@ func TestNewMatchingClient(t *testing.T) {
 }
 
 func TestNewMatchingClient_ConnectionFailed(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &MatchingClientConfig{
 		Addr:           "127.0.0.1:99999", // 无效端口
 		ConnectTimeout: 100 * time.Millisecond,
@@ -130,7 +131,7 @@ func TestMatchingClient_GetSnapshot(t *testing.T) {
 	addr, cleanup := startMockServer(t, mockServer)
 	defer cleanup()
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
 	client, err := NewMatchingClient(cfg, logger)
@@ -166,7 +167,7 @@ func TestMatchingClient_GetDepth(t *testing.T) {
 	addr, cleanup := startMockServer(t, mockServer)
 	defer cleanup()
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
 	client, err := NewMatchingClient(cfg, logger)
@@ -188,7 +189,7 @@ func TestMatchingClient_HealthCheck(t *testing.T) {
 	addr, cleanup := startMockServer(t, mockServer)
 	defer cleanup()
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
 	client, err := NewMatchingClient(cfg, logger)
@@ -209,7 +210,7 @@ func TestMatchingClient_Close(t *testing.T) {
 	addr, cleanup := startMockServer(t, mockServer)
 	defer cleanup()
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
 	client, err := NewMatchingClient(cfg, logger)

@@ -4,10 +4,10 @@ package event
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"sync"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -21,27 +21,27 @@ type BatchTradeProcessor interface {
 // BatchTradeHandler handles batches of trade events
 type BatchTradeHandler struct {
 	processor   BatchTradeProcessor
-	logger      *zap.Logger
+	logger      *slog.Logger
 	workerCount int
 }
 
 // NewBatchTradeHandler creates a new batch trade handler
-func NewBatchTradeHandler(processor BatchTradeProcessor, logger *zap.Logger) *BatchTradeHandler {
+func NewBatchTradeHandler(processor BatchTradeProcessor, logger *slog.Logger) *BatchTradeHandler {
 	return &BatchTradeHandler{
 		processor:   processor,
-		logger:      logger.Named("batch_trade_handler"),
+		logger:      logger.With("component", "batch_trade_handler"),
 		workerCount: 8, // Default worker count
 	}
 }
 
 // NewBatchTradeHandlerWithWorkers creates a new batch trade handler with custom worker count
-func NewBatchTradeHandlerWithWorkers(processor BatchTradeProcessor, logger *zap.Logger, workers int) *BatchTradeHandler {
+func NewBatchTradeHandlerWithWorkers(processor BatchTradeProcessor, logger *slog.Logger, workers int) *BatchTradeHandler {
 	if workers <= 0 {
 		workers = 8
 	}
 	return &BatchTradeHandler{
 		processor:   processor,
-		logger:      logger.Named("batch_trade_handler"),
+		logger:      logger.With("component", "batch_trade_handler"),
 		workerCount: workers,
 	}
 }
@@ -59,8 +59,8 @@ func (h *BatchTradeHandler) HandleBatch(ctx context.Context, messages []*sarama.
 		var trade model.TradeEvent
 		if err := json.Unmarshal(msg.Value, &trade); err != nil {
 			h.logger.Warn("failed to unmarshal trade event",
-				zap.Error(err),
-				zap.ByteString("value", msg.Value))
+				"error", err,
+				"value", string(msg.Value))
 			metrics.TradeProcessingErrors.WithLabelValues("unknown", "unmarshal_error").Inc()
 			continue
 		}
@@ -86,9 +86,9 @@ func (h *BatchTradeHandler) HandleBatch(ctx context.Context, messages []*sarama.
 			for _, trade := range trades {
 				if err := h.processor.ProcessTrade(ctx, trade); err != nil {
 					h.logger.Error("failed to process trade",
-						zap.String("trade_id", trade.TradeID),
-						zap.String("market", market),
-						zap.Error(err))
+						"trade_id", trade.TradeID,
+						"market", market,
+						"error", err)
 					errCh <- err
 				}
 			}
@@ -106,15 +106,15 @@ func (h *BatchTradeHandler) HandleBatch(ctx context.Context, messages []*sarama.
 
 	if len(errs) > 0 {
 		h.logger.Warn("batch processing completed with errors",
-			zap.Int("total", len(messages)),
-			zap.Int("errors", len(errs)))
+			"total", len(messages),
+			"errors", len(errs))
 		// Return first error but all messages are processed
 		return errs[0]
 	}
 
 	h.logger.Debug("batch processed successfully",
-		zap.Int("count", len(messages)),
-		zap.Int("markets", len(marketGroups)))
+		"count", len(messages),
+		"markets", len(marketGroups))
 
 	return nil
 }

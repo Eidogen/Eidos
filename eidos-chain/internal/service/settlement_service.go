@@ -54,7 +54,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 var (
@@ -206,8 +205,8 @@ func (s *SettlementService) flushBatch(ctx context.Context) error {
 	}
 
 	logger.Info("settlement batch created",
-		zap.String("batch_id", batch.BatchID),
-		zap.Int("trade_count", batch.TradeCount))
+		"batch_id", batch.BatchID,
+		"trade_count", batch.TradeCount)
 
 	return nil
 }
@@ -249,8 +248,8 @@ func (s *SettlementService) ProcessPendingBatches(ctx context.Context) error {
 	for _, batch := range batches {
 		if err := s.submitBatch(ctx, batch); err != nil {
 			logger.Error("failed to submit settlement batch",
-				zap.String("batch_id", batch.BatchID),
-				zap.Error(err))
+				"batch_id", batch.BatchID,
+				"error", err)
 			continue
 		}
 	}
@@ -309,8 +308,8 @@ func (s *SettlementService) submitBatch(ctx context.Context, batch *model.Settle
 	// 更新状态为已提交
 	if err := s.repo.UpdateStatus(ctx, batch.BatchID, model.SettlementBatchStatusSubmitted, txHash, 0); err != nil {
 		logger.Error("failed to update batch status",
-			zap.String("batch_id", batch.BatchID),
-			zap.Error(err))
+			"batch_id", batch.BatchID,
+			"error", err)
 	}
 
 	// 记录待确认交易
@@ -330,9 +329,9 @@ func (s *SettlementService) submitBatch(ctx context.Context, batch *model.Settle
 	s.nonceRepo.CreatePendingTx(ctx, pendingTx)
 
 	logger.Info("settlement transaction submitted",
-		zap.String("batch_id", batch.BatchID),
-		zap.String("tx_hash", txHash),
-		zap.Uint64("nonce", nonce))
+		"batch_id", batch.BatchID,
+		"tx_hash", txHash,
+		"nonce", nonce)
 
 	return nil
 }
@@ -379,8 +378,8 @@ func (s *SettlementService) buildSettlementTx(ctx context.Context, batch *model.
 		)
 		if err != nil {
 			logger.Warn("gas estimation failed, using fallback",
-				zap.String("batch_id", batch.BatchID),
-				zap.Error(err))
+				"batch_id", batch.BatchID,
+				"error", err)
 			// 降级：使用公式估算
 			gasLimit = s.calculateFallbackGas(len(trades))
 			gasPrice, _ = s.client.SuggestGasPrice(ctx)
@@ -458,9 +457,9 @@ func (s *SettlementService) calculateFallbackGas(tradeCount int) uint64 {
 // handleSubmitError 处理提交错误
 func (s *SettlementService) handleSubmitError(ctx context.Context, batch *model.SettlementBatch, err error) error {
 	logger.Warn("settlement submission failed, will retry",
-		zap.String("batch_id", batch.BatchID),
-		zap.Int("retry_count", batch.RetryCount),
-		zap.Error(err))
+		"batch_id", batch.BatchID,
+		"retry_count", batch.RetryCount,
+		"error", err)
 
 	return s.repo.UpdateFailed(ctx, batch.BatchID, err.Error())
 }
@@ -468,8 +467,8 @@ func (s *SettlementService) handleSubmitError(ctx context.Context, batch *model.
 // markBatchFailed 标记批次失败
 func (s *SettlementService) markBatchFailed(ctx context.Context, batch *model.SettlementBatch, reason string) error {
 	logger.Error("settlement batch failed",
-		zap.String("batch_id", batch.BatchID),
-		zap.String("reason", reason))
+		"batch_id", batch.BatchID,
+		"reason", reason)
 
 	if err := s.repo.UpdateFailed(ctx, batch.BatchID, reason); err != nil {
 		return err
@@ -534,15 +533,15 @@ func (s *SettlementService) OnTxConfirmed(ctx context.Context, txHash string, bl
 
 		if err := s.onSettlementConfirmed(ctx, confirmation); err != nil {
 			logger.Error("failed to send settlement confirmation",
-				zap.String("batch_id", batchID),
-				zap.Error(err))
+				"batch_id", batchID,
+				"error", err)
 		}
 	}
 
 	logger.Info("settlement confirmed",
-		zap.String("batch_id", batchID),
-		zap.String("tx_hash", txHash),
-		zap.Uint64("block_number", blockNumber))
+		"batch_id", batchID,
+		"tx_hash", txHash,
+		"block_number", blockNumber)
 
 	return nil
 }
@@ -655,9 +654,9 @@ func (s *SettlementService) SplitAndRetryBatch(ctx context.Context, batchID stri
 		}
 
 		logger.Info("created split batch",
-			zap.String("original_batch", batchID),
-			zap.String("new_batch", newBatch.BatchID),
-			zap.Int("trade_count", newBatch.TradeCount))
+			"original_batch", batchID,
+			"new_batch", newBatch.BatchID,
+			"trade_count", newBatch.TradeCount)
 	}
 
 	return nil

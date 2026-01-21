@@ -5,13 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
-	"go.uber.org/zap"
 )
 
 // RetryableError 可重试的错误
@@ -89,6 +89,7 @@ type RetryableHandler interface {
 // RetryConsumerGroup 带重试的消费者组
 type RetryConsumerGroup struct {
 	*ConsumerGroup
+	brokers         []string
 	retryConfig     *RetryConfig
 	deadLetterTopic string
 	producer        MessageProducer
@@ -128,6 +129,7 @@ func NewRetryConsumerGroup(cfg *RetryConsumerConfig) (*RetryConsumerGroup, error
 
 	return &RetryConsumerGroup{
 		ConsumerGroup:   cg,
+		brokers:         cfg.Brokers,
 		retryConfig:     retryConfig,
 		deadLetterTopic: deadLetterTopic,
 		producer:        cfg.Producer,
@@ -163,10 +165,10 @@ func (c *RetryConsumerGroup) handleWithRetry(ctx context.Context, msg *Message, 
 			// 成功
 			if attempt > 0 {
 				logger.Info("message processed after retry",
-					zap.String("topic", msg.Topic),
-					zap.Int32("partition", msg.Partition),
-					zap.Int64("offset", msg.Offset),
-					zap.Int("attempts", attempt+1))
+					"topic", msg.Topic,
+					"partition", msg.Partition,
+					"offset", msg.Offset,
+					"attempts", attempt+1)
 				metrics.RecordKafkaRetry(msg.Topic, "success")
 			}
 			return nil
@@ -177,10 +179,10 @@ func (c *RetryConsumerGroup) handleWithRetry(ctx context.Context, msg *Message, 
 		// 检查是否可重试
 		if !IsRetryable(err) {
 			logger.Warn("non-retryable error, sending to DLQ",
-				zap.String("topic", msg.Topic),
-				zap.Int32("partition", msg.Partition),
-				zap.Int64("offset", msg.Offset),
-				zap.Error(err))
+				"topic", msg.Topic,
+				"partition", msg.Partition,
+				"offset", msg.Offset,
+				"error", err)
 			c.sendToDeadLetter(ctx, msg, attempt, err)
 			metrics.RecordKafkaRetry(msg.Topic, "non_retryable")
 			return nil // 返回 nil 以确认消息
@@ -189,11 +191,11 @@ func (c *RetryConsumerGroup) handleWithRetry(ctx context.Context, msg *Message, 
 		// 最后一次尝试失败
 		if attempt == c.retryConfig.MaxRetries {
 			logger.Error("max retries exceeded, sending to DLQ",
-				zap.String("topic", msg.Topic),
-				zap.Int32("partition", msg.Partition),
-				zap.Int64("offset", msg.Offset),
-				zap.Int("max_retries", c.retryConfig.MaxRetries),
-				zap.Error(err))
+				"topic", msg.Topic,
+				"partition", msg.Partition,
+				"offset", msg.Offset,
+				"max_retries", c.retryConfig.MaxRetries,
+				"error", err)
 			c.sendToDeadLetter(ctx, msg, attempt+1, err)
 			metrics.RecordKafkaRetry(msg.Topic, "max_retries_exceeded")
 			return nil // 返回 nil 以确认消息
@@ -202,12 +204,12 @@ func (c *RetryConsumerGroup) handleWithRetry(ctx context.Context, msg *Message, 
 		// 计算退避时间
 		backoff := c.calculateBackoff(attempt)
 		logger.Warn("retrying message",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Int("attempt", attempt+1),
-			zap.Duration("backoff", backoff),
-			zap.Error(err))
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+			"attempt", attempt+1,
+			"backoff", backoff,
+			"error", err)
 
 		metrics.RecordKafkaRetry(msg.Topic, "retry")
 
@@ -222,11 +224,11 @@ func (c *RetryConsumerGroup) handleWithRetry(ctx context.Context, msg *Message, 
 	// 不应该到达这里
 	duration := time.Since(startTime)
 	logger.Error("message processing failed after retries",
-		zap.String("topic", msg.Topic),
-		zap.Int32("partition", msg.Partition),
-		zap.Int64("offset", msg.Offset),
-		zap.Duration("duration", duration),
-		zap.Error(lastErr))
+		"topic", msg.Topic,
+		"partition", msg.Partition,
+		"offset", msg.Offset,
+		"duration", duration,
+		"error", lastErr)
 
 	return lastErr
 }
@@ -249,9 +251,9 @@ func (c *RetryConsumerGroup) calculateBackoff(attempt int) time.Duration {
 func (c *RetryConsumerGroup) sendToDeadLetter(ctx context.Context, msg *Message, retryCount int, lastErr error) {
 	if c.producer == nil {
 		logger.Warn("no producer available for DLQ, message dropped",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset))
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset)
 		return
 	}
 
@@ -271,29 +273,29 @@ func (c *RetryConsumerGroup) sendToDeadLetter(ctx context.Context, msg *Message,
 	data, err := json.Marshal(dlqMsg)
 	if err != nil {
 		logger.Error("marshal DLQ message failed",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Error(err))
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+			"error", err)
 		return
 	}
 
 	if err := c.producer.SendWithContext(ctx, c.deadLetterTopic, msg.Key, data); err != nil {
 		logger.Error("send to DLQ failed",
-			zap.String("topic", msg.Topic),
-			zap.String("dlq_topic", c.deadLetterTopic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Error(err))
+			"topic", msg.Topic,
+			"dlq_topic", c.deadLetterTopic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+			"error", err)
 		return
 	}
 
 	logger.Info("message sent to DLQ",
-		zap.String("original_topic", msg.Topic),
-		zap.String("dlq_topic", c.deadLetterTopic),
-		zap.Int32("partition", msg.Partition),
-		zap.Int64("offset", msg.Offset),
-		zap.Int("retry_count", retryCount))
+		"original_topic", msg.Topic,
+		"dlq_topic", c.deadLetterTopic,
+		"partition", msg.Partition,
+		"offset", msg.Offset,
+		"retry_count", retryCount)
 
 	metrics.RecordKafkaDeadLetter(msg.Topic)
 }
@@ -328,15 +330,80 @@ func (c *RetryConsumerGroup) ProcessDeadLetterQueue(
 	handler func(ctx context.Context, dlqMsg *DeadLetterMessage) error,
 	limit int,
 ) (int, error) {
-	// 这个方法通常由 eidos-jobs 调用，用于重新处理死信队列中的消息
-	// 具体实现可以扫描 DLQ topic 或者从持久化存储中读取
-	logger.Info("processing dead letter queue",
-		zap.Int("limit", limit))
+	logger.Info("processing dead letter queue", "limit", limit)
 
-	// TODO: 实现从 DLQ topic 或数据库读取失败消息并重新处理
-	// 这需要访问 Kafka 进行 seek 操作或者从数据库读取
+	// 创建单独的消费者来读取 DLQ
+	config := sarama.NewConfig()
+	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	return 0, nil
+	consumer, err := sarama.NewConsumer(c.brokers, config)
+	if err != nil {
+		return 0, fmt.Errorf("create DLQ consumer: %w", err)
+	}
+	defer consumer.Close()
+
+	// 获取 DLQ topic 的分区
+	partitions, err := consumer.Partitions(c.deadLetterTopic)
+	if err != nil {
+		return 0, fmt.Errorf("get DLQ partitions: %w", err)
+	}
+
+	processed := 0
+	for _, partition := range partitions {
+		if processed >= limit {
+			break
+		}
+
+		pc, err := consumer.ConsumePartition(c.deadLetterTopic, partition, sarama.OffsetOldest)
+		if err != nil {
+			logger.Warn("consume DLQ partition failed",
+				"partition", partition,
+				"error", err)
+			continue
+		}
+
+		// 使用 timeout 来避免无限等待
+		timeout := time.After(5 * time.Second)
+	consumeLoop:
+		for processed < limit {
+			select {
+			case <-ctx.Done():
+				pc.Close()
+				return processed, ctx.Err()
+			case <-timeout:
+				break consumeLoop
+			case msg := <-pc.Messages():
+				if msg == nil {
+					break consumeLoop
+				}
+
+				var dlqMsg DeadLetterMessage
+				if err := json.Unmarshal(msg.Value, &dlqMsg); err != nil {
+					logger.Warn("unmarshal DLQ message failed",
+						"offset", msg.Offset,
+						"error", err)
+					continue
+				}
+
+				if err := handler(ctx, &dlqMsg); err != nil {
+					logger.Warn("process DLQ message failed",
+						"original_topic", dlqMsg.OriginalTopic,
+						"error", err)
+					continue
+				}
+
+				processed++
+				logger.Info("DLQ message processed successfully",
+					"original_topic", dlqMsg.OriginalTopic,
+					"retry_count", dlqMsg.RetryCount)
+			}
+		}
+		pc.Close()
+	}
+
+	logger.Info("DLQ processing completed", "processed", processed)
+	return processed, nil
 }
 
 // RetryableHandlerAdapter 将普通 Handler 适配为 RetryableHandler

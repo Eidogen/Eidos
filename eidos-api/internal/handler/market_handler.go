@@ -10,7 +10,7 @@ import (
 )
 
 // MarketService 行情服务接口
-// TODO: 依赖 eidos-market 服务实现
+// 通过 gRPC 调用 eidos-market 服务，实现见 eidos-api/internal/client/market_client.go
 type MarketService interface {
 	ListMarkets(ctx *gin.Context) ([]*dto.MarketResponse, error)
 	GetTicker(ctx *gin.Context, market string) (*dto.TickerResponse, error)
@@ -32,7 +32,6 @@ func NewMarketHandler(svc MarketService) *MarketHandler {
 
 // ListMarkets 获取交易对列表
 // GET /api/v1/markets
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) ListMarkets(c *gin.Context) {
 	if h.svc == nil {
 		// 返回静态 Mock 数据
@@ -51,7 +50,6 @@ func (h *MarketHandler) ListMarkets(c *gin.Context) {
 
 // GetTicker 获取单个 Ticker
 // GET /api/v1/ticker/:market
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) GetTicker(c *gin.Context) {
 	market := c.Param("market")
 	if market == "" {
@@ -76,7 +74,6 @@ func (h *MarketHandler) GetTicker(c *gin.Context) {
 
 // ListTickers 获取所有 Ticker
 // GET /api/v1/tickers
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) ListTickers(c *gin.Context) {
 	if h.svc == nil {
 		// 返回静态 Mock 数据
@@ -95,7 +92,6 @@ func (h *MarketHandler) ListTickers(c *gin.Context) {
 
 // GetDepth 获取深度
 // GET /api/v1/depth/:market
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) GetDepth(c *gin.Context) {
 	market := c.Param("market")
 	if market == "" {
@@ -132,7 +128,6 @@ func (h *MarketHandler) GetDepth(c *gin.Context) {
 
 // GetKlines 获取 K 线
 // GET /api/v1/klines/:market
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) GetKlines(c *gin.Context) {
 	market := c.Param("market")
 	if market == "" {
@@ -178,7 +173,6 @@ func (h *MarketHandler) GetKlines(c *gin.Context) {
 
 // GetRecentTrades 获取最近成交
 // GET /api/v1/trades/:market/recent
-// TODO: 需要 eidos-market 服务
 func (h *MarketHandler) GetRecentTrades(c *gin.Context) {
 	market := c.Param("market")
 	if market == "" {

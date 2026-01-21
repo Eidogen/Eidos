@@ -2,6 +2,8 @@ package aggregator
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -77,7 +78,7 @@ func (m *mockKlinePublisher) GetPublishes() int {
 }
 
 func TestKlineAggregator_ProcessTrade(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := &mockKlineRepository{}
 	publisher := &mockKlinePublisher{}
 
@@ -158,7 +159,7 @@ func TestKlineAggregator_ProcessTrade(t *testing.T) {
 }
 
 func TestKlineAggregator_KlineRollover(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := &mockKlineRepository{}
 
 	config := KlineAggregatorConfig{
@@ -209,7 +210,7 @@ func TestKlineAggregator_KlineRollover(t *testing.T) {
 }
 
 func TestKlineAggregator_AllIntervals(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := &mockKlineRepository{}
 
 	config := KlineAggregatorConfig{
@@ -246,7 +247,7 @@ func TestKlineAggregator_AllIntervals(t *testing.T) {
 }
 
 func TestKlineAggregator_Stats(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := KlineAggregatorConfig{
 		FlushInterval: time.Hour,

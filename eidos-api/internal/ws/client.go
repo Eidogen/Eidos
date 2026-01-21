@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/crypto"
@@ -22,7 +22,7 @@ type Client struct {
 	hub    *Hub
 	conn   *websocket.Conn
 	send   chan []byte
-	logger *zap.Logger
+	logger *slog.Logger
 	cfg    config.WebSocketConfig
 
 	// 订阅管理
@@ -40,7 +40,7 @@ type Client struct {
 }
 
 // NewClient 创建客户端
-func NewClient(hub *Hub, conn *websocket.Conn, logger *zap.Logger, cfg config.WebSocketConfig) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, logger *slog.Logger, cfg config.WebSocketConfig) *Client {
 	return &Client{
 		id:            uuid.New().String(),
 		hub:           hub,
@@ -128,8 +128,8 @@ func (c *Client) ReadPump() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				c.logger.Debug("websocket read error",
-					zap.String("client", c.id),
-					zap.Error(err),
+					"client", c.id,
+					"error", err,
 				)
 			}
 			break
@@ -253,9 +253,9 @@ func (c *Client) handleSubscribe(msg *ClientMessage) {
 	c.send <- data
 
 	c.logger.Debug("client subscribed",
-		zap.String("client", c.id),
-		zap.String("channel", string(msg.Channel)),
-		zap.String("market", msg.Market),
+		"client", c.id,
+		"channel", string(msg.Channel),
+		"market", msg.Market,
 	)
 }
 
@@ -320,8 +320,8 @@ func (c *Client) handleAuth(msg *ClientMessage) {
 	// 验证签名
 	if err := c.verifyAuthSignature(wallet, timestamp, signature); err != nil {
 		c.logger.Warn("auth signature verification failed",
-			zap.String("wallet", wallet),
-			zap.Error(err),
+			"wallet", wallet,
+			"error", err,
 		)
 		c.sendError(msg.ID, 401, "invalid signature")
 		return
@@ -333,8 +333,8 @@ func (c *Client) handleAuth(msg *ClientMessage) {
 	c.sendAuthSuccess(msg.ID)
 
 	c.logger.Info("client authenticated",
-		zap.String("client", c.id),
-		zap.String("wallet", c.wallet),
+		"client", c.id,
+		"wallet", c.wallet,
 	)
 }
 
@@ -400,7 +400,7 @@ func (c *Client) sendError(id string, code int, message string) {
 	case c.send <- data:
 	default:
 		c.logger.Warn("client send buffer full, dropping error message",
-			zap.String("client", c.id),
+			"client", c.id,
 		)
 	}
 }
@@ -420,7 +420,7 @@ func (c *Client) Send(data []byte) bool {
 	default:
 		if c.logger != nil {
 			c.logger.Warn("client send buffer full",
-				zap.String("client", c.id),
+				"client", c.id,
 			)
 		}
 		return false
@@ -477,7 +477,7 @@ func isPrivateChannel(ch Channel) bool {
 func (c *Client) SendJSON(v interface{}) bool {
 	data, err := json.Marshal(v)
 	if err != nil {
-		c.logger.Error("failed to marshal message", zap.Error(err))
+		c.logger.Error("failed to marshal message", "error", err)
 		return false
 	}
 	return c.Send(data)

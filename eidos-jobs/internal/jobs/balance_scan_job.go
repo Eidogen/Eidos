@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
@@ -132,8 +131,8 @@ func (j *BalanceScanJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		select {
 		case <-ctx.Done():
 			logger.Warn("balance scan job cancelled",
-				zap.Int("scanned", totalScanned),
-				zap.Int("cancelled", totalCancelledOrders))
+				"scanned", totalScanned,
+				"cancelled", totalCancelledOrders)
 			result.ProcessedCount = totalScanned
 			result.AffectedCount = totalCancelledOrders
 			result.ErrorCount = totalErrors
@@ -145,8 +144,8 @@ func (j *BalanceScanJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		walletInfos, err := j.dataProvider.GetWalletsWithActiveOrders(ctx, offset, j.config.BatchSize)
 		if err != nil {
 			logger.Error("failed to get wallets with active orders",
-				zap.Int("offset", offset),
-				zap.Error(err))
+				"offset", offset,
+				"error", err)
 			totalErrors++
 			break
 		}
@@ -165,9 +164,9 @@ func (j *BalanceScanJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		totalErrors += batchErrors
 
 		logger.Debug("processed batch",
-			zap.Int("batch_size", len(walletInfos)),
-			zap.Int("insufficient", insufficientWallets),
-			zap.Int("cancelled", cancelledCount))
+			"batch_size", len(walletInfos),
+			"insufficient", insufficientWallets,
+			"cancelled", cancelledCount)
 
 		offset += j.config.BatchSize
 
@@ -187,11 +186,11 @@ func (j *BalanceScanJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 	result.Details["duration_ms"] = duration.Milliseconds()
 
 	logger.Info("balance scan job completed",
-		zap.Int("scanned_wallets", totalScanned),
-		zap.Int("insufficient_wallets", totalInsufficientWallets),
-		zap.Int("cancelled_orders", totalCancelledOrders),
-		zap.Int("errors", totalErrors),
-		zap.Duration("duration", duration))
+		"scanned_wallets", totalScanned,
+		"insufficient_wallets", totalInsufficientWallets,
+		"cancelled_orders", totalCancelledOrders,
+		"errors", totalErrors,
+		"duration", duration)
 
 	return result, nil
 }
@@ -245,9 +244,9 @@ func (j *BalanceScanJob) processWallet(ctx context.Context, info *WalletOrderInf
 	onchainBalance, err := j.dataProvider.GetOnchainBalance(ctx, info.Wallet, info.Token)
 	if err != nil {
 		logger.Warn("failed to get onchain balance",
-			zap.String("wallet", info.Wallet),
-			zap.String("token", info.Token),
-			zap.Error(err))
+			"wallet", info.Wallet,
+			"token", info.Token,
+			"error", err)
 		return false, 0, true
 	}
 
@@ -261,11 +260,11 @@ func (j *BalanceScanJob) processWallet(ctx context.Context, info *WalletOrderInf
 
 	// 余额不足，取消订单
 	logger.Warn("insufficient balance detected, cancelling orders",
-		zap.String("wallet", info.Wallet),
-		zap.String("token", info.Token),
-		zap.String("onchain_balance", onchainBalance.String()),
-		zap.String("frozen_amount", info.TotalFrozen.String()),
-		zap.Int("order_count", info.OrderCount))
+		"wallet", info.Wallet,
+		"token", info.Token,
+		"onchain_balance", onchainBalance.String(),
+		"frozen_amount", info.TotalFrozen.String(),
+		"order_count", info.OrderCount)
 
 	reason := fmt.Sprintf("Insufficient balance: onchain=%s, required=%s",
 		onchainBalance.String(), info.TotalFrozen.String())
@@ -274,9 +273,9 @@ func (j *BalanceScanJob) processWallet(ctx context.Context, info *WalletOrderInf
 	cancelledCount, err := j.dataProvider.BatchCancelOrders(ctx, info.OrderIDs, reason)
 	if err != nil {
 		logger.Error("failed to cancel orders",
-			zap.String("wallet", info.Wallet),
-			zap.Strings("order_ids", info.OrderIDs),
-			zap.Error(err))
+			"wallet", info.Wallet,
+			"order_ids", info.OrderIDs,
+			"error", err)
 		return true, 0, true
 	}
 
@@ -284,8 +283,8 @@ func (j *BalanceScanJob) processWallet(ctx context.Context, info *WalletOrderInf
 	if j.config.EnableNotification {
 		if err := j.dataProvider.SendCancelNotification(ctx, info.Wallet, info.OrderIDs, reason); err != nil {
 			logger.Warn("failed to send cancel notification",
-				zap.String("wallet", info.Wallet),
-				zap.Error(err))
+				"wallet", info.Wallet,
+				"error", err)
 		}
 	}
 
@@ -302,8 +301,8 @@ func (j *BalanceScanJob) processWallet(ctx context.Context, info *WalletOrderInf
 		}
 		if err := j.alertFunc(ctx, alert); err != nil {
 			logger.Warn("failed to send alert",
-				zap.String("wallet", info.Wallet),
-				zap.Error(err))
+				"wallet", info.Wallet,
+				"error", err)
 		}
 	}
 

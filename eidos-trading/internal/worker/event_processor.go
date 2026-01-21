@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
-	"go.uber.org/zap"
 )
 
 // EventHandler 事件处理器接口
@@ -45,14 +44,14 @@ func (p *EventProcessor) Handlers() map[string]EventHandler {
 func (p *EventProcessor) Handle(ctx context.Context, msg *kafka.Message) error {
 	handler, ok := p.handlers[msg.Topic]
 	if !ok {
-		logger.Warn("no handler for topic", zap.String("topic", msg.Topic))
+		logger.Warn("no handler for topic", "topic", msg.Topic)
 		return nil
 	}
 
 	logger.Debug("processing event",
-		zap.String("topic", msg.Topic),
-		zap.Int32("partition", msg.Partition),
-		zap.Int64("offset", msg.Offset),
+		"topic", msg.Topic,
+		"partition", msg.Partition,
+		"offset", msg.Offset,
 	)
 
 	// 记录消息延迟 (Consumer Lag)
@@ -61,8 +60,8 @@ func (p *EventProcessor) Handle(ctx context.Context, msg *kafka.Message) error {
 
 	if err := handler.HandleEvent(ctx, msg.Topic, msg.Value); err != nil {
 		logger.Error("handle event failed",
-			zap.String("topic", msg.Topic),
-			zap.Error(err),
+			"topic", msg.Topic,
+			"error", err,
 		)
 		return err
 	}

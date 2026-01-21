@@ -3,11 +3,12 @@ package event
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -26,7 +27,7 @@ func (m *mockTradeProcessor) ProcessTrade(ctx context.Context, trade *model.Trad
 }
 
 func TestTradeHandler_Handle(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	t.Run("success", func(t *testing.T) {
 		mockSvc := &mockTradeProcessor{}
@@ -81,7 +82,7 @@ func TestTradeHandler_Handle(t *testing.T) {
 
 func TestTradeHandler_Topic(t *testing.T) {
 	handler := &TradeHandler{
-		logger: zap.NewNop(),
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	assert.Equal(t, "trade-results", handler.Topic())
 }

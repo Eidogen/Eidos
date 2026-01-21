@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -89,8 +88,8 @@ func (a *SignatureAuthenticator) Authenticate(ctx context.Context) (context.Cont
 	// 验证签名
 	wallet, err := a.verifier.Verify(ctx, signatures[0], messages[0])
 	if err != nil {
-		logger.WithContext(ctx).Debug("signature verification failed",
-			zap.Error(err),
+		logger.Debug("signature verification failed",
+			"error", err,
 		)
 		return nil, status.Error(codes.Unauthenticated, "invalid signature")
 	}
@@ -135,8 +134,8 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context) (context.Context
 	// 验证 API Key
 	userInfo, err := a.validator.Validate(ctx, apiKeys[0])
 	if err != nil {
-		logger.WithContext(ctx).Debug("API key validation failed",
-			zap.Error(err),
+		logger.Debug("API key validation failed",
+			"error", err,
 		)
 		return nil, status.Error(codes.Unauthenticated, "invalid API key")
 	}

@@ -48,7 +48,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 var (
@@ -238,8 +237,8 @@ func (s *IndexerService) Start(ctx context.Context) error {
 	}
 
 	logger.Info("indexer starting",
-		zap.Int64("chain_id", s.chainID),
-		zap.Uint64("start_block", startBlock))
+		"chain_id", s.chainID,
+		"start_block", startBlock)
 
 	go s.runLoop(ctx, startBlock)
 
@@ -258,7 +257,7 @@ func (s *IndexerService) Stop() error {
 	close(s.stopCh)
 	s.running = false
 
-	logger.Info("indexer stopped", zap.Int64("chain_id", s.chainID))
+	logger.Info("indexer stopped", "chain_id", s.chainID)
 
 	return nil
 }
@@ -283,9 +282,9 @@ func (s *IndexerService) getStartBlock(ctx context.Context) (uint64, error) {
 	checkpoint, err := s.checkpointRepo.GetByChainID(ctx, s.chainID)
 	if err == nil && checkpoint != nil {
 		logger.Info("resuming from checkpoint",
-			zap.Int64("chain_id", s.chainID),
-			zap.Int64("checkpoint_block", checkpoint.BlockNumber),
-			zap.String("checkpoint_hash", checkpoint.BlockHash))
+			"chain_id", s.chainID,
+			"checkpoint_block", checkpoint.BlockNumber,
+			"checkpoint_hash", checkpoint.BlockHash)
 		return uint64(checkpoint.BlockNumber + 1), nil
 	}
 
@@ -296,8 +295,8 @@ func (s *IndexerService) getStartBlock(ctx context.Context) (uint64, error) {
 			return 0, fmt.Errorf("failed to get current block: %w", err)
 		}
 		logger.Info("no checkpoint found, starting from current block",
-			zap.Int64("chain_id", s.chainID),
-			zap.Uint64("current_block", currentBlock))
+			"chain_id", s.chainID,
+			"current_block", currentBlock)
 		return currentBlock, nil
 	}
 
@@ -322,7 +321,7 @@ func (s *IndexerService) runLoop(ctx context.Context, startBlock uint64) {
 		case <-ticker.C:
 			latestBlock, err := s.client.BlockNumber(ctx)
 			if err != nil {
-				logger.Error("failed to get latest block", zap.Error(err))
+				logger.Error("failed to get latest block", "error", err)
 				continue
 			}
 
@@ -336,9 +335,9 @@ func (s *IndexerService) runLoop(ctx context.Context, startBlock uint64) {
 			if currentBlock <= endBlock {
 				if err := s.processBlockRange(ctx, currentBlock, endBlock); err != nil {
 					logger.Error("failed to process block range",
-						zap.Uint64("from", currentBlock),
-						zap.Uint64("to", endBlock),
-						zap.Error(err))
+						"from", currentBlock,
+						"to", endBlock,
+						"error", err)
 					continue
 				}
 
@@ -417,9 +416,9 @@ func (s *IndexerService) processBlockRange(ctx context.Context, fromBlock, toBlo
 
 		if err := s.processLog(ctx, log); err != nil {
 			logger.Error("failed to process log",
-				zap.String("tx_hash", log.TxHash.Hex()),
-				zap.Uint("log_index", log.Index),
-				zap.Error(err))
+				"tx_hash", log.TxHash.Hex(),
+				"log_index", log.Index,
+				"error", err)
 			// 继续处理其他日志
 		}
 	}
@@ -522,11 +521,11 @@ func (s *IndexerService) processDepositLog(ctx context.Context, log types.Log) e
 	s.recordChainEvent(ctx, log, model.ChainEventTypeDeposit)
 
 	logger.Info("deposit detected",
-		zap.String("deposit_id", record.DepositID),
-		zap.String("wallet", deposit.Wallet),
-		zap.String("token", deposit.Token),
-		zap.String("amount", deposit.Amount.String()),
-		zap.String("tx_hash", log.TxHash.Hex()))
+		"deposit_id", record.DepositID,
+		"wallet", deposit.Wallet,
+		"token", deposit.Token,
+		"amount", deposit.Amount.String(),
+		"tx_hash", log.TxHash.Hex())
 
 	// Arbitrum 0 确认，直接处理
 	if s.requiredConfirms == 0 {
@@ -583,11 +582,11 @@ func (s *IndexerService) processWithdrawLog(ctx context.Context, log types.Log) 
 	s.recordChainEvent(ctx, log, model.ChainEventTypeWithdraw)
 
 	logger.Info("withdraw event detected",
-		zap.String("user", withdrawEvent.User.Hex()),
-		zap.String("token", tokenSymbol),
-		zap.String("amount", amount.String()),
-		zap.String("to", withdrawEvent.To.Hex()),
-		zap.String("tx_hash", log.TxHash.Hex()))
+		"user", withdrawEvent.User.Hex(),
+		"token", tokenSymbol,
+		"amount", amount.String(),
+		"to", withdrawEvent.To.Hex(),
+		"tx_hash", log.TxHash.Hex())
 
 	// 回调通知
 	if s.onWithdrawDetected != nil {
@@ -603,7 +602,7 @@ func (s *IndexerService) processWithdrawLog(ctx context.Context, log types.Log) 
 			DetectedAt:  time.Now().UnixMilli(),
 		}
 		if err := s.onWithdrawDetected(ctx, data); err != nil {
-			logger.Error("withdraw callback failed", zap.Error(err))
+			logger.Error("withdraw callback failed", "error", err)
 		}
 	}
 
@@ -642,9 +641,9 @@ func (s *IndexerService) processSettlementLog(ctx context.Context, log types.Log
 	s.recordChainEvent(ctx, log, model.ChainEventTypeSettlement)
 
 	logger.Info("settlement event detected",
-		zap.String("batch_id", batchID),
-		zap.Int64("trade_count", settlementEvent.TradeCount.Int64()),
-		zap.String("tx_hash", log.TxHash.Hex()))
+		"batch_id", batchID,
+		"trade_count", settlementEvent.TradeCount.Int64(),
+		"tx_hash", log.TxHash.Hex())
 
 	// 回调通知
 	if s.onSettlementDetected != nil {
@@ -658,7 +657,7 @@ func (s *IndexerService) processSettlementLog(ctx context.Context, log types.Log
 			DetectedAt:  time.Now().UnixMilli(),
 		}
 		if err := s.onSettlementDetected(ctx, data); err != nil {
-			logger.Error("settlement callback failed", zap.Error(err))
+			logger.Error("settlement callback failed", "error", err)
 		}
 	}
 
@@ -704,8 +703,8 @@ func (s *IndexerService) recordChainEvent(ctx context.Context, log types.Log, ev
 
 	if err := s.checkpointRepo.CreateEvent(ctx, event); err != nil {
 		logger.Error("failed to record chain event",
-			zap.String("tx_hash", log.TxHash.Hex()),
-			zap.Error(err))
+			"tx_hash", log.TxHash.Hex(),
+			"error", err)
 	}
 }
 
@@ -814,8 +813,8 @@ func (s *IndexerService) processConfirmedDeposit(ctx context.Context, record *mo
 
 		if err := s.onDepositDetected(ctx, deposit); err != nil {
 			logger.Error("failed to send deposit event",
-				zap.String("deposit_id", record.DepositID),
-				zap.Error(err))
+				"deposit_id", record.DepositID,
+				"error", err)
 			return err
 		}
 	}
@@ -832,7 +831,7 @@ func (s *IndexerService) saveCheckpoint(ctx context.Context, blockNumber uint64)
 
 	block, err := s.client.GetBlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
-		logger.Error("failed to get block for checkpoint", zap.Error(err))
+		logger.Error("failed to get block for checkpoint", "error", err)
 		return
 	}
 
@@ -843,13 +842,13 @@ func (s *IndexerService) saveCheckpoint(ctx context.Context, blockNumber uint64)
 	}
 
 	if err := s.checkpointRepo.Upsert(ctx, checkpoint); err != nil {
-		logger.Error("failed to save checkpoint", zap.Error(err))
+		logger.Error("failed to save checkpoint", "error", err)
 		return
 	}
 
 	logger.Debug("checkpoint saved",
-		zap.Int64("chain_id", s.chainID),
-		zap.Uint64("block", blockNumber))
+		"chain_id", s.chainID,
+		"block", blockNumber)
 }
 
 // UpdateConfirmations 更新待确认充值的确认数
@@ -872,8 +871,8 @@ func (s *IndexerService) UpdateConfirmations(ctx context.Context) error {
 
 		if err := s.depositRepo.UpdateConfirmations(ctx, record.DepositID, confirmations); err != nil {
 			logger.Error("failed to update confirmations",
-				zap.String("deposit_id", record.DepositID),
-				zap.Error(err))
+				"deposit_id", record.DepositID,
+				"error", err)
 			continue
 		}
 
@@ -881,8 +880,8 @@ func (s *IndexerService) UpdateConfirmations(ctx context.Context) error {
 		if confirmations >= record.RequiredConfirmations && record.Status == model.DepositRecordStatusPending {
 			if err := s.processConfirmedDeposit(ctx, record); err != nil {
 				logger.Error("failed to process confirmed deposit",
-					zap.String("deposit_id", record.DepositID),
-					zap.Error(err))
+					"deposit_id", record.DepositID,
+					"error", err)
 			}
 		}
 	}
@@ -898,8 +897,8 @@ func (s *IndexerService) ReprocessFromBlock(ctx context.Context, fromBlock uint6
 	}
 
 	logger.Info("starting reprocess",
-		zap.Uint64("from_block", fromBlock),
-		zap.Uint64("latest_block", latestBlock))
+		"from_block", fromBlock,
+		"latest_block", latestBlock)
 
 	return s.processBlockRange(ctx, fromBlock, latestBlock)
 }

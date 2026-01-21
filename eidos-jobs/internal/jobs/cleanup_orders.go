@@ -6,7 +6,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 )
 
 // OrderExpireRequest 订单过期请求
@@ -82,7 +81,7 @@ func (j *CleanupOrdersJob) Execute(ctx context.Context) (*scheduler.JobResult, e
 		// 从交易服务获取需要过期的订单
 		expiredOrders, err := j.tradingClient.GetExpiredOrders(ctx, now, j.batchSize)
 		if err != nil {
-			logger.Error("failed to get expired orders", zap.Error(err))
+			logger.Error("failed to get expired orders", "error", err)
 			totalErrors++
 			break
 		}
@@ -101,7 +100,7 @@ func (j *CleanupOrdersJob) Execute(ctx context.Context) (*scheduler.JobResult, e
 		// 4. trading 服务消费消息后更新数据库状态和解冻余额
 		affected, err := j.matchingClient.ExpireOrders(ctx, expiredOrders)
 		if err != nil {
-			logger.Error("failed to expire orders in matching engine", zap.Error(err))
+			logger.Error("failed to expire orders in matching engine", "error", err)
 			totalErrors++
 			continue
 		}
@@ -109,8 +108,8 @@ func (j *CleanupOrdersJob) Execute(ctx context.Context) (*scheduler.JobResult, e
 		totalExpired += affected
 
 		logger.Debug("processed batch of expired orders",
-			zap.Int("batch_size", len(expiredOrders)),
-			zap.Int("expired", affected))
+			"batch_size", len(expiredOrders),
+			"expired", affected)
 
 		// 如果处理的数量少于批次大小，说明已经处理完了
 		if len(expiredOrders) < j.batchSize {
@@ -125,25 +124,25 @@ func (j *CleanupOrdersJob) Execute(ctx context.Context) (*scheduler.JobResult, e
 	result.Details["processed_orders"] = totalProcessed
 
 	logger.Info("cleanup orders completed",
-		zap.Int("processed", totalProcessed),
-		zap.Int("expired", totalExpired),
-		zap.Int("errors", totalErrors))
+		"processed", totalProcessed,
+		"expired", totalExpired,
+		"errors", totalErrors)
 
 	return result, nil
 }
 
 // MockTradingClient 模拟交易客户端 (用于测试)
+// 实际实现见 eidos-jobs/internal/client/trading_client.go
 type MockTradingClient struct{}
 
 func (c *MockTradingClient) GetExpiredOrders(ctx context.Context, beforeTime int64, limit int) ([]*OrderExpireRequest, error) {
-	// TODO: 实际实现通过 gRPC 调用 trading 服务
 	return nil, nil
 }
 
 // MockMatchingClient 模拟撮合客户端 (用于测试)
+// 实际实现见 eidos-jobs/internal/client/matching_client.go
 type MockMatchingClient struct{}
 
 func (c *MockMatchingClient) ExpireOrders(ctx context.Context, requests []*OrderExpireRequest) (int, error) {
-	// TODO: 实际实现通过 gRPC 调用 matching 服务
 	return len(requests), nil
 }

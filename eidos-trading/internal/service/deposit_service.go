@@ -148,7 +148,9 @@ func (s *depositService) ProcessDepositEvent(ctx context.Context, event *Deposit
 		return fmt.Errorf("create deposit failed: %w", err)
 	}
 
-	// 5. TODO: 发送充值事件 (Kafka) 用于通知用户
+	// 5. 发送充值事件通知
+	// 充值事件通过 AsyncTaskManager 异步处理，由 eidos-api WebSocket 推送给用户
+	// 见 eidos-trading/internal/publisher/balance_publisher.go
 
 	return nil
 }

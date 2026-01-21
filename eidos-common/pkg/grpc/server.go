@@ -8,7 +8,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -183,7 +182,7 @@ func (s *Server) Start() error {
 	s.listener = listener
 
 	logger.Info("grpc server starting",
-		zap.String("address", addr),
+		"address", addr,
 	)
 
 	// 设置所有服务为健康状态
@@ -205,7 +204,7 @@ func (s *Server) StartAsync() error {
 	s.listener = listener
 
 	logger.Info("grpc server starting async",
-		zap.String("address", addr),
+		"address", addr,
 	)
 
 	// 设置所有服务为健康状态
@@ -215,7 +214,7 @@ func (s *Server) StartAsync() error {
 
 	go func() {
 		if err := s.server.Serve(listener); err != nil {
-			logger.Error("grpc server error", zap.Error(err))
+			logger.Error("grpc server error", "error", err)
 		}
 	}()
 
@@ -260,8 +259,8 @@ func UnaryServerRecoveryInterceptor() grpc.UnaryServerInterceptor {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Error("grpc server panic recovered",
-					zap.Any("panic", r),
-					zap.String("method", info.FullMethod),
+					"panic", r,
+					"method", info.FullMethod,
 				)
 				err = fmt.Errorf("internal error")
 			}
@@ -281,8 +280,8 @@ func StreamServerRecoveryInterceptor() grpc.StreamServerInterceptor {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Error("grpc stream panic recovered",
-					zap.Any("panic", r),
-					zap.String("method", info.FullMethod),
+					"panic", r,
+					"method", info.FullMethod,
 				)
 				err = fmt.Errorf("internal error")
 			}
@@ -303,16 +302,17 @@ func UnaryServerLoggingInterceptor() grpc.UnaryServerInterceptor {
 		resp, err := handler(ctx, req)
 		duration := time.Since(start)
 
-		fields := []zap.Field{
-			zap.String("method", info.FullMethod),
-			zap.Duration("duration", duration),
-		}
-
 		if err != nil {
-			fields = append(fields, zap.Error(err))
-			logger.WithContext(ctx).Info("grpc request failed", fields...)
+			logger.Info("grpc request failed",
+				"method", info.FullMethod,
+				"duration", duration,
+				"error", err,
+			)
 		} else {
-			logger.WithContext(ctx).Info("grpc request completed", fields...)
+			logger.Info("grpc request completed",
+				"method", info.FullMethod,
+				"duration", duration,
+			)
 		}
 
 		return resp, err
@@ -331,9 +331,9 @@ func StreamServerLoggingInterceptor() grpc.StreamServerInterceptor {
 		err := handler(srv, ss)
 
 		logger.Info("grpc stream completed",
-			zap.String("method", info.FullMethod),
-			zap.Duration("duration", time.Since(start)),
-			zap.Error(err),
+			"method", info.FullMethod,
+			"duration", time.Since(start),
+			"error", err,
 		)
 
 		return err

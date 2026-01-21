@@ -4,11 +4,11 @@ package cache
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/repository"
@@ -17,7 +17,7 @@ import (
 // CacheManager manages all market data caches
 type CacheManager struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 
 	// Specialized caches
 	TickerCache *TickerCache
@@ -64,13 +64,13 @@ func NewCacheManager(
 	client redis.UniversalClient,
 	klineRepo repository.KlineRepository,
 	tradeRepo repository.TradeRepository,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) *CacheManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &CacheManager{
 		client:      client,
-		logger:      logger.Named("cache_manager"),
+		logger:      logger.With("component", "cache_manager"),
 		TickerCache: NewTickerCache(client, logger),
 		DepthCache:  NewDepthCache(client, logger),
 		KlineCache:  NewKlineCache(client, logger),
@@ -90,8 +90,8 @@ func (cm *CacheManager) Start(config CacheManagerConfig) error {
 	go cm.cleanupLoop(config.CleanupInterval)
 
 	cm.logger.Info("cache manager started",
-		zap.Bool("warming_enabled", config.EnableCacheWarming),
-		zap.Duration("cleanup_interval", config.CleanupInterval))
+		"warming_enabled", config.EnableCacheWarming,
+		"cleanup_interval", config.CleanupInterval)
 
 	return nil
 }
@@ -111,7 +111,7 @@ func (cm *CacheManager) WarmMarketCache(ctx context.Context, market string, conf
 		return nil
 	}
 
-	cm.logger.Info("warming cache for market", zap.String("market", market))
+	cm.logger.Info("warming cache for market", "market", market)
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(model.AllIntervals)+1)
@@ -147,12 +147,12 @@ func (cm *CacheManager) WarmMarketCache(ctx context.Context, market string, conf
 
 	if len(errs) > 0 {
 		cm.logger.Warn("cache warming completed with errors",
-			zap.String("market", market),
-			zap.Int("errors", len(errs)))
+			"market", market,
+			"errors", len(errs))
 		return errs[0]
 	}
 
-	cm.logger.Info("cache warming completed", zap.String("market", market))
+	cm.logger.Info("cache warming completed", "market", market)
 	return nil
 }
 
@@ -188,7 +188,7 @@ func (cm *CacheManager) warmTradeCache(ctx context.Context, market string, count
 	// Push trades to Redis cache
 	for _, trade := range trades {
 		if err := cm.RedisCache.PushTrade(ctx, market, trade); err != nil {
-			cm.logger.Warn("failed to cache trade", zap.Error(err))
+			cm.logger.Warn("failed to cache trade", "error", err)
 		}
 	}
 
@@ -221,7 +221,7 @@ func (cm *CacheManager) cleanup() {
 	pattern := "eidos:ticker_buckets:*"
 	keys, err := cm.client.Keys(ctx, pattern).Result()
 	if err != nil {
-		cm.logger.Warn("failed to get ticker bucket keys", zap.Error(err))
+		cm.logger.Warn("failed to get ticker bucket keys", "error", err)
 		return
 	}
 
@@ -231,14 +231,14 @@ func (cm *CacheManager) cleanup() {
 		deleted, err := cm.TickerCache.CleanExpiredBuckets(ctx, market)
 		if err != nil {
 			cm.logger.Warn("failed to clean expired buckets",
-				zap.String("market", market),
-				zap.Error(err))
+				"market", market,
+				"error", err)
 			continue
 		}
 		if deleted > 0 {
 			cm.logger.Debug("cleaned expired ticker buckets",
-				zap.String("market", market),
-				zap.Int64("count", deleted))
+				"market", market,
+				"count", deleted)
 		}
 	}
 }
@@ -247,12 +247,12 @@ func (cm *CacheManager) cleanup() {
 func (cm *CacheManager) InvalidateMarketCache(ctx context.Context, market string) error {
 	// Invalidate all klines
 	if err := cm.KlineCache.InvalidateAllKlines(ctx, market); err != nil {
-		cm.logger.Warn("failed to invalidate kline cache", zap.Error(err))
+		cm.logger.Warn("failed to invalidate kline cache", "error", err)
 	}
 
 	// Invalidate depth
 	if err := cm.DepthCache.InvalidateDepth(ctx, market); err != nil {
-		cm.logger.Warn("failed to invalidate depth cache", zap.Error(err))
+		cm.logger.Warn("failed to invalidate depth cache", "error", err)
 	}
 
 	// Delete other market-specific keys

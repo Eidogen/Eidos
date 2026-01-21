@@ -2,11 +2,11 @@
 package router
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
@@ -20,7 +20,7 @@ import (
 type Router struct {
 	engine        *gin.Engine
 	cfg           *config.Config
-	logger        *zap.Logger
+	logger        *slog.Logger
 	slidingWindow *ratelimit.SlidingWindow
 	replayGuard   *cache.ReplayGuard
 }
@@ -29,7 +29,7 @@ type Router struct {
 func New(
 	engine *gin.Engine,
 	cfg *config.Config,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	sw *ratelimit.SlidingWindow,
 	rg *cache.ReplayGuard,
 ) *Router {

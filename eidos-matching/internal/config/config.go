@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
@@ -131,7 +132,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	// 环境变量替换
-	data = []byte(os.ExpandEnv(string(data)))
+	data = []byte(config.ExpandEnv(string(data)))
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {

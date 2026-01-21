@@ -6,12 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 )
 
 var (
@@ -133,10 +133,10 @@ func (le *LeaderElection) Start() error {
 	le.wg.Add(1)
 	go le.electionLoop()
 
-	zap.L().Info("leader election started",
-		zap.String("node_id", le.config.NodeID),
-		zap.Duration("lease_duration", le.config.LeaseDuration),
-		zap.Duration("renew_interval", le.config.RenewInterval))
+	slog.Info("leader election started",
+		"node_id", le.config.NodeID,
+		"lease_duration", le.config.LeaseDuration,
+		"renew_interval", le.config.RenewInterval)
 
 	return nil
 }
@@ -157,9 +157,9 @@ func (le *LeaderElection) Stop() {
 		le.config.OnLeaderChange(false, oldState, StateStopped)
 	}
 
-	zap.L().Info("leader election stopped",
-		zap.String("node_id", le.config.NodeID),
-		zap.String("old_state", oldState.String()))
+	slog.Info("leader election stopped",
+		"node_id", le.config.NodeID,
+		"old_state", oldState.String())
 }
 
 // electionLoop 选举循环
@@ -199,9 +199,9 @@ func (le *LeaderElection) tryAcquireOrRenew() {
 			// 续租失败，降级为 Follower
 			newState = StateFollower
 			le.recordError(err)
-			zap.L().Warn("renew leader lock failed",
-				zap.String("node_id", le.config.NodeID),
-				zap.Error(err))
+			slog.Warn("renew leader lock failed",
+				"node_id", le.config.NodeID,
+				"error", err)
 		} else {
 			newState = StateLeader
 			le.renewCount++
@@ -214,15 +214,15 @@ func (le *LeaderElection) tryAcquireOrRenew() {
 		if err != nil {
 			newState = StateFollower
 			le.recordError(err)
-			zap.L().Warn("acquire leader lock failed",
-				zap.String("node_id", le.config.NodeID),
-				zap.Error(err))
+			slog.Warn("acquire leader lock failed",
+				"node_id", le.config.NodeID,
+				"error", err)
 		} else if acquired {
 			newState = StateLeader
 			le.electionCount++
 			le.lastElectionTime = time.Now()
-			zap.L().Info("became leader",
-				zap.String("node_id", le.config.NodeID))
+			slog.Info("became leader",
+				"node_id", le.config.NodeID)
 		} else {
 			newState = StateFollower
 			le.leaderID.Store(currentLeader)
@@ -235,10 +235,10 @@ func (le *LeaderElection) tryAcquireOrRenew() {
 		if le.config.OnLeaderChange != nil {
 			le.config.OnLeaderChange(newState == StateLeader, oldState, newState)
 		}
-		zap.L().Info("leader state changed",
-			zap.String("node_id", le.config.NodeID),
-			zap.String("old_state", oldState.String()),
-			zap.String("new_state", newState.String()))
+		slog.Info("leader state changed",
+			"node_id", le.config.NodeID,
+			"old_state", oldState.String(),
+			"new_state", newState.String())
 	}
 }
 
@@ -312,12 +312,12 @@ func (le *LeaderElection) releaseLock() {
 	defer cancel()
 
 	if _, err := script.Run(ctx, le.redis, []string{key}, le.config.NodeID).Result(); err != nil {
-		zap.L().Warn("release leader lock failed",
-			zap.String("node_id", le.config.NodeID),
-			zap.Error(err))
+		slog.Warn("release leader lock failed",
+			"node_id", le.config.NodeID,
+			"error", err)
 	} else {
-		zap.L().Info("leader lock released",
-			zap.String("node_id", le.config.NodeID))
+		slog.Info("leader lock released",
+			"node_id", le.config.NodeID)
 	}
 }
 

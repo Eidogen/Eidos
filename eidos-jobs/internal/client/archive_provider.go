@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
@@ -147,9 +146,9 @@ func (p *ArchiveDataProviderImpl) ArchiveRecords(ctx context.Context, tableName 
 		}
 
 		logger.Debug("copied records to archive table",
-			zap.String("source_table", tableName),
-			zap.String("archive_table", policy.ArchiveTableName),
-			zap.Int("count", len(ids)))
+			"source_table", tableName,
+			"archive_table", policy.ArchiveTableName,
+			"count", len(ids))
 	}
 
 	// 从源表删除数据
@@ -168,8 +167,8 @@ func (p *ArchiveDataProviderImpl) ArchiveRecords(ctx context.Context, tableName 
 	}
 
 	logger.Debug("archived records",
-		zap.String("table", tableName),
-		zap.Int("count", len(ids)))
+		"table", tableName,
+		"count", len(ids))
 
 	return nil
 }

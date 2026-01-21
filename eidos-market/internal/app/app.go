@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -24,8 +24,8 @@ import (
 	marketv1 "github.com/eidos-exchange/eidos/proto/market/v1"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/aggregator"
-	"github.com/eidos-exchange/eidos/eidos-market/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/cache"
+	"github.com/eidos-exchange/eidos/eidos-market/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/handler/event"
@@ -38,7 +38,7 @@ import (
 // App 应用程序
 type App struct {
 	cfg    *config.Config
-	logger *zap.Logger
+	logger *slog.Logger
 
 	// 基础设施
 	db             *gorm.DB
@@ -67,7 +67,7 @@ type App struct {
 }
 
 // New 创建应用
-func New(cfg *config.Config, logger *zap.Logger) *App {
+func New(cfg *config.Config, logger *slog.Logger) *App {
 	return &App{
 		cfg:    cfg,
 		logger: logger,
@@ -114,9 +114,9 @@ func (a *App) Run() error {
 	}
 
 	a.logger.Info("application started",
-		zap.String("service", a.cfg.Service.Name),
-		zap.Int("grpc_port", a.cfg.Service.GRPCPort),
-		zap.Int("http_port", a.cfg.Service.HTTPPort))
+		"service", a.cfg.Service.Name,
+		"grpc_port", a.cfg.Service.GRPCPort,
+		"http_port", a.cfg.Service.HTTPPort)
 
 	// 等待信号
 	a.waitForSignal(cancel)
@@ -204,7 +204,7 @@ func (a *App) initInfrastructure(ctx context.Context) error {
 		if err := a.initMatchingClient(); err != nil {
 			// 非致命错误，记录警告继续运行（深度数据将只能通过增量更新维护）
 			a.logger.Warn("failed to init matching client, depth snapshot recovery disabled",
-				zap.Error(err))
+				"error", err)
 		}
 	}
 
@@ -269,7 +269,7 @@ func (a *App) initServices(ctx context.Context) error {
 
 	// 初始化所有市场
 	if err := a.marketService.InitMarkets(ctx); err != nil {
-		a.logger.Warn("failed to init markets, continuing anyway", zap.Error(err))
+		a.logger.Warn("failed to init markets, continuing anyway", "error", err)
 	}
 
 	a.logger.Info("services initialized")
@@ -319,7 +319,7 @@ func (a *App) startGRPCServer() error {
 
 	go func() {
 		if err := a.grpcServer.Serve(lis); err != nil {
-			a.logger.Error("grpc server error", zap.Error(err))
+			a.logger.Error("grpc server error", "error", err)
 		}
 	}()
 
@@ -353,9 +353,9 @@ func (a *App) startHTTPServer() error {
 	}
 
 	go func() {
-		a.logger.Info("http server started", zap.Int("port", a.cfg.Service.HTTPPort))
+		a.logger.Info("http server started", "port", a.cfg.Service.HTTPPort)
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.logger.Error("http server error", zap.Error(err))
+			a.logger.Error("http server error", "error", err)
 		}
 	}()
 
@@ -367,7 +367,7 @@ func (a *App) waitForSignal(cancel context.CancelFunc) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
-	a.logger.Info("received signal", zap.String("signal", sig.String()))
+	a.logger.Info("received signal", "signal", sig.String())
 	cancel()
 }
 
@@ -386,7 +386,7 @@ func (a *App) initMatchingClient() error {
 
 	a.matchingClient = matchingClient
 	a.logger.Info("matching client initialized",
-		zap.String("addr", a.cfg.Matching.Addr))
+		"addr", a.cfg.Matching.Addr)
 
 	return nil
 }
@@ -420,8 +420,8 @@ func (a *App) initNacos() error {
 	}
 
 	a.logger.Info("nacos service registered",
-		zap.String("service", a.cfg.Service.Name),
-		zap.Int("port", a.cfg.Service.GRPCPort))
+		"service", a.cfg.Service.Name,
+		"port", a.cfg.Service.GRPCPort)
 
 	return nil
 }
@@ -433,7 +433,7 @@ func (a *App) shutdown(ctx context.Context) error {
 	// 注销 Nacos 服务
 	if a.nacosHelper != nil {
 		if err := a.nacosHelper.DeregisterAll(); err != nil {
-			a.logger.Error("failed to deregister nacos service", zap.Error(err))
+			a.logger.Error("failed to deregister nacos service", "error", err)
 		} else {
 			a.logger.Info("nacos service deregistered")
 		}
@@ -444,7 +444,7 @@ func (a *App) shutdown(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-			a.logger.Error("failed to shutdown http server", zap.Error(err))
+			a.logger.Error("failed to shutdown http server", "error", err)
 		} else {
 			a.logger.Info("http server stopped")
 		}
@@ -459,7 +459,7 @@ func (a *App) shutdown(ctx context.Context) error {
 	// 关闭 Kafka 消费者
 	if a.consumer != nil {
 		if err := a.consumer.Stop(); err != nil {
-			a.logger.Error("failed to stop kafka consumer", zap.Error(err))
+			a.logger.Error("failed to stop kafka consumer", "error", err)
 		}
 	}
 
@@ -471,14 +471,14 @@ func (a *App) shutdown(ctx context.Context) error {
 	// 关闭 Matching 客户端
 	if a.matchingClient != nil {
 		if err := a.matchingClient.Close(); err != nil {
-			a.logger.Error("failed to close matching client", zap.Error(err))
+			a.logger.Error("failed to close matching client", "error", err)
 		}
 	}
 
 	// 关闭 Redis
 	if a.redisClient != nil {
 		if err := a.redisClient.Close(); err != nil {
-			a.logger.Error("failed to close redis", zap.Error(err))
+			a.logger.Error("failed to close redis", "error", err)
 		}
 	}
 
@@ -487,7 +487,7 @@ func (a *App) shutdown(ctx context.Context) error {
 		sqlDB, _ := a.db.DB()
 		if sqlDB != nil {
 			if err := sqlDB.Close(); err != nil {
-				a.logger.Error("failed to close database", zap.Error(err))
+				a.logger.Error("failed to close database", "error", err)
 			}
 		}
 	}

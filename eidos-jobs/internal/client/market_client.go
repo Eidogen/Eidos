@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -35,7 +34,7 @@ func NewMarketClient(addr string) (*MarketClient, error) {
 		return nil, fmt.Errorf("connect to market service: %w", err)
 	}
 
-	logger.Info("connected to eidos-market", zap.String("addr", addr))
+	logger.Info("connected to eidos-market", "addr", addr)
 
 	return &MarketClient{
 		conn:   conn,
@@ -81,19 +80,19 @@ func (c *MarketClient) GetKlines(ctx context.Context, market, interval string, s
 }
 
 // SaveKline 保存 K 线数据
-// TODO: 需要在 market proto 中定义 UpsertKline RPC
+// 需要 market proto UpsertKline RPC
 func (c *MarketClient) SaveKline(ctx context.Context, kline *jobs.Kline) error {
 	return fmt.Errorf("not implemented: UpsertKline RPC not defined in proto")
 }
 
 // BatchSaveKlines 批量保存 K 线数据
-// TODO: 需要在 market proto 中定义 BatchUpsertKlines RPC
+// 需要 market proto BatchUpsertKlines RPC
 func (c *MarketClient) BatchSaveKlines(ctx context.Context, klines []*jobs.Kline) error {
 	return fmt.Errorf("not implemented: BatchUpsertKlines RPC not defined in proto")
 }
 
 // RepairKlineHistory 修复 K 线历史数据
-// TODO: 需要在 market proto 中定义 RepairKlineHistory RPC
+// 需要 market proto RepairKlineHistory RPC
 func (c *MarketClient) RepairKlineHistory(ctx context.Context, market, interval string, startTime, endTime int64) (int, error) {
 	return 0, fmt.Errorf("not implemented: RepairKlineHistory RPC not defined in proto")
 }

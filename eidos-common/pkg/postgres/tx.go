@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // TxOptions 事务选项
@@ -55,15 +54,15 @@ func (p *Pool) BeginTx(ctx context.Context, opts *TxOptions) (*Tx, error) {
 
 	tx, err := p.db.BeginTx(ctx, sqlOpts)
 	if err != nil {
-		logger.WithContext(ctx).Error("failed to begin transaction",
-			zap.Error(err),
+		logger.Error("failed to begin transaction",
+			"error", err,
 		)
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 
-	logger.WithContext(ctx).Debug("transaction started",
-		zap.String("isolation", opts.Isolation.String()),
-		zap.Bool("read_only", opts.ReadOnly),
+	logger.Debug("transaction started",
+		"isolation", opts.Isolation.String(),
+		"read_only", opts.ReadOnly,
 	)
 
 	return &Tx{
@@ -91,14 +90,14 @@ func (t *Tx) Commit() error {
 
 	if err != nil {
 		logger.Error("failed to commit transaction",
-			zap.Duration("duration", duration),
-			zap.Error(err),
+			"duration", duration,
+			"error", err,
 		)
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	logger.Debug("transaction committed",
-		zap.Duration("duration", duration),
+		"duration", duration,
 	)
 
 	return nil
@@ -116,14 +115,14 @@ func (t *Tx) Rollback() error {
 
 	if err != nil {
 		logger.Error("failed to rollback transaction",
-			zap.Duration("duration", duration),
-			zap.Error(err),
+			"duration", duration,
+			"error", err,
 		)
 		return fmt.Errorf("rollback transaction: %w", err)
 	}
 
 	logger.Debug("transaction rolled back",
-		zap.Duration("duration", duration),
+		"duration", duration,
 	)
 
 	return nil
@@ -190,9 +189,9 @@ func (p *Pool) WithTxOptions(ctx context.Context, opts *TxOptions, fn TxFunc) er
 	err = fn(ctx, tx)
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			logger.WithContext(ctx).Error("rollback failed after error",
-				zap.Error(rbErr),
-				zap.NamedError("original_error", err),
+			logger.Error("rollback failed after error",
+				"error", rbErr,
+				"original_error", err,
 			)
 		}
 		return err

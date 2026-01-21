@@ -3,6 +3,8 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -11,11 +13,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestNewSubscriber(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -31,7 +32,7 @@ func TestNewSubscriber(t *testing.T) {
 }
 
 func TestSubscriber_StartStop(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -56,7 +57,7 @@ func TestSubscriber_StartStop(t *testing.T) {
 }
 
 func TestSubscriber_StartWithContextCancel(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -80,7 +81,7 @@ func TestSubscriber_StartWithContextCancel(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_Ticker(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	// Start hub in background
@@ -137,7 +138,7 @@ func TestSubscriber_HandleMessage_Ticker(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_Depth(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	go hub.Run()
@@ -187,7 +188,7 @@ func TestSubscriber_HandleMessage_Depth(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_Kline(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	go hub.Run()
@@ -243,7 +244,7 @@ func TestSubscriber_HandleMessage_Kline(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_Trades(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	go hub.Run()
@@ -296,7 +297,7 @@ func TestSubscriber_HandleMessage_Trades(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_InvalidChannel(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -315,7 +316,7 @@ func TestSubscriber_HandleMessage_InvalidChannel(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_UnknownChannelType(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -333,7 +334,7 @@ func TestSubscriber_HandleMessage_UnknownChannelType(t *testing.T) {
 }
 
 func TestSubscriber_HandleMessage_InvalidJSON(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -351,7 +352,7 @@ func TestSubscriber_HandleMessage_InvalidJSON(t *testing.T) {
 }
 
 func TestSubscriber_PublishTicker(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -370,7 +371,7 @@ func TestSubscriber_PublishTicker(t *testing.T) {
 }
 
 func TestSubscriber_PublishDepth(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -390,7 +391,7 @@ func TestSubscriber_PublishDepth(t *testing.T) {
 }
 
 func TestSubscriber_PublishKline(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -411,7 +412,7 @@ func TestSubscriber_PublishKline(t *testing.T) {
 }
 
 func TestSubscriber_PublishTrade(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
@@ -433,7 +434,7 @@ func TestSubscriber_PublishTrade(t *testing.T) {
 }
 
 func TestSubscriber_ConcurrentPublish(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})

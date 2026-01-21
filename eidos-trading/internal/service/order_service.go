@@ -48,6 +48,11 @@ var (
 	ErrMarketOrderPriceRequired   = errors.New("market order requires price for slippage calculation")
 	ErrInvalidSlippage            = errors.New("invalid slippage value")
 	ErrInvalidQuoteAmount         = errors.New("invalid quote amount for market buy order")
+	ErrAmountBelowMinimum         = errors.New("order amount below minimum")
+	ErrAmountAboveMaximum         = errors.New("order amount above maximum")
+	ErrPriceBelowMinimum          = errors.New("order price below minimum")
+	ErrPriceAboveMaximum          = errors.New("order price above maximum")
+	ErrOrderExpired               = errors.New("order already expired")
 )
 
 // Default market order settings
@@ -281,14 +286,19 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("%w: invalid market %s", ErrInvalidOrder, req.Market)
 	}
 
-	// 3. 验证 EIP-712 签名
+	// 3. 验证订单与市场配置 (数量/价格范围)
+	if err := s.validateOrderWithMarketConfig(req, marketCfg); err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidOrder, err.Error())
+	}
+
+	// 4. 验证 EIP-712 签名
 	if s.signatureService != nil {
 		if err := s.signatureService.VerifyOrderSignature(ctx, req); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidOrder, err)
 		}
 	}
 
-	// 4. 风控检查
+	// 5. 风控检查
 	if s.riskClient != nil {
 		if err := s.riskClient.CheckOrder(ctx, req.Wallet, req.Market, req.Side, req.Type, req.Price, req.Amount); err != nil {
 			metrics.RecordRiskRejection("external_risk_check")
@@ -296,14 +306,14 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		}
 	}
 
-	// 5. 市价单滑点处理
+	// 6. 市价单滑点处理
 	if req.Type == model.OrderTypeMarket {
 		if err := s.processMarketOrder(req, marketCfg); err != nil {
 			return nil, err
 		}
 	}
 
-	// 6. 检查客户端订单 ID 幂等性 (从 DB 检查)
+	// 7. 检查客户端订单 ID 幂等性 (从 DB 检查)
 	if req.ClientOrderID != "" {
 		existingOrder, err := s.orderRepo.GetByClientOrderID(ctx, req.Wallet, req.ClientOrderID)
 		if err == nil {
@@ -314,14 +324,14 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		}
 	}
 
-	// 7. 生成订单 ID
+	// 8. 生成订单 ID
 	orderIDInt, err := s.idGenerator.Generate()
 	if err != nil {
 		return nil, fmt.Errorf("generate order id failed: %w", err)
 	}
 	orderID := fmt.Sprintf("O%d", orderIDInt)
 
-	// 8. 计算需要冻结的金额
+	// 9. 计算需要冻结的金额
 	freezeToken, freezeAmount := s.calculateFreezeAmount(req, marketCfg)
 
 	// 设置默认 TimeInForce
@@ -334,7 +344,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		}
 	}
 
-	// 9. 构建订单对象
+	// 10. 构建订单对象
 	now := time.Now().UnixMilli()
 	order := &model.Order{
 		OrderID:       orderID,
@@ -358,13 +368,13 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		UpdatedAt:     now,
 	}
 
-	// 10. 序列化订单用于 Outbox
+	// 11. 序列化订单用于 Outbox
 	orderJSON, err := json.Marshal(order)
 	if err != nil {
 		return nil, fmt.Errorf("marshal order failed: %w", err)
 	}
 
-	// 11. Redis Lua 原子操作: Nonce 检查 + 余额冻结 + Outbox 写入
+	// 12. Redis Lua 原子操作: Nonce 检查 + 余额冻结 + Outbox 写入
 	// 这是关键的原子操作，确保实时资金一致性
 	nonceKey := fmt.Sprintf("nonce:%s:order:%d", req.Wallet, req.Nonce)
 
@@ -415,7 +425,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("redis freeze for order failed: %w", err)
 	}
 
-	// 12. 记录订单创建成功指标
+	// 13. 记录订单创建成功指标
 	sideStr := "buy"
 	if req.Side == model.OrderSideSell {
 		sideStr = "sell"
@@ -423,7 +433,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 	metrics.RecordOrderCreated(req.Market, sideStr)
 	metrics.IncTotalOpenOrders()
 
-	// 13. 同步写入 DB (保证数据持久化，避免 Redis 写入成功但 DB 丢单)
+	// 14. 同步写入 DB (保证数据持久化，避免 Redis 写入成功但 DB 丢单)
 	if err := s.persistOrderToDB(ctx, order, req); err != nil {
 		// 严重错误：Redis 冻结成功但 DB 写入失败
 		// 此时需要回滚 Redis (解锁资金，清除 Outbox)，并返回错误给用户
@@ -442,7 +452,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("persist order to db failed: %w", err)
 	}
 
-	// 14. 发布订单创建消息到 Kafka (供 WebSocket 推送)
+	// 15. 发布订单创建消息到 Kafka (供 WebSocket 推送)
 	s.publishOrderUpdate(ctx, order)
 
 	return order, nil
@@ -676,7 +686,12 @@ func (s *orderService) CancelOrderByNonce(ctx context.Context, wallet string, no
 		return err
 	}
 
-	// 2. 验证签名 (TODO: 实现 EIP-712 签名验证)
+	// 2. 验证 EIP-712 签名
+	if s.signatureService != nil {
+		if err := s.signatureService.VerifyCancelSignature(ctx, wallet, order.OrderID, nonce, signature); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidOrder, err)
+		}
+	}
 
 	// 3. 取消订单
 	return s.CancelOrder(ctx, wallet, order.OrderID)
@@ -721,7 +736,7 @@ func (s *orderService) ExpireOrder(ctx context.Context, orderID string) error {
 
 	// 使用 Redis 解冻资金
 	if err := s.balanceCache.UnfreezeByOrderID(ctx, order.Wallet, order.FreezeToken, orderID); err != nil {
-		// logger.Warn("expire order unfreeze failed", zap.Error(err), zap.String("order_id", orderID))
+		// logger.Warn("expire order unfreeze failed", "error", err, "order_id", orderID)
 	}
 
 	// 减少用户活跃订单计数
@@ -785,7 +800,7 @@ func (s *orderService) RejectOrder(ctx context.Context, orderID string, reason s
 
 	// 使用 Redis 解冻资金
 	if err := s.balanceCache.UnfreezeByOrderID(ctx, order.Wallet, order.FreezeToken, orderID); err != nil {
-		// logger.Warn("reject order unfreeze failed", zap.Error(err), zap.String("order_id", orderID))
+		// logger.Warn("reject order unfreeze failed", "error", err, "order_id", orderID)
 	}
 
 	// 减少用户活跃订单计数
@@ -832,7 +847,7 @@ func (s *orderService) RejectOrder(ctx context.Context, orderID string, reason s
 	return nil
 }
 
-// validateCreateOrderRequest 验证创建订单请求
+// validateCreateOrderRequest 验证创建订单请求 (基础验证)
 func (s *orderService) validateCreateOrderRequest(req *CreateOrderRequest) error {
 	if req.Wallet == "" || len(req.Wallet) != 42 {
 		return errors.New("invalid wallet address")
@@ -858,6 +873,33 @@ func (s *orderService) validateCreateOrderRequest(req *CreateOrderRequest) error
 	if len(req.Signature) == 0 {
 		return errors.New("signature is required")
 	}
+	// 验证过期时间 (如果设置了)
+	if req.ExpireAt > 0 && req.ExpireAt < time.Now().UnixMilli() {
+		return ErrOrderExpired
+	}
+	return nil
+}
+
+// validateOrderWithMarketConfig 验证订单与市场配置
+func (s *orderService) validateOrderWithMarketConfig(req *CreateOrderRequest, cfg *MarketConfig) error {
+	// 验证数量范围
+	if req.Amount.LessThan(cfg.MinAmount) {
+		return fmt.Errorf("%w: amount %s is less than minimum %s", ErrAmountBelowMinimum, req.Amount.String(), cfg.MinAmount.String())
+	}
+	if cfg.MaxAmount.GreaterThan(decimal.Zero) && req.Amount.GreaterThan(cfg.MaxAmount) {
+		return fmt.Errorf("%w: amount %s exceeds maximum %s", ErrAmountAboveMaximum, req.Amount.String(), cfg.MaxAmount.String())
+	}
+
+	// 限价单验证价格范围
+	if req.Type == model.OrderTypeLimit {
+		if req.Price.LessThan(cfg.MinPrice) {
+			return fmt.Errorf("%w: price %s is less than minimum %s", ErrPriceBelowMinimum, req.Price.String(), cfg.MinPrice.String())
+		}
+		if cfg.MaxPrice.GreaterThan(decimal.Zero) && req.Price.GreaterThan(cfg.MaxPrice) {
+			return fmt.Errorf("%w: price %s exceeds maximum %s", ErrPriceAboveMaximum, req.Price.String(), cfg.MaxPrice.String())
+		}
+	}
+
 	return nil
 }
 
@@ -899,7 +941,7 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 		if err := s.balanceCache.UnfreezeByOrderID(ctx, order.Wallet, order.FreezeToken, msg.OrderID); err != nil {
 			// 解冻失败，但不应该阻止状态更新
 			// 这种情况可能是订单冻结记录已不存在 (已被部分成交释放)
-			// logger.Warn("unfreeze by order id failed", zap.Error(err), zap.String("order_id", msg.OrderID))
+			// logger.Warn("unfreeze by order id failed", "error", err, "order_id", msg.OrderID)
 		}
 
 		// 减少用户活跃订单计数
@@ -964,7 +1006,7 @@ func (s *orderService) HandleCancelConfirm(ctx context.Context, msg *OrderCancel
 		} else {
 			// 异常情况，需要解冻剩余资金
 			if err := s.balanceCache.UnfreezeByOrderID(ctx, order.Wallet, order.FreezeToken, msg.OrderID); err != nil {
-				// logger.Warn("unfreeze by order id failed (not_found)", zap.Error(err), zap.String("order_id", msg.OrderID))
+				// logger.Warn("unfreeze by order id failed (not_found)", "error", err, "order_id", msg.OrderID)
 			}
 		}
 

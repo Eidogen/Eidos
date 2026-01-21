@@ -12,7 +12,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/redis/go-redis/v9" // Added redis
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 const (
@@ -76,8 +75,8 @@ func (w *ReconciliationWorker) Start(ctx context.Context) {
 	go w.checkLoop(ctx)
 
 	logger.Info("reconciliation worker started",
-		zap.Duration("check_interval", w.cfg.CheckInterval),
-		zap.Int("batch_size", w.cfg.BatchSize),
+		"check_interval", w.cfg.CheckInterval,
+		"batch_size", w.cfg.BatchSize,
 	)
 }
 
@@ -117,7 +116,7 @@ func (w *ReconciliationWorker) checkLoop(ctx context.Context) {
 func (w *ReconciliationWorker) tryAcquireLock(ctx context.Context) bool {
 	ok, err := w.rdb.SetNX(ctx, reconciliationLockKey, "locked", reconciliationLockTTL).Result()
 	if err != nil {
-		logger.Error("try acquire reconciliation lock failed", zap.Error(err))
+		logger.Error("try acquire reconciliation lock failed", "error", err)
 		return false
 	}
 	return ok
@@ -141,7 +140,7 @@ func (w *ReconciliationWorker) reconcile(ctx context.Context) {
 		// 从数据库获取一批余额记录
 		balances, err := w.balanceRepo.ListBalances(ctx, offset, w.cfg.BatchSize)
 		if err != nil {
-			logger.Error("reconciliation: list balances failed", zap.Error(err))
+			logger.Error("reconciliation: list balances failed", "error", err)
 			return
 		}
 
@@ -162,50 +161,50 @@ func (w *ReconciliationWorker) reconcile(ctx context.Context) {
 			if !w.isEqual(dbBalance.SettledAvailable, redisBalance.SettledAvailable) {
 				discrepancies++
 				logger.Warn("reconciliation: settled_available mismatch",
-					zap.String("wallet", dbBalance.Wallet),
-					zap.String("token", dbBalance.Token),
-					zap.String("db", dbBalance.SettledAvailable.String()),
-					zap.String("redis", redisBalance.SettledAvailable.String()),
+					"wallet", dbBalance.Wallet,
+					"token", dbBalance.Token,
+					"db", dbBalance.SettledAvailable.String(),
+					"redis", redisBalance.SettledAvailable.String(),
 				)
 			}
 
 			if !w.isEqual(dbBalance.SettledFrozen, redisBalance.SettledFrozen) {
 				discrepancies++
 				logger.Warn("reconciliation: settled_frozen mismatch",
-					zap.String("wallet", dbBalance.Wallet),
-					zap.String("token", dbBalance.Token),
-					zap.String("db", dbBalance.SettledFrozen.String()),
-					zap.String("redis", redisBalance.SettledFrozen.String()),
+					"wallet", dbBalance.Wallet,
+					"token", dbBalance.Token,
+					"db", dbBalance.SettledFrozen.String(),
+					"redis", redisBalance.SettledFrozen.String(),
 				)
 			}
 
 			if !w.isEqual(dbBalance.PendingAvailable, redisBalance.PendingAvailable) {
 				discrepancies++
 				logger.Warn("reconciliation: pending_available mismatch",
-					zap.String("wallet", dbBalance.Wallet),
-					zap.String("token", dbBalance.Token),
-					zap.String("db", dbBalance.PendingAvailable.String()),
-					zap.String("redis", redisBalance.PendingAvailable.String()),
+					"wallet", dbBalance.Wallet,
+					"token", dbBalance.Token,
+					"db", dbBalance.PendingAvailable.String(),
+					"redis", redisBalance.PendingAvailable.String(),
 				)
 			}
 
 			if !w.isEqual(dbBalance.PendingFrozen, redisBalance.PendingFrozen) {
 				discrepancies++
 				logger.Warn("reconciliation: pending_frozen mismatch",
-					zap.String("wallet", dbBalance.Wallet),
-					zap.String("token", dbBalance.Token),
-					zap.String("db", dbBalance.PendingFrozen.String()),
-					zap.String("redis", redisBalance.PendingFrozen.String()),
+					"wallet", dbBalance.Wallet,
+					"token", dbBalance.Token,
+					"db", dbBalance.PendingFrozen.String(),
+					"redis", redisBalance.PendingFrozen.String(),
 				)
 			}
 
 			if !w.isEqual(dbBalance.PendingTotal, redisBalance.PendingTotal) {
 				discrepancies++
 				logger.Warn("reconciliation: pending_total mismatch",
-					zap.String("wallet", dbBalance.Wallet),
-					zap.String("token", dbBalance.Token),
-					zap.String("db", dbBalance.PendingTotal.String()),
-					zap.String("redis", redisBalance.PendingTotal.String()),
+					"wallet", dbBalance.Wallet,
+					"token", dbBalance.Token,
+					"db", dbBalance.PendingTotal.String(),
+					"redis", redisBalance.PendingTotal.String(),
 				)
 			}
 
@@ -222,16 +221,16 @@ func (w *ReconciliationWorker) reconcile(ctx context.Context) {
 
 	duration := time.Since(startTime)
 	logger.Info("reconciliation completed",
-		zap.Int("total_checked", totalChecked),
-		zap.Int("discrepancies", discrepancies),
-		zap.Duration("duration", duration),
+		"total_checked", totalChecked,
+		"discrepancies", discrepancies,
+		"duration", duration,
 	)
 
 	// 如果有差异，可以发送告警 (metrics/alert)
 	if discrepancies > 0 {
 		metrics.RecordDataIntegrityCritical("reconciliation", "mismatch_found") // Fix arguments
 		logger.Error("reconciliation: discrepancies found",
-			zap.Int("count", discrepancies),
+			"count", discrepancies,
 		)
 	}
 }

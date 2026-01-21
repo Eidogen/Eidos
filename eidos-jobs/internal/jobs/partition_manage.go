@@ -7,7 +7,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -61,8 +60,8 @@ func (j *PartitionManageJob) Execute(ctx context.Context) (*scheduler.JobResult,
 		created, err := j.createMonthlyPartition(ctx, tableName, currentMonth.Year(), int(currentMonth.Month()))
 		if err != nil {
 			logger.Error("failed to create current month partition",
-				zap.String("table", tableName),
-				zap.Error(err))
+				"table", tableName,
+				"error", err)
 			tableResult["current_month_error"] = err.Error()
 			result.ErrorCount++
 		} else if created {
@@ -74,8 +73,8 @@ func (j *PartitionManageJob) Execute(ctx context.Context) (*scheduler.JobResult,
 		created, err = j.createMonthlyPartition(ctx, tableName, nextMonth.Year(), int(nextMonth.Month()))
 		if err != nil {
 			logger.Error("failed to create next month partition",
-				zap.String("table", tableName),
-				zap.Error(err))
+				"table", tableName,
+				"error", err)
 			tableResult["next_month_error"] = err.Error()
 			result.ErrorCount++
 		} else if created {
@@ -90,9 +89,9 @@ func (j *PartitionManageJob) Execute(ctx context.Context) (*scheduler.JobResult,
 	result.Details["tables"] = tableResults
 
 	logger.Info("partition management completed",
-		zap.Int("processed", result.ProcessedCount),
-		zap.Int("created", result.AffectedCount),
-		zap.Int("errors", result.ErrorCount))
+		"processed", result.ProcessedCount,
+		"created", result.AffectedCount,
+		"errors", result.ErrorCount)
 
 	return result, nil
 }
@@ -116,7 +115,7 @@ func (j *PartitionManageJob) createMonthlyPartition(ctx context.Context, tableNa
 
 	if exists {
 		logger.Debug("partition already exists",
-			zap.String("partition", partitionName))
+			"partition", partitionName)
 		return false, nil
 	}
 
@@ -139,9 +138,9 @@ func (j *PartitionManageJob) createMonthlyPartition(ctx context.Context, tableNa
 	}
 
 	logger.Info("partition created",
-		zap.String("partition", partitionName),
-		zap.Int64("start_ts", startTs),
-		zap.Int64("end_ts", endTs))
+		"partition", partitionName,
+		"start_ts", startTs,
+		"end_ts", endTs)
 
 	return true, nil
 }

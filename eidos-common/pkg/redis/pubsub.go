@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -97,7 +96,7 @@ func (m *PubSubManager) Subscribe(ctx context.Context, channel string, handler M
 	// 启动消息处理协程
 	go m.handleMessages(subCtx, sub)
 
-	logger.Info("subscribed to channel", zap.String("channel", channel))
+	logger.Info("subscribed to channel", "channel", channel)
 	return nil
 }
 
@@ -147,7 +146,7 @@ func (m *PubSubManager) PSubscribe(ctx context.Context, pattern string, handler 
 	// 启动消息处理协程
 	go m.handlePatternMessages(subCtx, sub)
 
-	logger.Info("subscribed to pattern", zap.String("pattern", pattern))
+	logger.Info("subscribed to pattern", "pattern", pattern)
 	return nil
 }
 
@@ -195,7 +194,7 @@ func (m *PubSubManager) handlePatternMessages(ctx context.Context, sub *Subscrip
 func (m *PubSubManager) safeHandleMessage(fn func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("panic in message handler", zap.Any("recover", r))
+			logger.Error("panic in message handler", "recover", r)
 		}
 	}()
 	fn()
@@ -216,13 +215,13 @@ func (m *PubSubManager) Unsubscribe(ctx context.Context, channel string) error {
 
 	// 关闭 PubSub
 	if err := sub.PubSub.Unsubscribe(ctx, channel); err != nil {
-		logger.Warn("unsubscribe failed", zap.String("channel", channel), zap.Error(err))
+		logger.Warn("unsubscribe failed", "channel", channel, "error", err)
 	}
 	sub.PubSub.Close()
 
 	delete(m.subscriptions, channel)
 
-	logger.Info("unsubscribed from channel", zap.String("channel", channel))
+	logger.Info("unsubscribed from channel", "channel", channel)
 	return nil
 }
 
@@ -242,13 +241,13 @@ func (m *PubSubManager) PUnsubscribe(ctx context.Context, pattern string) error 
 
 	// 关闭 PubSub
 	if err := sub.PubSub.PUnsubscribe(ctx, pattern); err != nil {
-		logger.Warn("punsubscribe failed", zap.String("pattern", pattern), zap.Error(err))
+		logger.Warn("punsubscribe failed", "pattern", pattern, "error", err)
 	}
 	sub.PubSub.Close()
 
 	delete(m.subscriptions, key)
 
-	logger.Info("unsubscribed from pattern", zap.String("pattern", pattern))
+	logger.Info("unsubscribed from pattern", "pattern", pattern)
 	return nil
 }
 
@@ -372,9 +371,9 @@ func (p *Publisher) PublishWithRetry(ctx context.Context, message interface{}, m
 		if err := p.Publish(ctx, message); err != nil {
 			lastErr = err
 			logger.Warn("publish failed, retrying",
-				zap.String("channel", p.channel),
-				zap.Int("attempt", i+1),
-				zap.Error(err),
+				"channel", p.channel,
+				"attempt", i+1,
+				"error", err,
 			)
 			select {
 			case <-ctx.Done():
@@ -438,9 +437,9 @@ func (p *StreamPublisher) Flush(ctx context.Context) error {
 
 	if err != nil {
 		logger.Error("stream publish failed",
-			zap.String("channel", p.channel),
-			zap.Int("count", len(messages)),
-			zap.Error(err),
+			"channel", p.channel,
+			"count", len(messages),
+			"error", err,
 		)
 	}
 

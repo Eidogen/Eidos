@@ -11,11 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/app"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/config"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -28,29 +27,31 @@ func main() {
 	// 加载配置
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "load config: %v\n", err)
-		os.Exit(1)
+		panic("failed to load config: " + err.Error())
 	}
 
 	// 初始化日志
-	logger := initLogger(cfg.Log.Level, cfg.Log.Format)
+	if err := logger.Init(&logger.Config{
+		Level:       cfg.Log.Level,
+		Format:      cfg.Log.Format,
+		ServiceName: cfg.Service.Name,
+		Environment: cfg.Service.Env,
+	}); err != nil {
+		panic("failed to init logger: " + err.Error())
+	}
 	defer logger.Sync()
 
 	logger.Info("starting service",
-		zap.String("service", cfg.Service.Name),
-		zap.String("node_id", cfg.Service.NodeID),
-		zap.String("env", cfg.Service.Env),
+		"service", cfg.Service.Name,
+		"node_id", cfg.Service.NodeID,
+		"env", cfg.Service.Env,
 	)
 
 	// 创建应用
 	application, err := app.NewApp(cfg)
 	if err != nil {
-		logger.Fatal("create app", zap.Error(err))
+		logger.Fatal("create app", "error", err)
 	}
-
-	// 注意: gRPC 服务器在 app.Start() 中启动，包含:
-	// - MatchingService 注册 (GetOrderbook, GetDepth, HealthCheck)
-	// - gRPC 监听在 cfg.Service.GRPCPort
 
 	// 启动 HTTP 服务器 (健康检查 + Metrics)
 	httpMux := http.NewServeMux()
@@ -81,21 +82,21 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("HTTP server listening", zap.Int("port", cfg.Service.HTTPPort))
+		logger.Info("HTTP server listening", "port", cfg.Service.HTTPPort)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("http serve", zap.Error(err))
+			logger.Error("http serve", "error", err)
 		}
 	}()
 
-	// 启动应用 (包含 gRPC 服务器启动和健康状态设置)
+	// 启动应用
 	if err := application.Start(); err != nil {
-		logger.Fatal("start app", zap.Error(err))
+		logger.Fatal("start app", "error", err)
 	}
 
 	logger.Info("service ready",
-		zap.String("service", cfg.Service.Name),
-		zap.Int("grpc_port", cfg.Service.GRPCPort),
-		zap.Int("http_port", cfg.Service.HTTPPort),
+		"service", cfg.Service.Name,
+		"grpc_port", cfg.Service.GRPCPort,
+		"http_port", cfg.Service.HTTPPort,
 	)
 
 	// 等待停止信号
@@ -107,55 +108,22 @@ func main() {
 
 	select {
 	case sig := <-sigCh:
-		logger.Info("received signal", zap.String("signal", sig.String()))
+		logger.Info("received signal", "signal", sig.String())
 	case <-ctx.Done():
 	}
 
 	// 优雅关闭
 	logger.Info("shutting down...")
 
-	// 停止应用 (包含 gRPC 服务器关闭)
 	if err := application.Stop(); err != nil {
-		logger.Error("stop app", zap.Error(err))
+		logger.Error("stop app", "error", err)
 	}
 
-	// 停止 HTTP 服务器
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("shutdown http", zap.Error(err))
+		logger.Error("shutdown http", "error", err)
 	}
 
 	logger.Info("service stopped")
-}
-
-// initLogger 初始化日志
-func initLogger(level, format string) *zap.Logger {
-	var zapLevel zapcore.Level
-	switch level {
-	case "debug":
-		zapLevel = zapcore.DebugLevel
-	case "warn":
-		zapLevel = zapcore.WarnLevel
-	case "error":
-		zapLevel = zapcore.ErrorLevel
-	default:
-		zapLevel = zapcore.InfoLevel
-	}
-
-	var config zap.Config
-	if format == "json" {
-		config = zap.NewProductionConfig()
-	} else {
-		config = zap.NewDevelopmentConfig()
-	}
-	config.Level = zap.NewAtomicLevelAt(zapLevel)
-
-	logger, err := config.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	zap.ReplaceGlobals(logger)
-	return logger
 }

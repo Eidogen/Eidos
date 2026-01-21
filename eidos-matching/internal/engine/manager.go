@@ -4,6 +4,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/orderbook"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // EngineManager 引擎管理器
@@ -157,7 +157,7 @@ func (m *EngineManager) GetMarkets() []string {
 }
 
 // AddMarket 动态添加市场
-// TODO: 需要配合配置中心实现热加载
+// 配合配置中心 (Nacos) 实现热加载，参见 eidos-matching/internal/config/nacos_loader.go
 func (m *EngineManager) AddMarket(cfg *MarketConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -235,11 +235,11 @@ func (m *EngineManager) CollectTrades(ctx context.Context, handler func(*model.T
 						if err := handler(trade); err != nil {
 							retryCount++
 							metrics.RecordKafkaError("trade-results", "send")
-							zap.L().Warn("send trade result failed",
-								zap.String("market", market),
-								zap.String("trade_id", trade.TradeID),
-								zap.Int("attempt", attempt+1),
-								zap.Error(err))
+							slog.Warn("send trade result failed",
+								"market", market,
+								"trade_id", trade.TradeID,
+								"attempt", attempt+1,
+								"error", err)
 
 							if attempt < maxRetries {
 								select {
@@ -250,10 +250,10 @@ func (m *EngineManager) CollectTrades(ctx context.Context, handler func(*model.T
 								}
 							}
 							// 达到最大重试次数，记录并继续
-							zap.L().Error("send trade result max retries exceeded",
-								zap.String("market", market),
-								zap.String("trade_id", trade.TradeID),
-								zap.Int("total_retries", retryCount))
+							slog.Error("send trade result max retries exceeded",
+								"market", market,
+								"trade_id", trade.TradeID,
+								"total_retries", retryCount)
 						} else {
 							break // 成功
 						}
@@ -297,11 +297,11 @@ func (m *EngineManager) CollectUpdates(ctx context.Context, handler func(*model.
 						if err := handler(update); err != nil {
 							retryCount++
 							metrics.RecordKafkaError("orderbook-updates", "send")
-							zap.L().Debug("send orderbook update failed",
-								zap.String("market", market),
-								zap.String("update_type", update.UpdateType),
-								zap.Int("attempt", attempt+1),
-								zap.Error(err))
+							slog.Debug("send orderbook update failed",
+								"market", market,
+								"update_type", update.UpdateType,
+								"attempt", attempt+1,
+								"error", err)
 
 							if attempt < maxRetries {
 								select {
@@ -312,9 +312,9 @@ func (m *EngineManager) CollectUpdates(ctx context.Context, handler func(*model.
 								}
 							}
 							// 订单簿更新丢失可接受（客户端可以重新订阅），记录日志即可
-							zap.L().Warn("send orderbook update dropped",
-								zap.String("market", market),
-								zap.String("price", update.Price.String()))
+							slog.Warn("send orderbook update dropped",
+								"market", market,
+								"price", update.Price.String())
 						} else {
 							break // 成功
 						}
@@ -358,11 +358,11 @@ func (m *EngineManager) CollectCancels(ctx context.Context, handler func(*model.
 						if err := handler(cancel); err != nil {
 							retryCount++
 							metrics.RecordKafkaError("order-cancelled", "send")
-							zap.L().Warn("send cancel result failed",
-								zap.String("market", market),
-								zap.String("order_id", cancel.OrderID),
-								zap.Int("attempt", attempt+1),
-								zap.Error(err))
+							slog.Warn("send cancel result failed",
+								"market", market,
+								"order_id", cancel.OrderID,
+								"attempt", attempt+1,
+								"error", err)
 
 							if attempt < maxRetries {
 								select {
@@ -373,10 +373,10 @@ func (m *EngineManager) CollectCancels(ctx context.Context, handler func(*model.
 								}
 							}
 							// 达到最大重试次数
-							zap.L().Error("send cancel result max retries exceeded",
-								zap.String("market", market),
-								zap.String("order_id", cancel.OrderID),
-								zap.Int("total_retries", retryCount))
+							slog.Error("send cancel result max retries exceeded",
+								"market", market,
+								"order_id", cancel.OrderID,
+								"total_retries", retryCount)
 						} else {
 							break // 成功
 						}
@@ -402,10 +402,10 @@ func (m *EngineManager) UpdateMarket(cfg *MarketConfig) error {
 	m.configs[cfg.Symbol] = cfg
 	engine.UpdateConfig(cfg)
 
-	zap.L().Info("market config updated",
-		zap.String("market", cfg.Symbol),
-		zap.String("maker_fee", cfg.MakerFeeRate.String()),
-		zap.String("taker_fee", cfg.TakerFeeRate.String()))
+	slog.Info("market config updated",
+		"market", cfg.Symbol,
+		"maker_fee", cfg.MakerFeeRate.String(),
+		"taker_fee", cfg.TakerFeeRate.String())
 
 	return nil
 }

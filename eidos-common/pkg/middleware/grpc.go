@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -38,9 +38,9 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 
 		// 添加日志字段到 context
 		ctx = logger.NewContext(ctx,
-			zap.String("trace_id", traceID),
-			zap.String("method", info.FullMethod),
-			zap.String("wallet", wallet),
+			slog.String("trace_id", traceID),
+			slog.String("method", info.FullMethod),
+			slog.String("wallet", wallet),
 		)
 
 		// 调用处理器
@@ -48,19 +48,22 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 
 		// 记录日志
 		duration := time.Since(start)
-		fields := []zap.Field{
-			zap.String("trace_id", traceID),
-			zap.String("method", info.FullMethod),
-			zap.Duration("duration", duration),
-		}
 
 		if err != nil {
 			st, _ := status.FromError(err)
-			fields = append(fields, zap.String("code", st.Code().String()))
-			fields = append(fields, zap.String("error", st.Message()))
-			logger.Error("grpc request failed", fields...)
+			logger.Error("grpc request failed",
+				"trace_id", traceID,
+				"method", info.FullMethod,
+				"duration", duration,
+				"code", st.Code().String(),
+				"error", st.Message(),
+			)
 		} else {
-			logger.Info("grpc request completed", fields...)
+			logger.Info("grpc request completed",
+				"trace_id", traceID,
+				"method", info.FullMethod,
+				"duration", duration,
+			)
 		}
 
 		return resp, err
@@ -84,8 +87,8 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 		}
 
 		logger.Info("grpc stream started",
-			zap.String("trace_id", traceID),
-			zap.String("method", info.FullMethod),
+			"trace_id", traceID,
+			"method", info.FullMethod,
 		)
 
 		err := handler(srv, ss)
@@ -93,16 +96,16 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 		duration := time.Since(start)
 		if err != nil {
 			logger.Error("grpc stream failed",
-				zap.String("trace_id", traceID),
-				zap.String("method", info.FullMethod),
-				zap.Duration("duration", duration),
-				zap.Error(err),
+				"trace_id", traceID,
+				"method", info.FullMethod,
+				"duration", duration,
+				"error", err,
 			)
 		} else {
 			logger.Info("grpc stream completed",
-				zap.String("trace_id", traceID),
-				zap.String("method", info.FullMethod),
-				zap.Duration("duration", duration),
+				"trace_id", traceID,
+				"method", info.FullMethod,
+				"duration", duration,
 			)
 		}
 

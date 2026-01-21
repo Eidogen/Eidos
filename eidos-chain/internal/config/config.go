@@ -2,9 +2,8 @@ package config
 
 import (
 	"os"
-	"strconv"
-	"strings"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,7 +100,7 @@ func Load(configPath string) (*Config, error) {
 
 	// 环境变量替换
 	content := string(data)
-	content = expandEnvVars(content)
+	content = config.ExpandEnv(content)
 
 	var cfg Config
 	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
@@ -112,38 +111,6 @@ func Load(configPath string) (*Config, error) {
 	setDefaults(&cfg)
 
 	return &cfg, nil
-}
-
-// expandEnvVars 展开环境变量 ${VAR:default}
-func expandEnvVars(s string) string {
-	result := s
-	for {
-		start := strings.Index(result, "${")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(result[start:], "}")
-		if end == -1 {
-			break
-		}
-		end += start
-
-		expr := result[start+2 : end]
-		parts := strings.SplitN(expr, ":", 2)
-		varName := parts[0]
-		defaultVal := ""
-		if len(parts) > 1 {
-			defaultVal = parts[1]
-		}
-
-		value := os.Getenv(varName)
-		if value == "" {
-			value = defaultVal
-		}
-
-		result = result[:start] + value + result[end+1:]
-	}
-	return result
 }
 
 // setDefaults 设置默认值
@@ -198,22 +165,4 @@ func setDefaults(cfg *Config) {
 	if cfg.Log.Format == "" {
 		cfg.Log.Format = "json"
 	}
-}
-
-// GetEnvInt 获取环境变量整数值
-func GetEnvInt(key string, defaultVal int) int {
-	if val := os.Getenv(key); val != "" {
-		if i, err := strconv.Atoi(val); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
-
-// GetEnvString 获取环境变量字符串值
-func GetEnvString(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
 }

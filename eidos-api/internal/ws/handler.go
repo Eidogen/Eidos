@@ -1,13 +1,13 @@
 package ws
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 )
@@ -15,13 +15,13 @@ import (
 // Handler WebSocket 处理器
 type Handler struct {
 	hub      *Hub
-	logger   *zap.Logger
+	logger   *slog.Logger
 	cfg      config.WebSocketConfig
 	upgrader websocket.Upgrader
 }
 
 // NewHandler 创建 WebSocket 处理器
-func NewHandler(hub *Hub, logger *zap.Logger, cfg config.WebSocketConfig) *Handler {
+func NewHandler(hub *Hub, logger *slog.Logger, cfg config.WebSocketConfig) *Handler {
 	h := &Handler{
 		hub:    hub,
 		logger: logger,
@@ -49,7 +49,7 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 		// No origin header - could be a same-origin request or non-browser client
 		// For security, reject requests without Origin header in production
 		h.logger.Debug("websocket connection without origin header",
-			zap.String("remote", r.RemoteAddr),
+			"remote", r.RemoteAddr,
 		)
 		return false
 	}
@@ -58,8 +58,8 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 	originURL, err := url.Parse(origin)
 	if err != nil {
 		h.logger.Warn("invalid origin URL",
-			zap.String("origin", origin),
-			zap.Error(err),
+			"origin", origin,
+			"error", err,
 		)
 		return false
 	}
@@ -75,8 +75,8 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 	}
 
 	h.logger.Warn("websocket origin rejected",
-		zap.String("origin", origin),
-		zap.String("remote", r.RemoteAddr),
+		"origin", origin,
+		"remote", r.RemoteAddr,
 	)
 	return false
 }
@@ -124,7 +124,7 @@ func (h *Handler) HandleConnection(c *gin.Context) {
 	// Upgrade connection
 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.logger.Error("websocket upgrade failed", zap.Error(err))
+		h.logger.Error("websocket upgrade failed", "error", err)
 		return
 	}
 
@@ -137,9 +137,9 @@ func (h *Handler) HandleConnection(c *gin.Context) {
 	}
 
 	h.logger.Info("websocket client connected",
-		zap.String("client", client.ID()),
-		zap.String("remote", c.Request.RemoteAddr),
-		zap.String("origin", c.Request.Header.Get("Origin")),
+		"client", client.ID(),
+		"remote", c.Request.RemoteAddr,
+		"origin", c.Request.Header.Get("Origin"),
 	)
 
 	// Register to Hub
@@ -175,7 +175,7 @@ func (h *Handler) HandleAuthenticatedConnection(c *gin.Context) {
 	// Upgrade connection
 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.logger.Error("websocket upgrade failed", zap.Error(err))
+		h.logger.Error("websocket upgrade failed", "error", err)
 		return
 	}
 
@@ -185,9 +185,9 @@ func (h *Handler) HandleAuthenticatedConnection(c *gin.Context) {
 	client.SetAuthenticated(true)
 
 	h.logger.Info("authenticated websocket client connected",
-		zap.String("client", client.ID()),
-		zap.String("wallet", wallet.(string)),
-		zap.String("remote", c.Request.RemoteAddr),
+		"client", client.ID(),
+		"wallet", wallet.(string),
+		"remote", c.Request.RemoteAddr,
 	)
 
 	// Register to Hub

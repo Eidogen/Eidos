@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
+
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 )
 
 // StatsDataProvider 统计数据提供者接口
@@ -72,7 +73,7 @@ func (j *StatsAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	// 1. 生成小时统计 (过去一小时)
 	hourlyCount, err := j.generateHourlyStats(ctx, now)
 	if err != nil {
-		logger.Error("failed to generate hourly stats", zap.Error(err))
+		logger.Error("failed to generate hourly stats", "error", err)
 		result.ErrorCount++
 	}
 	result.ProcessedCount += hourlyCount
@@ -82,7 +83,7 @@ func (j *StatsAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	if now.Hour() == 0 && now.Minute() >= 5 && now.Minute() < 10 {
 		dailyCount, err := j.generateDailyStats(ctx, now.AddDate(0, 0, -1))
 		if err != nil {
-			logger.Error("failed to generate daily stats", zap.Error(err))
+			logger.Error("failed to generate daily stats", "error", err)
 			result.ErrorCount++
 		}
 		result.ProcessedCount += dailyCount
@@ -92,8 +93,8 @@ func (j *StatsAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	result.AffectedCount = result.ProcessedCount
 
 	logger.Info("stats aggregation completed",
-		zap.Int("processed", result.ProcessedCount),
-		zap.Int("errors", result.ErrorCount))
+		"processed", result.ProcessedCount,
+		"errors", result.ErrorCount)
 
 	return result, nil
 }
@@ -219,7 +220,7 @@ func (j *StatsAggJob) generateDailyStats(ctx context.Context, date time.Time) (i
 	endOfDay := startOfDay.AddDate(0, 0, 1)
 	activeUsers, err := j.dataProvider.GetActiveUserCount(ctx, startOfDay.UnixMilli(), endOfDay.UnixMilli())
 	if err != nil {
-		logger.Warn("failed to get active user count", zap.Error(err))
+		logger.Warn("failed to get active user count", "error", err)
 	} else {
 		stats = append(stats, &model.Statistics{
 			StatType:    string(model.StatTypeDaily),
@@ -232,7 +233,7 @@ func (j *StatsAggJob) generateDailyStats(ctx context.Context, date time.Time) (i
 	// 获取新增用户数
 	newUsers, err := j.dataProvider.GetNewUserCount(ctx, statDate)
 	if err != nil {
-		logger.Warn("failed to get new user count", zap.Error(err))
+		logger.Warn("failed to get new user count", "error", err)
 	} else {
 		stats = append(stats, &model.Statistics{
 			StatType:    string(model.StatTypeDaily),
@@ -253,24 +254,208 @@ func (j *StatsAggJob) generateDailyStats(ctx context.Context, date time.Time) (i
 }
 
 // MockStatsDataProvider 模拟数据提供者 (用于测试)
+// 实际实现见 eidos-jobs/internal/client/trading_client.go StatsDataProviderImpl
+// 及 eidos-jobs/internal/jobs/stats_agg.go DBStatsDataProvider
 type MockStatsDataProvider struct{}
 
 func (p *MockStatsDataProvider) GetHourlyTradeStats(ctx context.Context, startTime, endTime int64) ([]*TradeStats, error) {
-	// TODO: 实际实现通过 gRPC 调用 trading/market 服务
 	return nil, nil
 }
 
 func (p *MockStatsDataProvider) GetDailyTradeStats(ctx context.Context, date string) ([]*TradeStats, error) {
-	// TODO: 实际实现通过 gRPC 调用 trading/market 服务
 	return nil, nil
 }
 
 func (p *MockStatsDataProvider) GetActiveUserCount(ctx context.Context, startTime, endTime int64) (int64, error) {
-	// TODO: 实际实现通过查询数据库
 	return 0, nil
 }
 
 func (p *MockStatsDataProvider) GetNewUserCount(ctx context.Context, date string) (int64, error) {
-	// TODO: 实际实现通过查询数据库
 	return 0, nil
+}
+
+// DBStatsDataProvider 数据库统计数据提供者
+type DBStatsDataProvider struct {
+	db *gorm.DB
+}
+
+// NewDBStatsDataProvider 创建数据库统计数据提供者
+func NewDBStatsDataProvider(db *gorm.DB) *DBStatsDataProvider {
+	return &DBStatsDataProvider{db: db}
+}
+
+// GetHourlyTradeStats 获取小时交易统计
+func (p *DBStatsDataProvider) GetHourlyTradeStats(ctx context.Context, startTime, endTime int64) ([]*TradeStats, error) {
+	var results []*TradeStats
+
+	query := `
+		SELECT
+			market,
+			COALESCE(SUM(amount * price), 0) as trade_volume,
+			COUNT(*) as trade_count,
+			COALESCE(SUM(fee), 0) as fee_total,
+			0 as order_count,
+			0 as cancel_count
+		FROM trades
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY market
+	`
+
+	rows, err := p.db.WithContext(ctx).Raw(query, startTime, endTime).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("query hourly trade stats failed: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var stats TradeStats
+		var tradeVolume, feeTotal float64
+		if err := rows.Scan(&stats.Market, &tradeVolume, &stats.TradeCount, &feeTotal, &stats.OrderCount, &stats.CancelCount); err != nil {
+			return nil, fmt.Errorf("scan trade stats failed: %w", err)
+		}
+		stats.TradeVolume = decimal.NewFromFloat(tradeVolume)
+		stats.FeeTotal = decimal.NewFromFloat(feeTotal)
+		results = append(results, &stats)
+	}
+
+	return results, rows.Err()
+}
+
+// GetDailyTradeStats 获取日交易统计
+func (p *DBStatsDataProvider) GetDailyTradeStats(ctx context.Context, date string) ([]*TradeStats, error) {
+	// 解析日期获取时间范围
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	startTime := t.UnixMilli()
+	endTime := t.Add(24 * time.Hour).UnixMilli()
+
+	var results []*TradeStats
+
+	// 交易量和手续费
+	tradeQuery := `
+		SELECT
+			market,
+			COALESCE(SUM(amount * price), 0) as trade_volume,
+			COUNT(*) as trade_count,
+			COALESCE(SUM(fee), 0) as fee_total
+		FROM trades
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY market
+	`
+
+	tradeRows, err := p.db.WithContext(ctx).Raw(tradeQuery, startTime, endTime).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("query daily trade stats failed: %w", err)
+	}
+	defer tradeRows.Close()
+
+	marketStats := make(map[string]*TradeStats)
+	for tradeRows.Next() {
+		var market string
+		var tradeVolume, feeTotal float64
+		var tradeCount int64
+		if err := tradeRows.Scan(&market, &tradeVolume, &tradeCount, &feeTotal); err != nil {
+			return nil, fmt.Errorf("scan trade stats failed: %w", err)
+		}
+		marketStats[market] = &TradeStats{
+			Market:      market,
+			TradeVolume: decimal.NewFromFloat(tradeVolume),
+			TradeCount:  tradeCount,
+			FeeTotal:    decimal.NewFromFloat(feeTotal),
+		}
+	}
+
+	// 订单统计
+	orderQuery := `
+		SELECT
+			market,
+			COUNT(*) as order_count,
+			SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancel_count
+		FROM orders
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY market
+	`
+
+	orderRows, err := p.db.WithContext(ctx).Raw(orderQuery, startTime, endTime).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("query order stats failed: %w", err)
+	}
+	defer orderRows.Close()
+
+	for orderRows.Next() {
+		var market string
+		var orderCount, cancelCount int64
+		if err := orderRows.Scan(&market, &orderCount, &cancelCount); err != nil {
+			return nil, fmt.Errorf("scan order stats failed: %w", err)
+		}
+		if stats, ok := marketStats[market]; ok {
+			stats.OrderCount = orderCount
+			stats.CancelCount = cancelCount
+		} else {
+			marketStats[market] = &TradeStats{
+				Market:      market,
+				OrderCount:  orderCount,
+				CancelCount: cancelCount,
+			}
+		}
+	}
+
+	for _, stats := range marketStats {
+		results = append(results, stats)
+	}
+
+	return results, nil
+}
+
+// GetActiveUserCount 获取活跃用户数 (有下单或成交的用户)
+func (p *DBStatsDataProvider) GetActiveUserCount(ctx context.Context, startTime, endTime int64) (int64, error) {
+	var count int64
+
+	query := `
+		SELECT COUNT(DISTINCT wallet) FROM (
+			SELECT wallet FROM orders WHERE created_at >= ? AND created_at < ?
+			UNION
+			SELECT maker_wallet as wallet FROM trades WHERE created_at >= ? AND created_at < ?
+			UNION
+			SELECT taker_wallet as wallet FROM trades WHERE created_at >= ? AND created_at < ?
+		) AS active_users
+	`
+
+	if err := p.db.WithContext(ctx).Raw(query, startTime, endTime, startTime, endTime, startTime, endTime).Scan(&count).Error; err != nil {
+		return 0, fmt.Errorf("query active user count failed: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetNewUserCount 获取新增用户数
+func (p *DBStatsDataProvider) GetNewUserCount(ctx context.Context, date string) (int64, error) {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return 0, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	startTime := t.UnixMilli()
+	endTime := t.Add(24 * time.Hour).UnixMilli()
+
+	var count int64
+
+	// 查询当天首次有交易的用户数
+	query := `
+		SELECT COUNT(DISTINCT wallet) FROM (
+			SELECT wallet, MIN(created_at) as first_order_time
+			FROM orders
+			GROUP BY wallet
+			HAVING MIN(created_at) >= ? AND MIN(created_at) < ?
+		) AS new_users
+	`
+
+	if err := p.db.WithContext(ctx).Raw(query, startTime, endTime).Scan(&count).Error; err != nil {
+		return 0, fmt.Errorf("query new user count failed: %w", err)
+	}
+
+	return count, nil
 }

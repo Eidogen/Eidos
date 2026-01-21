@@ -2,12 +2,12 @@ package aggregator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -50,7 +50,7 @@ type KlineAggregator struct {
 
 	repo      KlineRepository
 	publisher KlinePublisher
-	logger    *zap.Logger
+	logger    *slog.Logger
 
 	flushCh   chan struct{}
 	closeCh   chan struct{}
@@ -69,7 +69,7 @@ func NewKlineAggregator(
 	market string,
 	repo KlineRepository,
 	publisher KlinePublisher,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config KlineAggregatorConfig,
 ) *KlineAggregator {
 	agg := &KlineAggregator{
@@ -79,7 +79,7 @@ func NewKlineAggregator(
 		dirty:     make(map[model.KlineInterval]bool),
 		repo:      repo,
 		publisher: publisher,
-		logger:    logger.With(zap.String("market", market)),
+		logger:    logger.With("market", market),
 		flushCh:   make(chan struct{}, 1),
 		closeCh:   make(chan struct{}),
 	}
@@ -111,9 +111,9 @@ func (a *KlineAggregator) Stop() {
 		defer cancel()
 		a.flushAll(ctx)
 		a.logger.Info("kline aggregator stopped",
-			zap.Int64("total_trades", a.tradeCount.Load()),
-			zap.Int64("total_publishes", a.publishCount.Load()),
-			zap.Int64("total_flushes", a.flushCount.Load()))
+			"total_trades", a.tradeCount.Load(),
+			"total_publishes", a.publishCount.Load(),
+			"total_flushes", a.flushCount.Load())
 	})
 }
 
@@ -125,17 +125,17 @@ func (a *KlineAggregator) ProcessTrade(ctx context.Context, trade *model.TradeEv
 
 	price, err := trade.GetPrice()
 	if err != nil {
-		a.logger.Error("invalid trade price", zap.String("price", trade.Price), zap.Error(err))
+		a.logger.Error("invalid trade price", "price", trade.Price, "error", err)
 		return err
 	}
 	amount, err := trade.GetAmount()
 	if err != nil {
-		a.logger.Error("invalid trade amount", zap.String("amount", trade.Amount), zap.Error(err))
+		a.logger.Error("invalid trade amount", "amount", trade.Amount, "error", err)
 		return err
 	}
 	quoteAmount, err := trade.GetQuoteAmount()
 	if err != nil {
-		a.logger.Error("invalid trade quote_amount", zap.String("quote_amount", trade.QuoteAmount), zap.Error(err))
+		a.logger.Error("invalid trade quote_amount", "quote_amount", trade.QuoteAmount, "error", err)
 		return err
 	}
 	timestamp := trade.Timestamp
@@ -278,7 +278,7 @@ func (a *KlineAggregator) flushAll(ctx context.Context) {
 	}
 
 	if err := a.repo.BatchUpsert(ctx, klines); err != nil {
-		a.logger.Error("failed to flush klines", zap.Error(err))
+		a.logger.Error("failed to flush klines", "error", err)
 		metrics.KlineFlushErrors.WithLabelValues(a.market, "db_error").Inc()
 		// 重新标记为脏，下次重试
 		for _, kline := range klines {
@@ -295,7 +295,7 @@ func (a *KlineAggregator) flushAll(ctx context.Context) {
 		metrics.KlinesGeneratedTotal.WithLabelValues(a.market, string(kline.Interval)).Inc()
 	}
 
-	a.logger.Debug("flushed klines", zap.Int("count", len(klines)))
+	a.logger.Debug("flushed klines", "count", len(klines))
 }
 
 // Flush 手动触发刷盘
@@ -315,8 +315,8 @@ func (a *KlineAggregator) publishKlineUpdates(ctx context.Context) {
 		if kline.TradeCount > 0 {
 			if err := a.publisher.PublishKline(ctx, a.market, interval, kline.Clone()); err != nil {
 				a.logger.Warn("failed to publish kline",
-					zap.String("interval", string(interval)),
-					zap.Error(err))
+					"interval", string(interval),
+					"error", err)
 				metrics.PubSubPublishErrors.WithLabelValues("kline").Inc()
 			} else {
 				a.publishCount.Add(1)

@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -77,7 +76,7 @@ func (h *ChainHandler) GetSettlementStatus(ctx context.Context, batchID string) 
 		if err == repository.ErrSettlementBatchNotFound {
 			return nil, status.Error(codes.NotFound, "settlement batch not found")
 		}
-		logger.Error("failed to get settlement batch", zap.Error(err))
+		logger.Error("failed to get settlement batch", "error", err)
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
@@ -120,7 +119,7 @@ func (h *ChainHandler) RetrySettlement(ctx context.Context, batchID string, spli
 		if err := h.settlementSvc.SplitAndRetryBatch(ctx, batchID); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		// TODO: 返回新批次 ID
+		// 拆分后会生成新批次，当前返回空
 		return nil, nil
 	}
 

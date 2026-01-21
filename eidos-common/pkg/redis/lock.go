@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/redis/scripts"
@@ -108,7 +107,7 @@ func (l *DistributedLock) TryAcquire(ctx context.Context) (bool, error) {
 		if l.options.WatchdogEnabled {
 			l.startWatchdog()
 		}
-		logger.Debug("lock acquired", zap.String("key", l.key), zap.String("value", l.value))
+		logger.Debug("lock acquired", "key", l.key, "value", l.value)
 		return true, nil
 	}
 
@@ -177,13 +176,13 @@ func (l *DistributedLock) Release(ctx context.Context) error {
 
 	if result == 0 {
 		logger.Warn("lock already released or expired",
-			zap.String("key", l.key),
-			zap.String("value", l.value),
+			"key", l.key,
+			"value", l.value,
 		)
 		return ErrLockNotHeld
 	}
 
-	logger.Debug("lock released", zap.String("key", l.key), zap.String("value", l.value))
+	logger.Debug("lock released", "key", l.key, "value", l.value)
 	return nil
 }
 
@@ -204,7 +203,7 @@ func (l *DistributedLock) Extend(ctx context.Context, extension time.Duration) e
 		return ErrLockExtendFailed
 	}
 
-	logger.Debug("lock extended", zap.String("key", l.key), zap.Duration("extension", extension))
+	logger.Debug("lock extended", "key", l.key, "extension", extension)
 	return nil
 }
 
@@ -230,8 +229,8 @@ func (l *DistributedLock) startWatchdog() {
 
 				if err != nil {
 					logger.Error("watchdog extend failed",
-						zap.String("key", l.key),
-						zap.Error(err),
+						"key", l.key,
+						"error", err,
 					)
 					return
 				}
@@ -375,9 +374,9 @@ func (l *ReentrantLock) Acquire(ctx context.Context) error {
 
 	atomic.StoreInt32(&l.count, int32(result))
 	logger.Debug("reentrant lock acquired",
-		zap.String("key", l.key),
-		zap.String("owner", l.owner),
-		zap.Int64("count", result),
+		"key", l.key,
+		"owner", l.owner,
+		"count", result,
 	)
 	return nil
 }
@@ -400,15 +399,15 @@ func (l *ReentrantLock) Release(ctx context.Context) error {
 	if result == -1 {
 		atomic.StoreInt32(&l.count, 0)
 		logger.Debug("reentrant lock fully released",
-			zap.String("key", l.key),
-			zap.String("owner", l.owner),
+			"key", l.key,
+			"owner", l.owner,
 		)
 	} else {
 		atomic.StoreInt32(&l.count, int32(result))
 		logger.Debug("reentrant lock partially released",
-			zap.String("key", l.key),
-			zap.String("owner", l.owner),
-			zap.Int64("remaining", result),
+			"key", l.key,
+			"owner", l.owner,
+			"remaining", result,
 		)
 	}
 
@@ -453,7 +452,7 @@ func (l *ReadWriteLock) RLock(ctx context.Context, readerID string) error {
 		return ErrLockAcquireFailed
 	}
 
-	logger.Debug("read lock acquired", zap.String("reader", readerID))
+	logger.Debug("read lock acquired", "reader", readerID)
 	return nil
 }
 
@@ -465,7 +464,7 @@ func (l *ReadWriteLock) RUnlock(ctx context.Context, readerID string) error {
 		return fmt.Errorf("release read lock failed: %w", err)
 	}
 
-	logger.Debug("read lock released", zap.String("reader", readerID))
+	logger.Debug("read lock released", "reader", readerID)
 	return nil
 }
 
@@ -481,7 +480,7 @@ func (l *ReadWriteLock) Lock(ctx context.Context, writerID string) error {
 		return ErrLockAcquireFailed
 	}
 
-	logger.Debug("write lock acquired", zap.String("writer", writerID))
+	logger.Debug("write lock acquired", "writer", writerID)
 	return nil
 }
 
@@ -497,6 +496,6 @@ func (l *ReadWriteLock) Unlock(ctx context.Context, writerID string) error {
 		return ErrLockNotHeld
 	}
 
-	logger.Debug("write lock released", zap.String("writer", writerID))
+	logger.Debug("write lock released", "writer", writerID)
 	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // RuleConfig represents a rule configuration loaded from database or Nacos
@@ -86,7 +85,7 @@ func NewDynamicRuleLoader(engine *Engine, reloadPeriod time.Duration) *DynamicRu
 // AddSource adds a rule source
 func (l *DynamicRuleLoader) AddSource(source RuleSource) {
 	l.sources = append(l.sources, source)
-	logger.Info("rule source added", zap.String("source", source.Name()))
+	logger.Info("rule source added", "source", source.Name())
 }
 
 // SetOnRuleChange sets the callback for rule changes
@@ -106,8 +105,8 @@ func (l *DynamicRuleLoader) Start(ctx context.Context) error {
 		go func(s RuleSource) {
 			if err := s.Watch(ctx, l.updateChan); err != nil {
 				logger.Error("rule source watch error",
-					zap.String("source", s.Name()),
-					zap.Error(err))
+					"source", s.Name(),
+					"error", err)
 			}
 		}(source)
 	}
@@ -119,8 +118,8 @@ func (l *DynamicRuleLoader) Start(ctx context.Context) error {
 	go l.periodicReload(ctx)
 
 	logger.Info("dynamic rule loader started",
-		zap.Duration("reload_period", l.reloadPeriod),
-		zap.Int("sources", len(l.sources)))
+		"reload_period", l.reloadPeriod,
+		"sources", len(l.sources))
 
 	return nil
 }
@@ -138,14 +137,14 @@ func (l *DynamicRuleLoader) loadAll(ctx context.Context) error {
 		rules, err := source.Load(ctx)
 		if err != nil {
 			logger.Error("failed to load rules from source",
-				zap.String("source", source.Name()),
-				zap.Error(err))
+				"source", source.Name(),
+				"error", err)
 			continue
 		}
 		allRules = append(allRules, rules...)
 		logger.Info("rules loaded from source",
-			zap.String("source", source.Name()),
-			zap.Int("count", len(rules)))
+			"source", source.Name(),
+			"count", len(rules))
 	}
 
 	l.applyRules(ctx, allRules)
@@ -201,10 +200,10 @@ func (l *DynamicRuleLoader) applyRules(ctx context.Context, rules []*RuleConfig)
 	// Log changes
 	if len(added) > 0 || len(updated) > 0 || len(removed) > 0 {
 		logger.Info("rules updated",
-			zap.Int("added", len(added)),
-			zap.Int("updated", len(updated)),
-			zap.Int("removed", len(removed)),
-			zap.Int("total", len(l.rules)))
+			"added", len(added),
+			"updated", len(updated),
+			"removed", len(removed),
+			"total", len(l.rules))
 
 		// Notify callback
 		if l.onRuleChange != nil {
@@ -267,7 +266,7 @@ func (l *DynamicRuleLoader) periodicReload(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := l.loadAll(ctx); err != nil {
-				logger.Error("periodic rule reload failed", zap.Error(err))
+				logger.Error("periodic rule reload failed", "error", err)
 			}
 		}
 	}

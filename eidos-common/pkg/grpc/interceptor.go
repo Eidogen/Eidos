@@ -2,13 +2,13 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/circuitbreaker"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/errors"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -72,10 +72,10 @@ func UnaryServerTraceInterceptor() grpc.UnaryServerInterceptor {
 
 		// 添加日志字段到 context
 		ctx = logger.NewContext(ctx,
-			zap.String("trace_id", traceID),
-			zap.String("method", info.FullMethod),
-			zap.String("wallet", wallet),
-			zap.String("user_id", userID),
+			slog.String("trace_id", traceID),
+			slog.String("method", info.FullMethod),
+			slog.String("wallet", wallet),
+			slog.String("user_id", userID),
 		)
 
 		return handler(ctx, req)
@@ -97,13 +97,13 @@ func StreamServerTraceInterceptor() grpc.StreamServerInterceptor {
 		}
 
 		logger.Info("grpc stream started",
-			zap.String("trace_id", traceID),
-			zap.String("method", info.FullMethod),
+			"trace_id", traceID,
+			"method", info.FullMethod,
 		)
 
 		return handler(srv, &wrappedServerStream{
 			ServerStream: ss,
-			ctx:          logger.NewContext(ctx, zap.String("trace_id", traceID)),
+			ctx:          logger.NewContext(ctx, slog.String("trace_id", traceID)),
 		})
 	}
 }
@@ -293,11 +293,11 @@ func RetryInterceptor(maxAttempts int, backoff time.Duration) grpc.UnaryClientIn
 			lastErr = err
 
 			if attempt < maxAttempts-1 {
-				logger.WithContext(ctx).Debug("retrying grpc call",
-					zap.String("method", method),
-					zap.Int("attempt", attempt+1),
-					zap.Int("max_attempts", maxAttempts),
-					zap.Error(err),
+				logger.Debug("retrying grpc call",
+					"method", method,
+					"attempt", attempt+1,
+					"max_attempts", maxAttempts,
+					"error", err,
 				)
 
 				select {

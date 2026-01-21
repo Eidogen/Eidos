@@ -11,21 +11,21 @@
 //    - 消息内容: DepositEvent (链上充值事件)
 //    - 处理逻辑: Indexer 监听链上 Deposit 事件后发送
 //    - 对接服务: eidos-trading
-//    - TODO: eidos-trading 需要订阅此 topic 并调用 DepositService.CreditDeposit
+//    - eidos-trading 需要订阅此 topic 并调用 DepositService.CreditDeposit
 //
 // 2. Topic: settlement-confirmed
 //    - 消费者: eidos-trading (结算确认)
 //    - 消息内容: SettlementConfirmation (链上结算确认)
 //    - 处理逻辑: 链上交易确认后发送，包含 txHash, blockNumber
 //    - 对接服务: eidos-trading
-//    - TODO: eidos-trading 需要订阅此 topic 并更新成交状态为 SETTLED_ONCHAIN
+//    - eidos-trading 需要订阅此 topic 并更新成交状态为 SETTLED_ONCHAIN
 //
 // 3. Topic: withdrawal-confirmed
 //    - 消费者: eidos-trading (提现确认)
 //    - 消息内容: WithdrawalConfirmation (链上提现确认)
 //    - 处理逻辑: 链上提现交易确认后发送
 //    - 对接服务: eidos-trading
-//    - TODO: eidos-trading 需要订阅此 topic 并更新提现状态为 COMPLETED
+//    - eidos-trading 需要订阅此 topic 并更新提现状态为 COMPLETED
 //
 // ========================================
 package kafka
@@ -40,7 +40,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Kafka 生产者发送的 Topic
@@ -152,17 +151,17 @@ func (p *Producer) send(topic string, key string, value []byte) error {
 	partition, offset, err := p.producer.SendMessage(msg)
 	if err != nil {
 		logger.Error("failed to send kafka message",
-			zap.String("topic", topic),
-			zap.String("key", key),
-			zap.Error(err))
+			"topic", topic,
+			"key", key,
+			"error", err)
 		return err
 	}
 
 	logger.Debug("kafka message sent",
-		zap.String("topic", topic),
-		zap.String("key", key),
-		zap.Int32("partition", partition),
-		zap.Int64("offset", offset))
+		"topic", topic,
+		"key", key,
+		"partition", partition,
+		"offset", offset)
 
 	return nil
 }

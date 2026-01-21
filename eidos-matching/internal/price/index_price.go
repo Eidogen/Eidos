@@ -6,12 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 var (
@@ -142,10 +142,10 @@ func (m *IndexPriceManager) AddSource(source PriceSource) {
 		return m.sources[i].Priority() < m.sources[j].Priority()
 	})
 
-	zap.L().Info("price source added",
-		zap.String("name", source.Name()),
-		zap.Int("priority", source.Priority()),
-		zap.Int("total_sources", len(m.sources)))
+	slog.Info("price source added",
+		"name", source.Name(),
+		"priority", source.Priority(),
+		"total_sources", len(m.sources))
 }
 
 // RemoveSource 移除数据源
@@ -156,7 +156,7 @@ func (m *IndexPriceManager) RemoveSource(name string) {
 	for i, s := range m.sources {
 		if s.Name() == name {
 			m.sources = append(m.sources[:i], m.sources[i+1:]...)
-			zap.L().Info("price source removed", zap.String("name", name))
+			slog.Info("price source removed", "name", name)
 			return
 		}
 	}
@@ -188,10 +188,10 @@ func (m *IndexPriceManager) Start(symbols []string) error {
 	m.wg.Add(1)
 	go m.updateLoop(symbols)
 
-	zap.L().Info("index price manager started",
-		zap.Int("symbols", len(symbols)),
-		zap.Int("sources", len(m.sources)),
-		zap.Duration("interval", m.config.UpdateInterval))
+	slog.Info("index price manager started",
+		"symbols", len(symbols),
+		"sources", len(m.sources),
+		"interval", m.config.UpdateInterval)
 
 	return nil
 }
@@ -200,7 +200,7 @@ func (m *IndexPriceManager) Start(symbols []string) error {
 func (m *IndexPriceManager) Stop() {
 	m.cancel()
 	m.wg.Wait()
-	zap.L().Info("index price manager stopped")
+	slog.Info("index price manager stopped")
 }
 
 // updateLoop 价格更新循环
@@ -233,9 +233,9 @@ func (m *IndexPriceManager) updateAllPrices(symbols []string) {
 			m.lastErrorAt = time.Now()
 			m.mu.Unlock()
 
-			zap.L().Debug("update price failed",
-				zap.String("symbol", symbol),
-				zap.Error(err))
+			slog.Debug("update price failed",
+				"symbol", symbol,
+				"error", err)
 		}
 	}
 }
@@ -262,10 +262,10 @@ func (m *IndexPriceManager) updatePrice(symbol string) error {
 		latency := time.Since(startTime).Milliseconds()
 
 		if err != nil {
-			zap.L().Debug("fetch price from source failed",
-				zap.String("source", source.Name()),
-				zap.String("symbol", symbol),
-				zap.Error(err))
+			slog.Debug("fetch price from source failed",
+				"source", source.Name(),
+				"symbol", symbol,
+				"error", err)
 			continue
 		}
 
@@ -330,11 +330,11 @@ func (m *IndexPriceManager) filterOutliers(prices []PriceData) []PriceData {
 		if deviation.LessThanOrEqual(m.config.DeviationThreshold) {
 			result = append(result, p)
 		} else {
-			zap.L().Warn("price outlier filtered",
-				zap.String("source", p.Source),
-				zap.String("price", p.Price.String()),
-				zap.String("median", median.String()),
-				zap.String("deviation", deviation.String()))
+			slog.Warn("price outlier filtered",
+				"source", p.Source,
+				"price", p.Price.String(),
+				"median", median.String(),
+				"deviation", deviation.String())
 		}
 	}
 

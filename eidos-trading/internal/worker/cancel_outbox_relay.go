@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/alert"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 )
@@ -78,6 +78,7 @@ type CancelOutboxRelay struct {
 	cfg      *CancelOutboxRelayConfig
 	rdb      redis.UniversalClient
 	producer *kafka.Producer
+	alerter  alert.Alerter
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 
@@ -93,7 +94,7 @@ type CancelOutboxRelay struct {
 }
 
 // NewCancelOutboxRelay 创建取消订单 Outbox Relay
-func NewCancelOutboxRelay(cfg *CancelOutboxRelayConfig, rdb redis.UniversalClient, producer *kafka.Producer) *CancelOutboxRelay {
+func NewCancelOutboxRelay(cfg *CancelOutboxRelayConfig, rdb redis.UniversalClient, producer *kafka.Producer, alerter alert.Alerter) *CancelOutboxRelay {
 	if cfg == nil {
 		cfg = DefaultCancelOutboxRelayConfig()
 	}
@@ -101,6 +102,7 @@ func NewCancelOutboxRelay(cfg *CancelOutboxRelayConfig, rdb redis.UniversalClien
 		cfg:        cfg,
 		rdb:        rdb,
 		producer:   producer,
+		alerter:    alerter,
 		shardLocks: make(map[int]bool),
 	}
 }
@@ -124,10 +126,10 @@ func (r *CancelOutboxRelay) Start(ctx context.Context) {
 	go r.cleanupLoop(ctx)
 
 	logger.Info("cancel outbox relay started",
-		zap.Int("shard_count", r.cfg.ShardCount),
-		zap.Duration("relay_interval", r.cfg.RelayInterval),
-		zap.Int("batch_size", r.cfg.BatchSize),
-		zap.String("instance_id", r.cfg.InstanceID),
+		"shard_count", r.cfg.ShardCount,
+		"relay_interval", r.cfg.RelayInterval,
+		"batch_size", r.cfg.BatchSize,
+		"instance_id", r.cfg.InstanceID,
 	)
 }
 
@@ -183,8 +185,8 @@ func (r *CancelOutboxRelay) relayLoop(ctx context.Context, shardID int) {
 				if r.tryAcquireLock(ctx, lockKey) {
 					r.setLockStatus(shardID, true)
 					logger.Info("acquired cancel shard lock",
-						zap.Int("shard_id", shardID),
-						zap.String("instance_id", r.cfg.InstanceID),
+						"shard_id", shardID,
+						"instance_id", r.cfg.InstanceID,
 					)
 				}
 			}
@@ -202,7 +204,7 @@ func (r *CancelOutboxRelay) tryAcquireLock(ctx context.Context, lockKey string) 
 	// 使用 SET NX EX 原子获取锁
 	ok, err := r.rdb.SetNX(ctx, lockKey, r.cfg.InstanceID, r.cfg.LockTTL).Result()
 	if err != nil {
-		logger.Error("try acquire cancel lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("try acquire cancel lock failed", "key", lockKey, "error", err)
 		return false
 	}
 	return ok
@@ -220,7 +222,7 @@ func (r *CancelOutboxRelay) renewLock(ctx context.Context, lockKey string) bool 
 
 	result, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID, r.cfg.LockTTL.Milliseconds()).Int()
 	if err != nil {
-		logger.Error("renew cancel lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("renew cancel lock failed", "key", lockKey, "error", err)
 		return false
 	}
 	return result == 1
@@ -241,13 +243,13 @@ func (r *CancelOutboxRelay) releaseLock(ctx context.Context, shardID int, lockKe
 	`)
 
 	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
-		logger.Error("release cancel lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("release cancel lock failed", "key", lockKey, "error", err)
 	}
 
 	r.setLockStatus(shardID, false)
 	logger.Info("released cancel shard lock",
-		zap.Int("shard_id", shardID),
-		zap.String("instance_id", r.cfg.InstanceID),
+		"shard_id", shardID,
+		"instance_id", r.cfg.InstanceID,
 	)
 }
 
@@ -293,8 +295,8 @@ func (r *CancelOutboxRelay) processBatch(ctx context.Context, shardID int, pendi
 				return // 队列为空
 			}
 			logger.Error("rpop cancel outbox failed",
-				zap.Int("shard_id", shardID),
-				zap.Error(err),
+				"shard_id", shardID,
+				"error", err,
 			)
 			return
 		}
@@ -302,14 +304,14 @@ func (r *CancelOutboxRelay) processBatch(ctx context.Context, shardID int, pendi
 		// 处理该取消请求
 		if err := r.processCancel(ctx, orderID); err != nil {
 			logger.Error("process cancel outbox failed",
-				zap.String("order_id", orderID),
-				zap.Error(err),
+				"order_id", orderID,
+				"error", err,
 			)
 			// 处理失败，重新放回队列左侧 (会在下一轮重试)
 			if pushErr := r.rdb.LPush(ctx, pendingKey, orderID).Err(); pushErr != nil {
 				logger.Error("lpush cancel back to outbox failed",
-					zap.String("order_id", orderID),
-					zap.Error(pushErr),
+					"order_id", orderID,
+					"error", pushErr,
 				)
 			}
 
@@ -338,7 +340,7 @@ func (r *CancelOutboxRelay) processCancel(ctx context.Context, orderID string) e
 	if len(result) == 0 {
 		// 记录不存在，可能已被处理
 		logger.Warn("cancel outbox record not found, may already processed",
-			zap.String("order_id", orderID))
+			"order_id", orderID)
 		return nil
 	}
 
@@ -411,13 +413,13 @@ func (r *CancelOutboxRelay) processCancel(ctx context.Context, orderID string) e
 		"updated_at", time.Now().UnixMilli(),
 	).Err(); err != nil {
 		logger.Warn("update cancel outbox status to sent failed",
-			zap.String("order_id", orderID),
-			zap.Error(err))
+			"order_id", orderID,
+			"error", err)
 	}
 
 	logger.Debug("cancel request sent to matching engine",
-		zap.String("order_id", orderID),
-		zap.String("market", cancelMsg.Market),
+		"order_id", orderID,
+		"market", cancelMsg.Market,
 	)
 
 	return nil
@@ -455,7 +457,7 @@ func (r *CancelOutboxRelay) recoverStaleMessages(ctx context.Context) {
 	for {
 		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			logger.Error("scan cancel outbox keys failed", zap.Error(err))
+			logger.Error("scan cancel outbox keys failed", "error", err)
 			return
 		}
 
@@ -508,15 +510,15 @@ func (r *CancelOutboxRelay) recoverStaleMessages(ctx context.Context) {
 			recovered, err := script.Run(ctx, r.rdb, []string{key, pendingKey}, orderID, time.Now().UnixMilli()).Int()
 			if err != nil {
 				logger.Error("recover stale cancel failed",
-					zap.String("order_id", orderID),
-					zap.Error(err))
+					"order_id", orderID,
+					"error", err)
 				continue
 			}
 
 			if recovered == 1 {
 				logger.Info("recovered stale processing cancel",
-					zap.String("order_id", orderID),
-					zap.Int("shard_id", shardID),
+					"order_id", orderID,
+					"shard_id", shardID,
 				)
 			}
 		}
@@ -562,7 +564,7 @@ func (r *CancelOutboxRelay) releaseLockSimple(ctx context.Context, lockKey strin
 	`)
 
 	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
-		logger.Error("release simple lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("release simple lock failed", "key", lockKey, "error", err)
 	}
 }
 
@@ -577,7 +579,7 @@ func (r *CancelOutboxRelay) cleanupSentMessages(ctx context.Context) {
 	for {
 		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			logger.Error("scan cancel outbox keys for cleanup failed", zap.Error(err))
+			logger.Error("scan cancel outbox keys for cleanup failed", "error", err)
 			return
 		}
 
@@ -604,8 +606,8 @@ func (r *CancelOutboxRelay) cleanupSentMessages(ctx context.Context) {
 			// 删除记录
 			if err := r.rdb.Del(ctx, key).Err(); err != nil {
 				logger.Error("delete sent cancel outbox record failed",
-					zap.String("key", key),
-					zap.Error(err))
+					"key", key,
+					"error", err)
 				continue
 			}
 			deleted++
@@ -619,7 +621,7 @@ func (r *CancelOutboxRelay) cleanupSentMessages(ctx context.Context) {
 
 	if deleted > 0 {
 		logger.Info("cleaned up sent cancel outbox records",
-			zap.Int("count", deleted),
+			"count", deleted,
 		)
 	}
 }
@@ -654,9 +656,20 @@ func (r *CancelOutboxRelay) alertFailedMessages(ctx context.Context) {
 
 	if failedCount > 0 {
 		logger.Warn("cancel outbox has failed messages",
-			zap.Int("count", failedCount),
+			"count", failedCount,
 		)
-		// TODO: 发送告警通知
+		// 发送告警通知
+		if r.alerter != nil {
+			r.alerter.SendAsync(context.Background(), &alert.Alert{
+				Title:    "Cancel Outbox 消息发送失败",
+				Message:  fmt.Sprintf("当前有 %d 条取消请求消息发送失败，请检查 Kafka 连接状态", failedCount),
+				Severity: alert.SeverityWarning,
+				Tags: map[string]string{
+					"component":    "cancel_outbox_relay",
+					"failed_count": fmt.Sprintf("%d", failedCount),
+				},
+			})
+		}
 	}
 }
 

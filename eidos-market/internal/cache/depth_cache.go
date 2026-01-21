@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -36,14 +36,14 @@ const (
 // DepthCache provides caching for order book depth data
 type DepthCache struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewDepthCache creates a new depth cache
-func NewDepthCache(client redis.UniversalClient, logger *zap.Logger) *DepthCache {
+func NewDepthCache(client redis.UniversalClient, logger *slog.Logger) *DepthCache {
 	return &DepthCache{
 		client: client,
-		logger: logger.Named("depth_cache"),
+		logger: logger.With("component", "depth_cache"),
 	}
 }
 

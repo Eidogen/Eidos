@@ -8,56 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestExpandEnvVars 测试环境变量展开
-func TestExpandEnvVars(t *testing.T) {
-	t.Run("simple variable", func(t *testing.T) {
-		os.Setenv("TEST_VAR", "hello")
-		defer os.Unsetenv("TEST_VAR")
-
-		result := expandEnvVars("value is ${TEST_VAR}")
-		assert.Equal(t, "value is hello", result)
-	})
-
-	t.Run("variable with default", func(t *testing.T) {
-		// 不设置环境变量，使用默认值
-		result := expandEnvVars("value is ${NOT_EXISTS:default_value}")
-		assert.Equal(t, "value is default_value", result)
-	})
-
-	t.Run("variable with default overridden", func(t *testing.T) {
-		os.Setenv("MY_VAR", "actual_value")
-		defer os.Unsetenv("MY_VAR")
-
-		result := expandEnvVars("value is ${MY_VAR:default_value}")
-		assert.Equal(t, "value is actual_value", result)
-	})
-
-	t.Run("multiple variables", func(t *testing.T) {
-		os.Setenv("VAR1", "first")
-		os.Setenv("VAR2", "second")
-		defer os.Unsetenv("VAR1")
-		defer os.Unsetenv("VAR2")
-
-		result := expandEnvVars("${VAR1} and ${VAR2}")
-		assert.Equal(t, "first and second", result)
-	})
-
-	t.Run("no variables", func(t *testing.T) {
-		result := expandEnvVars("no variables here")
-		assert.Equal(t, "no variables here", result)
-	})
-
-	t.Run("empty default", func(t *testing.T) {
-		result := expandEnvVars("value is ${NOT_EXISTS:}")
-		assert.Equal(t, "value is ", result)
-	})
-
-	t.Run("default with colon", func(t *testing.T) {
-		result := expandEnvVars("value is ${NOT_EXISTS:default:with:colons}")
-		assert.Equal(t, "value is default:with:colons", result)
-	})
-}
-
 // TestSetDefaults 测试默认值设置
 func TestSetDefaults(t *testing.T) {
 	t.Run("all defaults", func(t *testing.T) {
@@ -106,62 +56,6 @@ func TestSetDefaults(t *testing.T) {
 		// 未设置的值应该使用默认值
 		assert.Equal(t, "dev", cfg.Service.Env)
 		assert.Equal(t, 5432, cfg.Postgres.Port)
-	})
-}
-
-// TestGetEnvInt 测试获取环境变量整数值
-func TestGetEnvInt(t *testing.T) {
-	t.Run("env variable exists", func(t *testing.T) {
-		os.Setenv("TEST_INT", "42")
-		defer os.Unsetenv("TEST_INT")
-
-		result := GetEnvInt("TEST_INT", 0)
-		assert.Equal(t, 42, result)
-	})
-
-	t.Run("env variable not exists", func(t *testing.T) {
-		result := GetEnvInt("NOT_EXISTS_INT", 100)
-		assert.Equal(t, 100, result)
-	})
-
-	t.Run("env variable invalid", func(t *testing.T) {
-		os.Setenv("TEST_INVALID_INT", "not-a-number")
-		defer os.Unsetenv("TEST_INVALID_INT")
-
-		result := GetEnvInt("TEST_INVALID_INT", 50)
-		assert.Equal(t, 50, result)
-	})
-
-	t.Run("env variable empty", func(t *testing.T) {
-		os.Setenv("TEST_EMPTY_INT", "")
-		defer os.Unsetenv("TEST_EMPTY_INT")
-
-		result := GetEnvInt("TEST_EMPTY_INT", 25)
-		assert.Equal(t, 25, result)
-	})
-}
-
-// TestGetEnvString 测试获取环境变量字符串值
-func TestGetEnvString(t *testing.T) {
-	t.Run("env variable exists", func(t *testing.T) {
-		os.Setenv("TEST_STRING", "hello")
-		defer os.Unsetenv("TEST_STRING")
-
-		result := GetEnvString("TEST_STRING", "default")
-		assert.Equal(t, "hello", result)
-	})
-
-	t.Run("env variable not exists", func(t *testing.T) {
-		result := GetEnvString("NOT_EXISTS_STRING", "default")
-		assert.Equal(t, "default", result)
-	})
-
-	t.Run("env variable empty", func(t *testing.T) {
-		os.Setenv("TEST_EMPTY_STRING", "")
-		defer os.Unsetenv("TEST_EMPTY_STRING")
-
-		result := GetEnvString("TEST_EMPTY_STRING", "default")
-		assert.Equal(t, "default", result)
 	})
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
-	"go.uber.org/zap"
 )
 
 // RuleService 规则管理服务
@@ -90,7 +89,7 @@ func (s *RuleService) UpdateRule(ctx context.Context, req *UpdateRuleRequest) er
 	}
 
 	if err := s.repo.CreateVersion(ctx, version); err != nil {
-		logger.Error("failed to create rule version", zap.Error(err))
+		logger.Error("failed to create rule version", "error", err)
 	}
 
 	// 更新规则
@@ -124,9 +123,9 @@ func (s *RuleService) UpdateRule(ctx context.Context, req *UpdateRuleRequest) er
 	})
 
 	logger.Info("risk rule updated",
-		zap.String("rule_id", req.RuleID),
-		zap.String("change_type", string(changeType)),
-		zap.String("operator", req.OperatorID))
+		"rule_id", req.RuleID,
+		"change_type", string(changeType),
+		"operator", req.OperatorID)
 
 	return nil
 }
@@ -141,8 +140,8 @@ func (s *RuleService) sendAlert(ctx context.Context, alert *RiskAlertMessage) {
 	if s.onRiskAlert != nil {
 		if err := s.onRiskAlert(ctx, alert); err != nil {
 			logger.Error("failed to send risk alert",
-				zap.String("alert_id", alert.AlertID),
-				zap.Error(err))
+				"alert_id", alert.AlertID,
+				"error", err)
 		}
 	}
 }

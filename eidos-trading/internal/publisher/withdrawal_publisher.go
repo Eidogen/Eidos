@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
-	"go.uber.org/zap"
 )
 
 // WithdrawalPublisher 提现消息发布者
@@ -63,17 +62,17 @@ func (p *WithdrawalPublisher) PublishWithdrawalRequest(ctx context.Context, with
 	// 使用钱包地址作为分区键，保证同一用户的提现顺序
 	if err := p.producer.SendWithContext(ctx, kafka.TopicWithdrawals, []byte(withdrawal.Wallet), data); err != nil {
 		logger.Error("publish withdrawal request failed",
-			zap.String("withdraw_id", withdrawal.WithdrawID),
-			zap.String("wallet", withdrawal.Wallet),
-			zap.Error(err))
+			"withdraw_id", withdrawal.WithdrawID,
+			"wallet", withdrawal.Wallet,
+			"error", err)
 		return fmt.Errorf("send withdrawal request: %w", err)
 	}
 
 	logger.Info("withdrawal request published",
-		zap.String("withdraw_id", withdrawal.WithdrawID),
-		zap.String("wallet", withdrawal.Wallet),
-		zap.String("token", withdrawal.Token),
-		zap.String("amount", withdrawal.Amount.String()))
+		"withdraw_id", withdrawal.WithdrawID,
+		"wallet", withdrawal.Wallet,
+		"token", withdrawal.Token,
+		"amount", withdrawal.Amount.String())
 
 	return nil
 }

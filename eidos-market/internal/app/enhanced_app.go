@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -21,6 +21,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	marketv1 "github.com/eidos-exchange/eidos/proto/market/v1"
 
@@ -39,7 +40,7 @@ import (
 // EnhancedApp high-throughput application with full caching support
 type EnhancedApp struct {
 	cfg    *config.Config
-	logger *zap.Logger
+	logger *slog.Logger
 
 	// Infrastructure
 	db                *gorm.DB
@@ -58,7 +59,7 @@ type EnhancedApp struct {
 	tradeRepo  repository.TradeRepository
 
 	// Services
-	marketService   *service.EnhancedMarketService
+	marketService    *service.EnhancedMarketService
 	marketConfigSync *msync.MarketConfigSync
 
 	// Servers
@@ -67,7 +68,7 @@ type EnhancedApp struct {
 }
 
 // NewEnhancedApp creates a new enhanced application
-func NewEnhancedApp(cfg *config.Config, logger *zap.Logger) *EnhancedApp {
+func NewEnhancedApp(cfg *config.Config, logger *slog.Logger) *EnhancedApp {
 	return &EnhancedApp{
 		cfg:    cfg,
 		logger: logger,
@@ -114,9 +115,9 @@ func (a *EnhancedApp) Run() error {
 	}
 
 	a.logger.Info("enhanced application started",
-		zap.String("service", a.cfg.Service.Name),
-		zap.Int("grpc_port", a.cfg.Service.GRPCPort),
-		zap.Int("http_port", a.cfg.Service.HTTPPort))
+		"service", a.cfg.Service.Name,
+		"grpc_port", a.cfg.Service.GRPCPort,
+		"http_port", a.cfg.Service.HTTPPort)
 
 	// Wait for signal
 	a.waitForSignal(cancel)
@@ -142,6 +143,11 @@ func (a *EnhancedApp) initInfrastructure(ctx context.Context) error {
 		a.cfg.Postgres.Password,
 		a.cfg.Postgres.Database,
 	)
+
+	// Ensure database exists
+	if err := migrate.EnsureDatabase(a.cfg.Postgres.Host, a.cfg.Postgres.Port, a.cfg.Postgres.User, a.cfg.Postgres.Password, a.cfg.Postgres.Database); err != nil {
+		return fmt.Errorf("failed to ensure database: %w", err)
+	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -202,7 +208,7 @@ func (a *EnhancedApp) initInfrastructure(ctx context.Context) error {
 	if a.cfg.Matching.Enabled {
 		if err := a.initMatchingClient(); err != nil {
 			a.logger.Warn("failed to init matching client, depth snapshot recovery disabled",
-				zap.Error(err))
+				"error", err)
 		}
 	}
 
@@ -291,7 +297,7 @@ func (a *EnhancedApp) initServices(ctx context.Context) error {
 		)
 
 		if err := a.marketConfigSync.Start(); err != nil {
-			a.logger.Warn("failed to start market config sync", zap.Error(err))
+			a.logger.Warn("failed to start market config sync", "error", err)
 		}
 	}
 
@@ -342,7 +348,7 @@ func (a *EnhancedApp) startGRPCServer() error {
 
 	go func() {
 		if err := a.grpcServer.Serve(lis); err != nil {
-			a.logger.Error("grpc server error", zap.Error(err))
+			a.logger.Error("grpc server error", "error", err)
 		}
 	}()
 
@@ -380,8 +386,10 @@ func (a *EnhancedApp) startHTTPServer() error {
 	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		// TODO: Add stats JSON response
-		w.Write([]byte(`{"status":"ok"}`))
+		// 返回服务状态统计
+		stats := fmt.Sprintf(`{"status":"ok","timestamp":%d,"cache_enabled":%t}`,
+			time.Now().UnixMilli(), a.cacheManager != nil)
+		w.Write([]byte(stats))
 	})
 
 	a.httpServer = &http.Server{
@@ -392,9 +400,9 @@ func (a *EnhancedApp) startHTTPServer() error {
 	}
 
 	go func() {
-		a.logger.Info("http server started", zap.Int("port", a.cfg.Service.HTTPPort))
+		a.logger.Info("http server started", "port", a.cfg.Service.HTTPPort)
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.logger.Error("http server error", zap.Error(err))
+			a.logger.Error("http server error", "error", err)
 		}
 	}()
 
@@ -406,7 +414,7 @@ func (a *EnhancedApp) waitForSignal(cancel context.CancelFunc) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
-	a.logger.Info("received signal", zap.String("signal", sig.String()))
+	a.logger.Info("received signal", "signal", sig.String())
 	cancel()
 }
 
@@ -425,7 +433,7 @@ func (a *EnhancedApp) initMatchingClient() error {
 
 	a.matchingClient = matchingClient
 	a.logger.Info("matching client initialized",
-		zap.String("addr", a.cfg.Matching.Addr))
+		"addr", a.cfg.Matching.Addr)
 
 	return nil
 }
@@ -465,7 +473,7 @@ func (a *EnhancedApp) initNacos() error {
 	configCenter, err := nacos.NewConfigCenter(configCenterCfg)
 	if err != nil {
 		a.logger.Warn("failed to create nacos config center, config sync will be disabled",
-			zap.Error(err))
+			"error", err)
 	} else {
 		a.nacosConfigCenter = configCenter
 	}
@@ -479,8 +487,8 @@ func (a *EnhancedApp) initNacos() error {
 	}
 
 	a.logger.Info("nacos service registered",
-		zap.String("service", a.cfg.Service.Name),
-		zap.Int("port", a.cfg.Service.GRPCPort))
+		"service", a.cfg.Service.Name,
+		"port", a.cfg.Service.GRPCPort)
 
 	return nil
 }
@@ -492,7 +500,7 @@ func (a *EnhancedApp) shutdown(ctx context.Context) error {
 	// Deregister Nacos service
 	if a.nacosHelper != nil {
 		if err := a.nacosHelper.DeregisterAll(); err != nil {
-			a.logger.Error("failed to deregister nacos service", zap.Error(err))
+			a.logger.Error("failed to deregister nacos service", "error", err)
 		} else {
 			a.logger.Info("nacos service deregistered")
 		}
@@ -513,7 +521,7 @@ func (a *EnhancedApp) shutdown(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-			a.logger.Error("failed to shutdown http server", zap.Error(err))
+			a.logger.Error("failed to shutdown http server", "error", err)
 		} else {
 			a.logger.Info("http server stopped")
 		}
@@ -528,7 +536,7 @@ func (a *EnhancedApp) shutdown(ctx context.Context) error {
 	// Stop Kafka consumer
 	if a.batchConsumer != nil {
 		if err := a.batchConsumer.Stop(); err != nil {
-			a.logger.Error("failed to stop kafka consumer", zap.Error(err))
+			a.logger.Error("failed to stop kafka consumer", "error", err)
 		}
 	}
 
@@ -545,14 +553,14 @@ func (a *EnhancedApp) shutdown(ctx context.Context) error {
 	// Close Matching client
 	if a.matchingClient != nil {
 		if err := a.matchingClient.Close(); err != nil {
-			a.logger.Error("failed to close matching client", zap.Error(err))
+			a.logger.Error("failed to close matching client", "error", err)
 		}
 	}
 
 	// Close Redis
 	if a.redisClient != nil {
 		if err := a.redisClient.Close(); err != nil {
-			a.logger.Error("failed to close redis", zap.Error(err))
+			a.logger.Error("failed to close redis", "error", err)
 		}
 	}
 
@@ -561,7 +569,7 @@ func (a *EnhancedApp) shutdown(ctx context.Context) error {
 		sqlDB, _ := a.db.DB()
 		if sqlDB != nil {
 			if err := sqlDB.Close(); err != nil {
-				a.logger.Error("failed to close database", zap.Error(err))
+				a.logger.Error("failed to close database", "error", err)
 			}
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -331,8 +330,8 @@ func (p *Pipeline) Exec(ctx context.Context) ([]redis.Cmder, error) {
 	cmds, err := p.pipe.Exec(ctx)
 	if err != nil && !errors.Is(err, redis.Nil) {
 		logger.Error("pipeline exec failed",
-			zap.Int("commands", p.commands),
-			zap.Error(err),
+			"commands", p.commands,
+			"error", err,
 		)
 	}
 
@@ -409,9 +408,9 @@ func (b *BatchExecutor) Flush(ctx context.Context) error {
 
 		if err != nil && !errors.Is(err, redis.Nil) {
 			logger.Error("batch execute failed",
-				zap.Int("batch_start", i),
-				zap.Int("batch_size", len(batch)),
-				zap.Error(err),
+				"batch_start", i,
+				"batch_size", len(batch),
+				"error", err,
 			)
 			return err
 		}

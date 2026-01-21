@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
-	"go.uber.org/zap"
 )
 
 // OrderExpirer 订单过期处理接口
@@ -68,8 +67,8 @@ func (w *OrderExpiryWorker) Start(ctx context.Context) {
 	go w.checkLoop(ctx)
 
 	logger.Info("order expiry worker started",
-		zap.Duration("check_interval", w.cfg.CheckInterval),
-		zap.Int("batch_size", w.cfg.BatchSize),
+		"check_interval", w.cfg.CheckInterval,
+		"batch_size", w.cfg.BatchSize,
 	)
 }
 
@@ -110,7 +109,7 @@ func (w *OrderExpiryWorker) processExpiredOrders(ctx context.Context) {
 	// 只查询 PENDING 状态的订单 (OPEN/PARTIAL 需要通过撮合引擎处理)
 	orders, err := w.orderRepo.ListExpiredOrders(ctx, now, model.OrderStatusPending, w.cfg.BatchSize)
 	if err != nil {
-		logger.Error("list expired pending orders failed", zap.Error(err))
+		logger.Error("list expired pending orders failed", "error", err)
 		return
 	}
 
@@ -119,23 +118,23 @@ func (w *OrderExpiryWorker) processExpiredOrders(ctx context.Context) {
 	}
 
 	logger.Info("found expired pending orders",
-		zap.Int("count", len(orders)),
+		"count", len(orders),
 	)
 
 	// 处理每个过期订单
 	for _, order := range orders {
 		if err := w.orderExpirer.ExpireOrder(ctx, order.OrderID); err != nil {
 			logger.Error("expire pending order failed",
-				zap.String("order_id", order.OrderID),
-				zap.Error(err),
+				"order_id", order.OrderID,
+				"error", err,
 			)
 			continue
 		}
 
 		logger.Debug("pending order expired",
-			zap.String("order_id", order.OrderID),
-			zap.String("wallet", order.Wallet),
-			zap.Int64("expire_at", order.ExpireAt),
+			"order_id", order.OrderID,
+			"wallet", order.Wallet,
+			"expire_at", order.ExpireAt,
 		)
 	}
 }

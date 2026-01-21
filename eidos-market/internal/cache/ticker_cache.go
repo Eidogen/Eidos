@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -42,14 +42,14 @@ const (
 // TickerCache provides caching for ticker data with bucket persistence
 type TickerCache struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewTickerCache creates a new ticker cache
-func NewTickerCache(client redis.UniversalClient, logger *zap.Logger) *TickerCache {
+func NewTickerCache(client redis.UniversalClient, logger *slog.Logger) *TickerCache {
 	return &TickerCache{
 		client: client,
-		logger: logger.Named("ticker_cache"),
+		logger: logger.With("component", "ticker_cache"),
 	}
 }
 
@@ -92,8 +92,8 @@ func (c *TickerCache) SaveTickerBuckets(ctx context.Context, market string, buck
 		data, err := json.Marshal(bucket)
 		if err != nil {
 			c.logger.Warn("failed to marshal bucket",
-				zap.Int64("minute", bucket.Minute),
-				zap.Error(err))
+				"minute", bucket.Minute,
+				"error", err)
 			continue
 		}
 		fields[strconv.FormatInt(bucket.Minute, 10)] = data
@@ -137,8 +137,8 @@ func (c *TickerCache) LoadTickerBuckets(ctx context.Context, market string) ([]*
 		var bucket model.TickerBucket
 		if err := json.Unmarshal([]byte(data), &bucket); err != nil {
 			c.logger.Warn("failed to unmarshal bucket",
-				zap.String("field", field),
-				zap.Error(err))
+				"field", field,
+				"error", err)
 			continue
 		}
 
@@ -157,7 +157,7 @@ func (c *TickerCache) LoadTickerBuckets(ctx context.Context, market string) ([]*
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := c.client.HDel(ctx, key, expiredFields...).Err(); err != nil {
-				c.logger.Warn("failed to clean expired buckets", zap.Error(err))
+				c.logger.Warn("failed to clean expired buckets", "error", err)
 			}
 		}()
 	}

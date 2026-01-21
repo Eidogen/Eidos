@@ -13,7 +13,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // ClientManager manages all gRPC client connections
@@ -47,7 +46,7 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	if m.cfg.Trading != "" {
 		m.trading, err = NewTradingClient(ctx, m.cfg.Trading)
 		if err != nil {
-			logger.Warn("failed to connect to trading service", zap.Error(err))
+			logger.Warn("failed to connect to trading service", "error", err)
 		}
 	}
 
@@ -55,7 +54,7 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	if m.cfg.Matching != "" {
 		m.matching, err = NewMatchingClient(ctx, m.cfg.Matching)
 		if err != nil {
-			logger.Warn("failed to connect to matching service", zap.Error(err))
+			logger.Warn("failed to connect to matching service", "error", err)
 		}
 	}
 
@@ -63,7 +62,7 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	if m.cfg.Market != "" {
 		m.market, err = NewMarketClient(ctx, m.cfg.Market)
 		if err != nil {
-			logger.Warn("failed to connect to market service", zap.Error(err))
+			logger.Warn("failed to connect to market service", "error", err)
 		}
 	}
 
@@ -71,7 +70,7 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	if m.cfg.Chain != "" {
 		m.chain, err = NewChainClient(ctx, m.cfg.Chain)
 		if err != nil {
-			logger.Warn("failed to connect to chain service", zap.Error(err))
+			logger.Warn("failed to connect to chain service", "error", err)
 		}
 	}
 
@@ -79,7 +78,7 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	if m.cfg.Risk != "" {
 		m.risk, err = NewRiskClient(ctx, m.cfg.Risk)
 		if err != nil {
-			logger.Warn("failed to connect to risk service", zap.Error(err))
+			logger.Warn("failed to connect to risk service", "error", err)
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
@@ -181,8 +180,8 @@ func (s *settlementService) CreateBatch(ctx context.Context, tradeIDs []string) 
 		trade, err := s.tradeRepo.GetByTradeID(ctx, tradeID)
 		if err != nil {
 			logger.Warn("get trade for batch calculation failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			continue
 		}
 		totalAmount = totalAmount.Add(trade.QuoteAmount)
@@ -208,16 +207,16 @@ func (s *settlementService) CreateBatch(ctx context.Context, tradeIDs []string) 
 	for _, tradeID := range tradeIDs {
 		if err := s.tradeRepo.UpdateSettlementBatchID(ctx, tradeID, batchID); err != nil {
 			logger.Warn("update trade batch id failed",
-				zap.String("trade_id", tradeID),
-				zap.String("batch_id", batchID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"batch_id", batchID,
+				"error", err)
 		}
 	}
 
 	logger.Info("settlement batch created",
-		zap.String("batch_id", batchID),
-		zap.Int("trade_count", len(tradeIDs)),
-		zap.String("total_amount", totalAmount.String()))
+		"batch_id", batchID,
+		"trade_count", len(tradeIDs),
+		"total_amount", totalAmount.String())
 
 	metrics.RecordSettlement("batch_created")
 
@@ -269,8 +268,8 @@ func (s *settlementService) MarkBatchSubmitted(ctx context.Context, batchID, txH
 	}
 
 	logger.Info("settlement batch submitted",
-		zap.String("batch_id", batchID),
-		zap.String("tx_hash", txHash))
+		"batch_id", batchID,
+		"tx_hash", txHash)
 
 	metrics.RecordSettlement("batch_submitted")
 	return nil
@@ -305,9 +304,9 @@ func (s *settlementService) MarkBatchConfirmed(ctx context.Context, batchID, txH
 	}
 
 	logger.Info("settlement batch confirmed",
-		zap.String("batch_id", batchID),
-		zap.String("tx_hash", txHash),
-		zap.Int64("block_number", blockNumber))
+		"batch_id", batchID,
+		"tx_hash", txHash,
+		"block_number", blockNumber)
 
 	metrics.RecordSettlement("batch_confirmed")
 	return nil
@@ -329,8 +328,8 @@ func (s *settlementService) MarkBatchFailed(ctx context.Context, batchID, errorM
 	}
 
 	logger.Warn("settlement batch failed",
-		zap.String("batch_id", batchID),
-		zap.String("error", errorMsg))
+		"batch_id", batchID,
+		"error", errorMsg)
 
 	metrics.RecordSettlement("batch_failed")
 	return nil
@@ -387,16 +386,16 @@ func (s *settlementService) TriggerSettlement(ctx context.Context, batchSize int
 				trade.MatchedAt,
 			); err != nil {
 				logger.Error("publish settlement trade failed",
-					zap.String("trade_id", trade.TradeID),
-					zap.String("batch_id", batch.BatchID),
-					zap.Error(err))
+					"trade_id", trade.TradeID,
+					"batch_id", batch.BatchID,
+					"error", err)
 			}
 		}
 	}
 
 	logger.Info("settlement triggered",
-		zap.String("batch_id", batch.BatchID),
-		zap.Int("trade_count", len(trades)))
+		"batch_id", batch.BatchID,
+		"trade_count", len(trades))
 
 	return batch, nil
 }
@@ -429,8 +428,8 @@ func (s *settlementService) RetryFailedBatches(ctx context.Context, limit int) (
 				"updated_at": now,
 			}).Error; err != nil {
 			logger.Error("retry failed batch failed",
-				zap.String("batch_id", batch.BatchID),
-				zap.Error(err))
+				"batch_id", batch.BatchID,
+				"error", err)
 			continue
 		}
 
@@ -462,8 +461,8 @@ func (s *settlementService) RetryFailedBatches(ctx context.Context, limit int) (
 
 		retried++
 		logger.Info("settlement batch retried",
-			zap.String("batch_id", batch.BatchID),
-			zap.Int("trade_count", batch.TradeCount))
+			"batch_id", batch.BatchID,
+			"trade_count", batch.TradeCount)
 	}
 
 	return retried, nil

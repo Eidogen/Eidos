@@ -6,19 +6,20 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Service     ServiceConfig      `yaml:"service" json:"service"`
-	Nacos       NacosConfig        `yaml:"nacos" json:"nacos"`
-	Postgres    PostgresConfig     `yaml:"postgres" json:"postgres"`
-	Redis       RedisConfig        `yaml:"redis" json:"redis"`
-	Kafka       KafkaConfig        `yaml:"kafka" json:"kafka"`
-	GRPCClients GRPCClientsConfig  `yaml:"grpc_clients" json:"grpc_clients"`
-	Jobs        JobsConfig         `yaml:"jobs" json:"jobs"`
-	Scheduler   SchedulerConfig    `yaml:"scheduler" json:"scheduler"`
-	Log         LogConfig          `yaml:"log" json:"log"`
+	Service     ServiceConfig     `yaml:"service" json:"service"`
+	Nacos       NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres    PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       KafkaConfig       `yaml:"kafka" json:"kafka"`
+	GRPCClients GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
+	Jobs        JobsConfig        `yaml:"jobs" json:"jobs"`
+	Scheduler   SchedulerConfig   `yaml:"scheduler" json:"scheduler"`
+	Log         LogConfig         `yaml:"log" json:"log"`
 }
 
 type ServiceConfig struct {
@@ -96,14 +97,14 @@ type BalanceScanJobConfig struct {
 
 // SettlementJobConfig 结算触发任务配置
 type SettlementJobConfig struct {
-	Enabled           bool `yaml:"enabled" json:"enabled"`
+	Enabled           bool   `yaml:"enabled" json:"enabled"`
 	Cron              string `yaml:"cron" json:"cron"`
-	BatchSize         int  `yaml:"batch_size" json:"batch_size"`
-	MinBatchSize      int  `yaml:"min_batch_size" json:"min_batch_size"`
-	MaxWaitTimeMs     int  `yaml:"max_wait_time_ms" json:"max_wait_time_ms"`
-	RetryTimeoutMs    int  `yaml:"retry_timeout_ms" json:"retry_timeout_ms"`
-	MaxRetries        int  `yaml:"max_retries" json:"max_retries"`
-	ConcurrentBatches int  `yaml:"concurrent_batches" json:"concurrent_batches"`
+	BatchSize         int    `yaml:"batch_size" json:"batch_size"`
+	MinBatchSize      int    `yaml:"min_batch_size" json:"min_batch_size"`
+	MaxWaitTimeMs     int    `yaml:"max_wait_time_ms" json:"max_wait_time_ms"`
+	RetryTimeoutMs    int    `yaml:"retry_timeout_ms" json:"retry_timeout_ms"`
+	MaxRetries        int    `yaml:"max_retries" json:"max_retries"`
+	ConcurrentBatches int    `yaml:"concurrent_batches" json:"concurrent_batches"`
 }
 
 type SchedulerConfig struct {
@@ -124,7 +125,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err == nil {
 		// 先解析为临时结构以支持环境变量替换
-		content := os.ExpandEnv(string(data))
+		content := config.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config: %w", err)
 		}

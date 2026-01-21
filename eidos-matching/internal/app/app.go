@@ -54,10 +54,11 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/price"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/snapshot"
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -151,21 +152,21 @@ func NewApp(cfg *config.Config) (*App, error) {
 	// 初始化 Nacos 服务注册 (可选，配置为空则跳过)
 	if cfg.Nacos.ServerAddr != "" {
 		if err := app.initNacos(); err != nil {
-			zap.L().Warn("init nacos failed, service discovery disabled", zap.Error(err))
+			slog.Warn("init nacos failed, service discovery disabled", "error", err)
 		}
 	}
 
 	// 初始化 eidos-risk 风控客户端 (可选，配置为空则跳过)
 	if cfg.Risk.Enabled && cfg.Risk.Addr != "" {
 		if err := app.initRisk(); err != nil {
-			zap.L().Warn("init risk client failed, risk checking disabled", zap.Error(err))
+			slog.Warn("init risk client failed, risk checking disabled", "error", err)
 		}
 	}
 
 	// 初始化高可用组件 (可选)
 	if cfg.HA.Enabled {
 		if err := app.initHA(); err != nil {
-			zap.L().Warn("init HA failed, running in standalone mode", zap.Error(err))
+			slog.Warn("init HA failed, running in standalone mode", "error", err)
 		}
 	}
 
@@ -175,7 +176,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	// 初始化 Nacos 配置热加载 (可选)
 	if app.nacosClient != nil {
 		if err := app.initNacosConfigLoader(); err != nil {
-			zap.L().Warn("init nacos config loader failed", zap.Error(err))
+			slog.Warn("init nacos config loader failed", "error", err)
 		}
 	}
 
@@ -348,9 +349,9 @@ func (a *App) initNacos() error {
 		"protocol": "grpc",
 	}
 
-	zap.L().Info("nacos client initialized",
-		zap.String("server", a.cfg.Nacos.ServerAddr),
-		zap.String("namespace", a.cfg.Nacos.Namespace))
+	slog.Info("nacos client initialized",
+		"server", a.cfg.Nacos.ServerAddr,
+		"namespace", a.cfg.Nacos.Namespace)
 
 	return nil
 }
@@ -369,9 +370,9 @@ func (a *App) initRisk() error {
 	a.riskConn = conn
 	a.riskClient = riskv1.NewRiskServiceClient(conn)
 
-	zap.L().Info("risk client initialized",
-		zap.String("addr", a.cfg.Risk.Addr),
-		zap.Int("timeout_ms", a.cfg.Risk.Timeout))
+	slog.Info("risk client initialized",
+		"addr", a.cfg.Risk.Addr,
+		"timeout_ms", a.cfg.Risk.Timeout)
 
 	return nil
 }
@@ -406,9 +407,9 @@ func (a *App) initHA() error {
 		HeartbeatInterval: a.cfg.HA.HeartbeatInterval,
 		FailoverTimeout:   a.cfg.HA.FailoverTimeout,
 		OnStateChange: func(oldMode, newMode ha.StandbyMode) {
-			zap.L().Info("standby mode changed",
-				zap.String("old_mode", oldMode.String()),
-				zap.String("new_mode", newMode.String()))
+			slog.Info("standby mode changed",
+				"old_mode", oldMode.String(),
+				"new_mode", newMode.String())
 			metrics.SetLeaderState(a.cfg.Service.NodeID, int(newMode))
 		},
 	}
@@ -418,28 +419,28 @@ func (a *App) initHA() error {
 		return fmt.Errorf("create standby manager: %w", err)
 	}
 
-	zap.L().Info("HA components initialized",
-		zap.String("node_id", a.cfg.Service.NodeID),
-		zap.Duration("heartbeat_interval", a.cfg.HA.HeartbeatInterval),
-		zap.Duration("failover_timeout", a.cfg.HA.FailoverTimeout))
+	slog.Info("HA components initialized",
+		"node_id", a.cfg.Service.NodeID,
+		"heartbeat_interval", a.cfg.HA.HeartbeatInterval,
+		"failover_timeout", a.cfg.HA.FailoverTimeout)
 
 	return nil
 }
 
 // handleLeaderChange 处理 Leader 变更
 func (a *App) handleLeaderChange(isLeader bool, oldState, newState ha.LeaderState) {
-	zap.L().Info("leader state changed",
-		zap.Bool("is_leader", isLeader),
-		zap.String("old_state", oldState.String()),
-		zap.String("new_state", newState.String()))
+	slog.Info("leader state changed",
+		"is_leader", isLeader,
+		"old_state", oldState.String(),
+		"new_state", newState.String())
 
 	metrics.SetLeaderState(a.cfg.Service.NodeID, int(newState))
 
 	if isLeader && oldState != ha.StateLeader {
 		// 成为 Leader，记录故障转移
 		metrics.RecordFailover(a.cfg.Service.NodeID)
-		zap.L().Info("this node became the leader",
-			zap.String("node_id", a.cfg.Service.NodeID))
+		slog.Info("this node became the leader",
+			"node_id", a.cfg.Service.NodeID)
 	}
 }
 
@@ -459,9 +460,9 @@ func (a *App) initIndexPriceManager() {
 	a.indexPriceManager.SetCallback(func(symbol string, indexPrice *price.IndexPrice) {
 		// 将指数价格更新到对应的撮合引擎
 		if err := a.engineManager.UpdateIndexPrice(symbol, indexPrice.Price); err != nil {
-			zap.L().Debug("update index price to engine failed",
-				zap.String("symbol", symbol),
-				zap.Error(err))
+			slog.Debug("update index price to engine failed",
+				"symbol", symbol,
+				"error", err)
 		}
 
 		// 计算与最新成交价的偏差
@@ -480,7 +481,7 @@ func (a *App) initIndexPriceManager() {
 	staticSource := price.NewStaticPriceSource("static", 100)
 	a.indexPriceManager.AddSource(staticSource)
 
-	zap.L().Info("index price manager initialized")
+	slog.Info("index price manager initialized")
 }
 
 // initNacosConfigLoader 初始化 Nacos 配置热加载
@@ -499,9 +500,9 @@ func (a *App) initNacosConfigLoader() error {
 		return fmt.Errorf("create nacos config loader: %w", err)
 	}
 
-	zap.L().Info("nacos config loader initialized",
-		zap.String("dataId", loaderCfg.DataID),
-		zap.String("group", loaderCfg.Group))
+	slog.Info("nacos config loader initialized",
+		"dataId", loaderCfg.DataID,
+		"group", loaderCfg.Group)
 
 	return nil
 }
@@ -511,9 +512,9 @@ func (a *App) handleMarketConfigChange(added, updated, removed []*config.EngineM
 	// 处理新增的市场
 	for _, cfg := range added {
 		if err := config.ValidateMarketConfig(cfg); err != nil {
-			zap.L().Warn("invalid market config, skipping",
-				zap.String("symbol", cfg.Symbol),
-				zap.Error(err))
+			slog.Warn("invalid market config, skipping",
+				"symbol", cfg.Symbol,
+				"error", err)
 			continue
 		}
 
@@ -531,21 +532,21 @@ func (a *App) handleMarketConfigChange(added, updated, removed []*config.EngineM
 		}
 
 		if err := a.engineManager.AddMarket(engineCfg); err != nil {
-			zap.L().Error("add market failed",
-				zap.String("symbol", cfg.Symbol),
-				zap.Error(err))
+			slog.Error("add market failed",
+				"symbol", cfg.Symbol,
+				"error", err)
 		} else {
-			zap.L().Info("market added via hot reload",
-				zap.String("symbol", cfg.Symbol))
+			slog.Info("market added via hot reload",
+				"symbol", cfg.Symbol)
 		}
 	}
 
 	// 处理更新的市场
 	for _, cfg := range updated {
 		if err := config.ValidateMarketConfig(cfg); err != nil {
-			zap.L().Warn("invalid market config, skipping update",
-				zap.String("symbol", cfg.Symbol),
-				zap.Error(err))
+			slog.Warn("invalid market config, skipping update",
+				"symbol", cfg.Symbol,
+				"error", err)
 			continue
 		}
 
@@ -563,20 +564,20 @@ func (a *App) handleMarketConfigChange(added, updated, removed []*config.EngineM
 		}
 
 		if err := a.engineManager.UpdateMarket(engineCfg); err != nil {
-			zap.L().Error("update market failed",
-				zap.String("symbol", cfg.Symbol),
-				zap.Error(err))
+			slog.Error("update market failed",
+				"symbol", cfg.Symbol,
+				"error", err)
 		} else {
-			zap.L().Info("market updated via hot reload",
-				zap.String("symbol", cfg.Symbol))
+			slog.Info("market updated via hot reload",
+				"symbol", cfg.Symbol)
 		}
 	}
 
 	// 处理删除的市场 (通常不建议动态删除，记录警告)
 	for _, cfg := range removed {
-		zap.L().Warn("market removal requested via hot reload",
-			zap.String("symbol", cfg.Symbol),
-			zap.String("note", "market removal is not recommended, manual restart required"))
+		slog.Warn("market removal requested via hot reload",
+			"symbol", cfg.Symbol,
+			"note", "market removal is not recommended, manual restart required")
 	}
 }
 
@@ -589,7 +590,7 @@ func (a *App) Start() error {
 	// 尝试从快照恢复
 	if err := a.recoverFromSnapshot(); err != nil {
 		// 恢复失败不阻止启动，记录日志即可
-		zap.L().Warn("recover from snapshot failed", zap.Error(err))
+		slog.Warn("recover from snapshot failed", "error", err)
 	}
 
 	// 启动引擎管理器
@@ -626,45 +627,45 @@ func (a *App) Start() error {
 	// 启动高可用组件
 	if a.leaderElection != nil {
 		if err := a.leaderElection.Start(); err != nil {
-			zap.L().Error("start leader election failed", zap.Error(err))
+			slog.Error("start leader election failed", "error", err)
 		}
 	}
 	if a.standbyManager != nil {
 		if err := a.standbyManager.Start(a.engineManager.GetMarkets()); err != nil {
-			zap.L().Error("start standby manager failed", zap.Error(err))
+			slog.Error("start standby manager failed", "error", err)
 		}
 	}
 
 	// 启动指数价格管理器
 	if a.indexPriceManager != nil {
 		if err := a.indexPriceManager.Start(a.engineManager.GetMarkets()); err != nil {
-			zap.L().Warn("start index price manager failed", zap.Error(err))
+			slog.Warn("start index price manager failed", "error", err)
 		}
 	}
 
 	// 启动 Nacos 配置热加载
 	if a.nacosConfigLoader != nil {
 		if err := a.nacosConfigLoader.Start(); err != nil {
-			zap.L().Warn("start nacos config loader failed", zap.Error(err))
+			slog.Warn("start nacos config loader failed", "error", err)
 		}
 	}
 
 	// 注册服务到 Nacos
 	if a.nacosRegistry != nil && a.serviceInst != nil {
 		if err := a.nacosRegistry.Register(a.serviceInst); err != nil {
-			zap.L().Error("register service to nacos failed", zap.Error(err))
+			slog.Error("register service to nacos failed", "error", err)
 		} else {
-			zap.L().Info("service registered to nacos",
-				zap.String("service", a.serviceInst.ServiceName),
-				zap.String("ip", a.serviceInst.IP),
-				zap.Uint64("port", a.serviceInst.Port))
+			slog.Info("service registered to nacos",
+				"service", a.serviceInst.ServiceName,
+				"ip", a.serviceInst.IP,
+				"port", a.serviceInst.Port)
 		}
 	}
 
 	a.isRunning.Store(true)
-	zap.L().Info("eidos-matching started",
-		zap.Int("grpc_port", a.cfg.Service.GRPCPort),
-		zap.Strings("markets", a.engineManager.GetMarkets()))
+	slog.Info("eidos-matching started",
+		"grpc_port", a.cfg.Service.GRPCPort,
+		"markets", a.engineManager.GetMarkets())
 	return nil
 }
 
@@ -680,10 +681,10 @@ func (a *App) Stop() error {
 	// 从 Nacos 注销服务
 	if a.nacosRegistry != nil && a.serviceInst != nil {
 		if err := a.nacosRegistry.Deregister(a.serviceInst); err != nil {
-			zap.L().Error("deregister service from nacos failed", zap.Error(err))
+			slog.Error("deregister service from nacos failed", "error", err)
 		} else {
-			zap.L().Info("service deregistered from nacos",
-				zap.String("service", a.serviceInst.ServiceName))
+			slog.Info("service deregistered from nacos",
+				"service", a.serviceInst.ServiceName)
 		}
 	}
 
@@ -695,7 +696,7 @@ func (a *App) Stop() error {
 	// 关闭 Risk gRPC 连接
 	if a.riskConn != nil {
 		if err := a.riskConn.Close(); err != nil {
-			zap.L().Error("close risk connection failed", zap.Error(err))
+			slog.Error("close risk connection failed", "error", err)
 		}
 	}
 
@@ -734,7 +735,7 @@ func (a *App) Stop() error {
 
 	// 停止消费者
 	if err := a.consumer.Stop(); err != nil {
-		zap.L().Error("stop consumer failed", zap.Error(err))
+		slog.Error("stop consumer failed", "error", err)
 	}
 
 	// 停止引擎
@@ -745,12 +746,12 @@ func (a *App) Stop() error {
 
 	// 关闭生产者
 	if err := a.producer.Close(); err != nil {
-		zap.L().Error("close producer failed", zap.Error(err))
+		slog.Error("close producer failed", "error", err)
 	}
 
 	// 关闭 Redis
 	if err := a.redisClient.Close(); err != nil {
-		zap.L().Error("close redis failed", zap.Error(err))
+		slog.Error("close redis failed", "error", err)
 	}
 
 	// 保存最终快照
@@ -766,7 +767,7 @@ func (a *App) serveGRPC() {
 	if err := a.grpcServer.Serve(a.grpcListener); err != nil {
 		// GracefulStop 会导致 Serve 返回 nil，其他错误需要记录
 		if a.isRunning.Load() {
-			zap.L().Error("gRPC server error", zap.Error(err))
+			slog.Error("gRPC server error", "error", err)
 		}
 	}
 }
@@ -809,9 +810,9 @@ func (a *App) checkOrderRisk(ctx context.Context, order *model.Order) (bool, str
 
 	// 记录警告 (如果有)
 	if len(resp.Warnings) > 0 {
-		zap.L().Warn("risk check warnings",
-			zap.String("order_id", order.OrderID),
-			zap.Strings("warnings", resp.Warnings))
+		slog.Warn("risk check warnings",
+			"order_id", order.OrderID,
+			"warnings", resp.Warnings)
 	}
 
 	return resp.Approved, resp.RejectReason, nil
@@ -830,16 +831,16 @@ func (a *App) handleOrder(ctx context.Context, order *model.Order) error {
 		if err != nil {
 			// 风控服务调用失败，根据配置决定是否放行
 			// 默认策略: 风控服务不可用时放行，避免阻塞交易
-			zap.L().Warn("risk check failed, order allowed by default",
-				zap.String("order_id", order.OrderID),
-				zap.Error(err))
+			slog.Warn("risk check failed, order allowed by default",
+				"order_id", order.OrderID,
+				"error", err)
 		} else if !approved {
 			// 风控拒绝
 			metrics.RecordOrderProcessed(order.Market, "rejected", time.Since(startTime).Seconds())
-			zap.L().Info("order rejected by risk check",
-				zap.String("order_id", order.OrderID),
-				zap.String("wallet", order.Wallet),
-				zap.String("reason", rejectReason))
+			slog.Info("order rejected by risk check",
+				"order_id", order.OrderID,
+				"wallet", order.Wallet,
+				"reason", rejectReason)
 
 			// 发送 order-rejected 消息到 Kafka
 			rejectedMsg := &model.OrderRejectedMessage{
@@ -855,9 +856,9 @@ func (a *App) handleOrder(ctx context.Context, order *model.Order) error {
 				Timestamp:    time.Now().UnixMilli(),
 			}
 			if err := a.producer.SendOrderRejected(ctx, rejectedMsg); err != nil {
-				zap.L().Error("send order rejected message failed",
-					zap.String("order_id", order.OrderID),
-					zap.Error(err))
+				slog.Error("send order rejected message failed",
+					"order_id", order.OrderID,
+					"error", err)
 			}
 			return nil
 		}
@@ -1167,15 +1168,15 @@ func (a *App) recoverFromSnapshot() error {
 		for _, pl := range snap.Asks {
 			orderCount += len(pl.Orders)
 		}
-		zap.L().Info("recovered snapshot",
-			zap.String("market", market),
-			zap.Int64("sequence", snap.Sequence),
-			zap.Int("orders", orderCount))
+		slog.Info("recovered snapshot",
+			"market", market,
+			"sequence", snap.Sequence,
+			"orders", orderCount)
 	}
 
 	if recoveredCount > 0 {
-		zap.L().Info("snapshot recovery completed",
-			zap.Int("markets_recovered", recoveredCount))
+		slog.Info("snapshot recovery completed",
+			"markets_recovered", recoveredCount)
 	}
 
 	return nil

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -96,9 +95,9 @@ func NewConsumer(cfg *ConsumerConfig) (*Consumer, error) {
 	}
 
 	logger.Info("kafka consumer created",
-		zap.Strings("brokers", cfg.Brokers),
-		zap.String("group_id", cfg.GroupID),
-		zap.Strings("topics", cfg.Topics),
+		"brokers", cfg.Brokers,
+		"group_id", cfg.GroupID,
+		"topics", cfg.Topics,
 	)
 
 	return c, nil
@@ -219,8 +218,8 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 
 	logger.Info("starting kafka consumer",
-		zap.Strings("topics", c.config.Topics),
-		zap.String("group_id", c.config.GroupID),
+		"topics", c.config.Topics,
+		"group_id", c.config.GroupID,
 	)
 
 	// 启动多个并发消费者
@@ -248,10 +247,10 @@ func (c *Consumer) consumeLoop(ctx context.Context, workerID int) {
 	for {
 		select {
 		case <-c.closeCh:
-			logger.Info("consumer loop stopped", zap.Int("worker_id", workerID))
+			logger.Info("consumer loop stopped", "worker_id", workerID)
 			return
 		case <-ctx.Done():
-			logger.Info("consumer loop cancelled", zap.Int("worker_id", workerID))
+			logger.Info("consumer loop cancelled", "worker_id", workerID)
 			return
 		default:
 		}
@@ -262,8 +261,8 @@ func (c *Consumer) consumeLoop(ctx context.Context, workerID int) {
 				return
 			}
 			logger.Error("consume error",
-				zap.Int("worker_id", workerID),
-				zap.Error(err),
+				"worker_id", workerID,
+				"error", err,
 			)
 		}
 	}
@@ -281,7 +280,7 @@ func (c *Consumer) errorLoop() {
 			if !ok {
 				return
 			}
-			logger.Error("consumer group error", zap.Error(err))
+			logger.Error("consumer group error", "error", err)
 		}
 	}
 }
@@ -296,9 +295,9 @@ type consumerGroupHandler struct {
 func (h *consumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
 	atomic.AddInt64(&h.consumer.metrics.RebalanceCount, 1)
 	logger.Info("consumer group session setup",
-		zap.Int("worker_id", h.workerID),
-		zap.Int32("generation_id", session.GenerationID()),
-		zap.String("member_id", session.MemberID()),
+		"worker_id", h.workerID,
+		"generation_id", session.GenerationID(),
+		"member_id", session.MemberID(),
 	)
 	return nil
 }
@@ -306,8 +305,8 @@ func (h *consumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error 
 // Cleanup 在 session 结束时调用
 func (h *consumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) error {
 	logger.Info("consumer group session cleanup",
-		zap.Int("worker_id", h.workerID),
-		zap.Int32("generation_id", session.GenerationID()),
+		"worker_id", h.workerID,
+		"generation_id", session.GenerationID(),
 	)
 	return nil
 }
@@ -315,10 +314,10 @@ func (h *consumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) erro
 // ConsumeClaim 消费分区消息
 func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	logger.Info("start consuming partition",
-		zap.Int("worker_id", h.workerID),
-		zap.String("topic", claim.Topic()),
-		zap.Int32("partition", claim.Partition()),
-		zap.Int64("initial_offset", claim.InitialOffset()),
+		"worker_id", h.workerID,
+		"topic", claim.Topic(),
+		"partition", claim.Partition(),
+		"initial_offset", claim.InitialOffset(),
 	)
 
 	for {
@@ -366,10 +365,10 @@ func (h *consumerGroupHandler) processMessage(session sarama.ConsumerGroupSessio
 	if err != nil {
 		atomic.AddInt64(&h.consumer.metrics.MessagesFailed, 1)
 		logger.Error("message processing failed",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Error(err),
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+			"error", err,
 		)
 
 		// 重试处理
@@ -377,10 +376,10 @@ func (h *consumerGroupHandler) processMessage(session sarama.ConsumerGroupSessio
 	} else {
 		atomic.AddInt64(&h.consumer.metrics.MessagesProcessed, 1)
 		logger.Debug("message processed",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Duration("latency", time.Duration(latency)),
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+			"latency", time.Duration(latency),
 		)
 	}
 
@@ -414,14 +413,14 @@ func (h *consumerGroupHandler) handleRetry(ctx context.Context, msg *Message, pr
 
 			if _, err := h.consumer.retryProducer.Send(ctx, deadLetterMsg); err != nil {
 				logger.Error("send to dead letter topic failed",
-					zap.String("topic", h.consumer.config.DeadLetterTopic),
-					zap.Error(err),
+					"topic", h.consumer.config.DeadLetterTopic,
+					"error", err,
 				)
 			} else {
 				atomic.AddInt64(&h.consumer.metrics.MessagesDeadLetter, 1)
 				logger.Warn("message sent to dead letter topic",
-					zap.String("original_topic", msg.OriginalTopic),
-					zap.Int("retry_count", msg.RetryCount),
+					"original_topic", msg.OriginalTopic,
+					"retry_count", msg.RetryCount,
 				)
 			}
 		}
@@ -440,14 +439,14 @@ func (h *consumerGroupHandler) handleRetry(ctx context.Context, msg *Message, pr
 
 		if _, err := h.consumer.retryProducer.Send(ctx, retryMsg); err != nil {
 			logger.Error("send to retry topic failed",
-				zap.String("topic", h.consumer.config.RetryTopic),
-				zap.Error(err),
+				"topic", h.consumer.config.RetryTopic,
+				"error", err,
 			)
 		} else {
 			atomic.AddInt64(&h.consumer.metrics.MessagesRetried, 1)
 			logger.Info("message sent to retry topic",
-				zap.String("original_topic", msg.OriginalTopic),
-				zap.Int("retry_count", msg.RetryCount),
+				"original_topic", msg.OriginalTopic,
+				"retry_count", msg.RetryCount,
 			)
 		}
 	}
@@ -508,13 +507,13 @@ func (c *Consumer) Metrics() *ConsumerMetrics {
 // Pause 暂停消费指定主题分区
 func (c *Consumer) Pause(topicPartitions map[string][]int32) {
 	c.consumerGroup.Pause(topicPartitions)
-	logger.Info("consumer paused", zap.Any("topic_partitions", topicPartitions))
+	logger.Info("consumer paused", "topic_partitions", topicPartitions)
 }
 
 // Resume 恢复消费指定主题分区
 func (c *Consumer) Resume(topicPartitions map[string][]int32) {
 	c.consumerGroup.Resume(topicPartitions)
-	logger.Info("consumer resumed", zap.Any("topic_partitions", topicPartitions))
+	logger.Info("consumer resumed", "topic_partitions", topicPartitions)
 }
 
 // PauseAll 暂停所有消费
@@ -523,7 +522,7 @@ func (c *Consumer) PauseAll() {
 	for _, topic := range c.config.Topics {
 		partitions, err := c.client.Partitions(topic)
 		if err != nil {
-			logger.Error("get partitions failed", zap.String("topic", topic), zap.Error(err))
+			logger.Error("get partitions failed", "topic", topic, "error", err)
 			continue
 		}
 		topicPartitions[topic] = partitions
@@ -537,7 +536,7 @@ func (c *Consumer) ResumeAll() {
 	for _, topic := range c.config.Topics {
 		partitions, err := c.client.Partitions(topic)
 		if err != nil {
-			logger.Error("get partitions failed", zap.String("topic", topic), zap.Error(err))
+			logger.Error("get partitions failed", "topic", topic, "error", err)
 			continue
 		}
 		topicPartitions[topic] = partitions
@@ -586,9 +585,9 @@ func (c *Consumer) Close() error {
 	}
 
 	logger.Info("kafka consumer closed",
-		zap.Int64("messages_received", c.metrics.MessagesReceived),
-		zap.Int64("messages_processed", c.metrics.MessagesProcessed),
-		zap.Int64("messages_failed", c.metrics.MessagesFailed),
+		"messages_received", c.metrics.MessagesReceived,
+		"messages_processed", c.metrics.MessagesProcessed,
+		"messages_failed", c.metrics.MessagesFailed,
 	)
 
 	return nil

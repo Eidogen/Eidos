@@ -56,7 +56,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"go.uber.org/zap"
 )
 
 var (
@@ -188,9 +187,9 @@ func (s *WithdrawalService) ProcessWithdrawalRequest(ctx context.Context, req *m
 	// 验证 EIP-712 签名
 	if err := s.verifyWithdrawalSignature(req); err != nil {
 		logger.Error("withdrawal signature verification failed",
-			zap.String("withdraw_id", req.WithdrawID),
-			zap.String("wallet", req.Wallet),
-			zap.Error(err))
+			"withdraw_id", req.WithdrawID,
+			"wallet", req.Wallet,
+			"error", err)
 		return fmt.Errorf("%w: %v", ErrInvalidSignature, err)
 	}
 
@@ -211,10 +210,10 @@ func (s *WithdrawalService) ProcessWithdrawalRequest(ctx context.Context, req *m
 	}
 
 	logger.Info("withdrawal request received",
-		zap.String("withdraw_id", req.WithdrawID),
-		zap.String("wallet", req.Wallet),
-		zap.String("token", req.Token),
-		zap.String("amount", req.Amount.String()))
+		"withdraw_id", req.WithdrawID,
+		"wallet", req.Wallet,
+		"token", req.Token,
+		"amount", req.Amount.String())
 
 	// 立即尝试提交
 	return s.submitWithdrawal(ctx, tx, req.Signature)
@@ -225,7 +224,7 @@ func (s *WithdrawalService) verifyWithdrawalSignature(req *model.WithdrawalReque
 	// 检查 mock 模式
 	if crypto.IsMockMode(s.eip712Domain) {
 		logger.Warn("skipping signature verification in mock mode",
-			zap.String("withdraw_id", req.WithdrawID))
+			"withdraw_id", req.WithdrawID)
 		return nil
 	}
 
@@ -287,8 +286,8 @@ func (s *WithdrawalService) ProcessPendingWithdrawals(ctx context.Context) error
 		// 注意：签名需要在创建时存储或从其他地方获取
 		if err := s.submitWithdrawal(ctx, tx, ""); err != nil {
 			logger.Error("failed to submit withdrawal",
-				zap.String("withdraw_id", tx.WithdrawID),
-				zap.Error(err))
+				"withdraw_id", tx.WithdrawID,
+				"error", err)
 			continue
 		}
 	}
@@ -346,8 +345,8 @@ func (s *WithdrawalService) submitWithdrawal(ctx context.Context, withdrawTx *mo
 	// 更新状态为已提交
 	if err := s.repo.UpdateStatus(ctx, withdrawTx.WithdrawID, model.WithdrawalTxStatusSubmitted, txHash, 0); err != nil {
 		logger.Error("failed to update withdrawal status",
-			zap.String("withdraw_id", withdrawTx.WithdrawID),
-			zap.Error(err))
+			"withdraw_id", withdrawTx.WithdrawID,
+			"error", err)
 	}
 
 	// 记录待确认交易
@@ -367,9 +366,9 @@ func (s *WithdrawalService) submitWithdrawal(ctx context.Context, withdrawTx *mo
 	s.nonceRepo.CreatePendingTx(ctx, pendingTx)
 
 	logger.Info("withdrawal transaction submitted",
-		zap.String("withdraw_id", withdrawTx.WithdrawID),
-		zap.String("tx_hash", txHash),
-		zap.Uint64("nonce", nonce))
+		"withdraw_id", withdrawTx.WithdrawID,
+		"tx_hash", txHash,
+		"nonce", nonce)
 
 	return nil
 }
@@ -427,8 +426,8 @@ func (s *WithdrawalService) buildWithdrawalTx(ctx context.Context, withdrawTx *m
 		)
 		if err != nil {
 			logger.Warn("gas estimation failed, using fallback",
-				zap.String("withdraw_id", withdrawTx.WithdrawID),
-				zap.Error(err))
+				"withdraw_id", withdrawTx.WithdrawID,
+				"error", err)
 			gasLimit = s.calculateFallbackGas()
 			gasPrice, _ = s.client.SuggestGasPrice(ctx)
 		} else {
@@ -475,9 +474,9 @@ func (s *WithdrawalService) calculateFallbackGas() uint64 {
 // handleSubmitError 处理提交错误
 func (s *WithdrawalService) handleSubmitError(ctx context.Context, withdrawTx *model.WithdrawalTx, err error) error {
 	logger.Warn("withdrawal submission failed, will retry",
-		zap.String("withdraw_id", withdrawTx.WithdrawID),
-		zap.Int("retry_count", withdrawTx.RetryCount),
-		zap.Error(err))
+		"withdraw_id", withdrawTx.WithdrawID,
+		"retry_count", withdrawTx.RetryCount,
+		"error", err)
 
 	return s.repo.UpdateFailed(ctx, withdrawTx.WithdrawID, err.Error())
 }
@@ -485,8 +484,8 @@ func (s *WithdrawalService) handleSubmitError(ctx context.Context, withdrawTx *m
 // markWithdrawalFailed 标记提现失败
 func (s *WithdrawalService) markWithdrawalFailed(ctx context.Context, withdrawTx *model.WithdrawalTx, reason string) error {
 	logger.Error("withdrawal failed",
-		zap.String("withdraw_id", withdrawTx.WithdrawID),
-		zap.String("reason", reason))
+		"withdraw_id", withdrawTx.WithdrawID,
+		"reason", reason)
 
 	if err := s.repo.UpdateFailed(ctx, withdrawTx.WithdrawID, reason); err != nil {
 		return err
@@ -544,15 +543,15 @@ func (s *WithdrawalService) OnTxConfirmed(ctx context.Context, txHash string, bl
 
 		if err := s.onWithdrawalConfirmed(ctx, confirmation); err != nil {
 			logger.Error("failed to send withdrawal confirmation",
-				zap.String("withdraw_id", withdrawID),
-				zap.Error(err))
+				"withdraw_id", withdrawID,
+				"error", err)
 		}
 	}
 
 	logger.Info("withdrawal confirmed",
-		zap.String("withdraw_id", withdrawID),
-		zap.String("tx_hash", txHash),
-		zap.Uint64("block_number", blockNumber))
+		"withdraw_id", withdrawID,
+		"tx_hash", txHash,
+		"block_number", blockNumber)
 
 	return nil
 }

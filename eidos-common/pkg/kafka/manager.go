@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
@@ -48,7 +46,7 @@ func (m *Manager) RegisterProducer(name string, cfg *ProducerConfig) (*Producer,
 	}
 
 	m.producers[name] = producer
-	logger.Info("producer registered", zap.String("name", name))
+	logger.Info("producer registered", "name", name)
 
 	return producer, nil
 }
@@ -81,7 +79,7 @@ func (m *Manager) RegisterConsumer(name string, cfg *ConsumerConfig) (*Consumer,
 	}
 
 	m.consumers[name] = consumer
-	logger.Info("consumer registered", zap.String("name", name))
+	logger.Info("consumer registered", "name", name)
 
 	return consumer, nil
 }
@@ -114,7 +112,7 @@ func (m *Manager) StartAllConsumers(ctx context.Context) error {
 	var errs []error
 	for name, consumer := range m.consumers {
 		if consumer.handler == nil {
-			logger.Warn("consumer has no handler, skipping", zap.String("name", name))
+			logger.Warn("consumer has no handler, skipping", "name", name)
 			continue
 		}
 		if err := consumer.Start(ctx); err != nil {
@@ -198,7 +196,7 @@ func (m *Manager) Close() error {
 		if err := consumer.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close consumer %s: %w", name, err))
 		} else {
-			logger.Info("consumer closed", zap.String("name", name))
+			logger.Info("consumer closed", "name", name)
 		}
 	}
 
@@ -207,7 +205,7 @@ func (m *Manager) Close() error {
 		if err := producer.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close producer %s: %w", name, err))
 		} else {
-			logger.Info("producer closed", zap.String("name", name))
+			logger.Info("producer closed", "name", name)
 		}
 	}
 

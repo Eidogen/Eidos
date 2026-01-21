@@ -19,7 +19,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/router"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // App 应用
@@ -60,13 +59,13 @@ func (a *App) Init() error {
 	// 初始化 gRPC 客户端管理器
 	a.clientManager = client.NewClientManager(&a.cfg.GRPCClients)
 	if err := a.clientManager.Connect(context.Background()); err != nil {
-		logger.Warn("failed to connect to some gRPC services", zap.Error(err))
+		logger.Warn("failed to connect to some gRPC services", "error", err)
 	}
 
 	// 连接 Jobs 服务（可选）
 	if a.cfg.GRPCClients.Jobs != "" {
 		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs); err != nil {
-			logger.Warn("failed to connect to jobs service", zap.Error(err))
+			logger.Warn("failed to connect to jobs service", "error", err)
 		}
 	}
 
@@ -98,8 +97,8 @@ func (a *App) Init() error {
 	}
 
 	logger.Info("app initialized",
-		zap.Int("port", a.cfg.Server.Port),
-		zap.String("mode", a.cfg.Server.Mode))
+		"port", a.cfg.Server.Port,
+		"mode", a.cfg.Server.Mode)
 
 	return nil
 }
@@ -223,7 +222,7 @@ func (a *App) initHandlers(svcs *services) *router.Handlers {
 
 // Run 运行应用
 func (a *App) Run() error {
-	logger.Info("starting HTTP server", zap.String("addr", a.httpServer.Addr))
+	logger.Info("starting HTTP server", "addr", a.httpServer.Addr)
 	return a.httpServer.ListenAndServe()
 }
 
@@ -234,7 +233,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// Close gRPC connections
 	if a.clientManager != nil {
 		if err := a.clientManager.Close(); err != nil {
-			logger.Warn("failed to close gRPC connections", zap.Error(err))
+			logger.Warn("failed to close gRPC connections", "error", err)
 		}
 	}
 

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -51,9 +50,9 @@ func TimeoutUnaryServerInterceptor(timeout time.Duration) grpc.UnaryServerInterc
 		case <-done:
 			return resp, err
 		case <-ctx.Done():
-			logger.WithContext(ctx).Warn("request timeout",
-				zap.String("method", info.FullMethod),
-				zap.Duration("timeout", timeout),
+			logger.Warn("request timeout",
+				"method", info.FullMethod,
+				"timeout", timeout,
 			)
 			return nil, status.Error(codes.DeadlineExceeded, "request timeout")
 		}
@@ -94,9 +93,9 @@ func ConfigurableTimeoutUnaryServerInterceptor(cfg *TimeoutConfig) grpc.UnarySer
 		case <-done:
 			return resp, err
 		case <-ctx.Done():
-			logger.WithContext(ctx).Warn("request timeout",
-				zap.String("method", info.FullMethod),
-				zap.Duration("timeout", timeout),
+			logger.Warn("request timeout",
+				"method", info.FullMethod,
+				"timeout", timeout,
 			)
 			return nil, status.Error(codes.DeadlineExceeded, "request timeout")
 		}
@@ -128,8 +127,8 @@ func TimeoutStreamServerInterceptor(timeout time.Duration) grpc.StreamServerInte
 			return err
 		case <-ctx.Done():
 			logger.Info("stream timeout",
-				zap.String("method", info.FullMethod),
-				zap.Duration("timeout", timeout),
+				"method", info.FullMethod,
+				"timeout", timeout,
 			)
 			return status.Error(codes.DeadlineExceeded, "stream timeout")
 		}

@@ -1,13 +1,14 @@
 package ws
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 )
@@ -17,7 +18,7 @@ func init() {
 }
 
 func TestNewHandler(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{
 		ReadBufferSize:  1024,
@@ -32,7 +33,7 @@ func TestNewHandler(t *testing.T) {
 }
 
 func TestHandler_HandleConnection_MaxConnectionsExceeded(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -56,7 +57,7 @@ func TestHandler_HandleConnection_MaxConnectionsExceeded(t *testing.T) {
 }
 
 func TestHandler_HandleConnection_Upgrade_NoWebSocket(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -83,7 +84,7 @@ func TestHandler_HandleConnection_Upgrade_NoWebSocket(t *testing.T) {
 }
 
 func TestHandler_HandleConnection_WithWallet(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -108,7 +109,7 @@ func TestHandler_HandleConnection_WithWallet(t *testing.T) {
 }
 
 func TestHandler_Upgrader_CheckOrigin(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	cfg := config.WebSocketConfig{

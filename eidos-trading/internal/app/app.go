@@ -13,7 +13,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -24,6 +23,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/id"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 
@@ -67,10 +67,10 @@ type App struct {
 	riskClient     *client.RiskClient
 
 	// 消息发布者
-	orderPublisher       *publisher.OrderPublisher
-	balancePublisher     *publisher.BalancePublisher
-	settlementPublisher  *publisher.SettlementPublisher
-	withdrawalPublisher  *publisher.WithdrawalPublisher
+	orderPublisher      *publisher.OrderPublisher
+	balancePublisher    *publisher.BalancePublisher
+	settlementPublisher *publisher.SettlementPublisher
+	withdrawalPublisher *publisher.WithdrawalPublisher
 
 	// Workers
 	outboxRelay          *worker.OutboxRelay
@@ -116,7 +116,7 @@ func New(cfg *config.Config) *App {
 
 // Run 启动应用
 func (a *App) Run() error {
-	logger.Info("starting service", zap.String("service", serviceName))
+	logger.Info("starting service", "service", serviceName)
 
 	// 1. 初始化基础设施
 	if err := a.initInfra(); err != nil {
@@ -188,6 +188,11 @@ func (a *App) initInfra() error {
 			return fmt.Errorf("register nacos: %w", err)
 		}
 		logger.Info("service registered to nacos")
+	}
+
+	// 确保数据库存在
+	if err := migrate.EnsureDatabase(a.cfg.Database.Host, a.cfg.Database.Port, a.cfg.Database.User, a.cfg.Database.Password, a.cfg.Database.Database); err != nil {
+		return fmt.Errorf("ensure database: %w", err)
 	}
 
 	// 初始化数据库
@@ -286,14 +291,14 @@ func (a *App) initClients() error {
 		matchingClient, err := client.NewMatchingClient(cfg)
 		if err != nil {
 			logger.Warn("failed to connect to eidos-matching, continuing without it",
-				zap.String("addr", a.cfg.Matching.Addr),
-				zap.Error(err),
+				"addr", a.cfg.Matching.Addr,
+				"error", err,
 			)
 			// 不返回错误，允许在没有 matching 服务的情况下启动
 		} else {
 			a.matchingClient = matchingClient
 			logger.Info("matching client initialized",
-				zap.String("addr", a.cfg.Matching.Addr),
+				"addr", a.cfg.Matching.Addr,
 			)
 		}
 	}
@@ -304,14 +309,14 @@ func (a *App) initClients() error {
 		riskClient, err := client.NewRiskClient(cfg)
 		if err != nil {
 			logger.Warn("failed to connect to eidos-risk, continuing without it",
-				zap.String("addr", a.cfg.Risk.Addr),
-				zap.Error(err),
+				"addr", a.cfg.Risk.Addr,
+				"error", err,
 			)
 			// 不返回错误，允许在没有 risk 服务的情况下启动
 		} else {
 			a.riskClient = riskClient
 			logger.Info("risk client initialized",
-				zap.String("addr", a.cfg.Risk.Addr),
+				"addr", a.cfg.Risk.Addr,
 			)
 		}
 	}
@@ -394,6 +399,7 @@ func (a *App) initWorkers() {
 		},
 		a.outboxRepo,
 		a.producer,
+		nil, // alerter: 可选，nil 时不发送告警通知
 	)
 
 	// 4. Order Outbox Relay: 从 Redis 消费订单并发送到 Kafka
@@ -406,7 +412,7 @@ func (a *App) initWorkers() {
 	// 支持多实例部署，使用分布式锁保证每个分片只有一个消费者
 	cancelRelayCfg := worker.DefaultCancelOutboxRelayConfig()
 	cancelRelayCfg.InstanceID = fmt.Sprintf("cancel-relay-%d-%d", a.cfg.Node.ID, time.Now().UnixNano())
-	a.cancelOutboxRelay = worker.NewCancelOutboxRelay(cancelRelayCfg, a.rdb, a.producer)
+	a.cancelOutboxRelay = worker.NewCancelOutboxRelay(cancelRelayCfg, a.rdb, a.producer, nil)
 }
 
 // startHTTPServer 启动 HTTP 服务器 (metrics + health check)
@@ -450,10 +456,10 @@ func (a *App) startHTTPServer() {
 
 	go func() {
 		logger.Info("HTTP server listening (metrics + health)",
-			zap.Int("port", a.cfg.Service.HTTPPort),
+			"port", a.cfg.Service.HTTPPort,
 		)
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("http server error", zap.Error(err))
+			logger.Error("http server error", "error", err)
 		}
 	}()
 }
@@ -495,9 +501,9 @@ func (a *App) startGRPCServer() error {
 	}
 
 	go func() {
-		logger.Info("gRPC server listening", zap.Int("port", a.cfg.Service.GRPCPort))
+		logger.Info("gRPC server listening", "port", a.cfg.Service.GRPCPort)
 		if err := a.grpcServer.Serve(lis); err != nil {
-			logger.Error("grpc serve error", zap.Error(err))
+			logger.Error("grpc serve error", "error", err)
 		}
 	}()
 
@@ -603,7 +609,7 @@ func (a *App) shutdown() {
 	// 注销 Nacos 服务
 	if a.nacosHelper != nil {
 		if err := a.nacosHelper.DeregisterAll(); err != nil {
-			logger.Error("deregister nacos failed", zap.Error(err))
+			logger.Error("deregister nacos failed", "error", err)
 		}
 	}
 
@@ -662,7 +668,7 @@ func (a *App) shutdown() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-			logger.Error("http server shutdown error", zap.Error(err))
+			logger.Error("http server shutdown error", "error", err)
 		}
 	}
 

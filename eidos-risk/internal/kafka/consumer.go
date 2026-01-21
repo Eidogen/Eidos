@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/cache"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 const (
@@ -80,7 +79,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 		defer c.wg.Done()
 		for {
 			if err := c.client.Consume(ctx, topics, c); err != nil {
-				logger.Error("consumer error", zap.Error(err))
+				logger.Error("consumer error", "error", err)
 			}
 			if ctx.Err() != nil {
 				return
@@ -90,7 +89,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}()
 
 	<-c.ready
-	logger.Info("kafka consumer started", zap.Strings("topics", topics))
+	logger.Info("kafka consumer started", "topics", topics)
 	return nil
 }
 
@@ -122,8 +121,8 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 
 			if err := c.handleMessage(c.ctx, message); err != nil {
 				logger.Error("failed to handle message",
-					zap.String("topic", message.Topic),
-					zap.Error(err))
+					"topic", message.Topic,
+					"error", err)
 			}
 
 			session.MarkMessage(message, "")
@@ -146,7 +145,7 @@ func (c *Consumer) handleMessage(ctx context.Context, msg *sarama.ConsumerMessag
 	case TopicWithdrawals:
 		return c.handleWithdrawal(ctx, msg.Value)
 	default:
-		logger.Warn("unknown topic", zap.String("topic", msg.Topic))
+		logger.Warn("unknown topic", "topic", msg.Topic)
 	}
 	return nil
 }
@@ -183,7 +182,7 @@ func (c *Consumer) handleOrderUpdate(ctx context.Context, data []byte) error {
 			Amount:  amount,
 		}
 		if err := c.orderCache.AddOrder(ctx, msg.Wallet, order); err != nil {
-			logger.Error("failed to add order to cache", zap.Error(err))
+			logger.Error("failed to add order to cache", "error", err)
 		}
 		// 增加订单计数
 		c.orderCache.IncrementOrderCount(ctx, msg.Wallet)
@@ -191,15 +190,15 @@ func (c *Consumer) handleOrderUpdate(ctx context.Context, data []byte) error {
 	case "FILLED", "CANCELLED", "EXPIRED", "REJECTED":
 		// 移除订单缓存
 		if err := c.orderCache.RemoveOrder(ctx, msg.Wallet, msg.Market, msg.OrderID); err != nil {
-			logger.Error("failed to remove order from cache", zap.Error(err))
+			logger.Error("failed to remove order from cache", "error", err)
 		}
 		// 减少订单计数
 		c.orderCache.DecrementOrderCount(ctx, msg.Wallet)
 	}
 
 	logger.Debug("order update processed",
-		zap.String("order_id", msg.OrderID),
-		zap.String("status", msg.Status))
+		"order_id", msg.OrderID,
+		"status", msg.Status)
 
 	return nil
 }
@@ -240,8 +239,8 @@ func (c *Consumer) handleTradeResult(ctx context.Context, data []byte) error {
 	c.amountCache.AddSystemPendingSettle(ctx, notional.Mul(decimal.NewFromInt(2)))
 
 	logger.Debug("trade result processed",
-		zap.String("trade_id", msg.TradeID),
-		zap.String("market", msg.Market))
+		"trade_id", msg.TradeID,
+		"market", msg.Market)
 
 	return nil
 }
@@ -271,8 +270,8 @@ func (c *Consumer) handleBalanceUpdate(ctx context.Context, data []byte) error {
 	}
 
 	logger.Debug("balance update processed",
-		zap.String("wallet", msg.Wallet),
-		zap.String("update_type", msg.UpdateType))
+		"wallet", msg.Wallet,
+		"update_type", msg.UpdateType)
 
 	return nil
 }
@@ -303,8 +302,8 @@ func (c *Consumer) handleWithdrawal(ctx context.Context, data []byte) error {
 		c.amountCache.AddDailyWithdraw(ctx, msg.Wallet, msg.Token, amount)
 
 		logger.Debug("withdrawal confirmed",
-			zap.String("withdrawal_id", msg.WithdrawalID),
-			zap.String("wallet", msg.Wallet))
+			"withdrawal_id", msg.WithdrawalID,
+			"wallet", msg.Wallet)
 	}
 
 	return nil

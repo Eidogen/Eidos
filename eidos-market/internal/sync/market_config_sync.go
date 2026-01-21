@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
@@ -54,7 +54,7 @@ type MarketConfigSync struct {
 	config       MarketConfigSyncConfig
 	repo         repository.MarketRepository
 	configCenter *nacos.ConfigCenter // for config listening
-	logger       *zap.Logger
+	logger       *slog.Logger
 	listener     MarketChangeListener
 
 	// Current market configuration cache
@@ -73,7 +73,7 @@ func NewMarketConfigSync(
 	repo repository.MarketRepository,
 	configCenter *nacos.ConfigCenter,
 	listener MarketChangeListener,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config MarketConfigSyncConfig,
 ) *MarketConfigSync {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -82,7 +82,7 @@ func NewMarketConfigSync(
 		config:       config,
 		repo:         repo,
 		configCenter: configCenter,
-		logger:       logger.Named("market_config_sync"),
+		logger:       logger.With("component", "market_config_sync"),
 		listener:     listener,
 		markets:      make(map[string]*model.Market),
 		ctx:          ctx,
@@ -101,7 +101,7 @@ func (s *MarketConfigSync) Start() error {
 	if s.config.EnableNacosWatch && s.configCenter != nil {
 		if err := s.startNacosWatcher(); err != nil {
 			s.logger.Warn("failed to start nacos watcher, will rely on db sync only",
-				zap.Error(err))
+				"error", err)
 		}
 	}
 
@@ -110,8 +110,8 @@ func (s *MarketConfigSync) Start() error {
 	go s.dbSyncLoop()
 
 	s.logger.Info("market config sync started",
-		zap.Duration("db_sync_interval", s.config.DBSyncInterval),
-		zap.Bool("nacos_watch", s.config.EnableNacosWatch))
+		"db_sync_interval", s.config.DBSyncInterval,
+		"nacos_watch", s.config.EnableNacosWatch)
 
 	return nil
 }
@@ -175,7 +175,7 @@ func (s *MarketConfigSync) loadFromDB(ctx context.Context) error {
 	}
 
 	s.updateMarkets(ctx, markets)
-	s.logger.Info("loaded markets from database", zap.Int("count", len(markets)))
+	s.logger.Info("loaded markets from database", "count", len(markets))
 
 	return nil
 }
@@ -196,26 +196,26 @@ func (s *MarketConfigSync) updateMarkets(ctx context.Context, newMarkets []*mode
 		oldMarket, exists := s.markets[symbol]
 		if !exists {
 			// New market
-			s.logger.Info("market added", zap.String("symbol", symbol))
+			s.logger.Info("market added", "symbol", symbol)
 			metrics.ActiveMarkets.Inc()
 			if s.listener != nil {
 				go func(m *model.Market) {
 					if err := s.listener.OnMarketAdded(ctx, m); err != nil {
 						s.logger.Error("failed to notify market added",
-							zap.String("symbol", m.Symbol),
-							zap.Error(err))
+							"symbol", m.Symbol,
+							"error", err)
 					}
 				}(newMarket.Clone())
 			}
 		} else if s.isMarketChanged(oldMarket, newMarket) {
 			// Updated market
-			s.logger.Info("market updated", zap.String("symbol", symbol))
+			s.logger.Info("market updated", "symbol", symbol)
 			if s.listener != nil {
 				go func(m *model.Market) {
 					if err := s.listener.OnMarketUpdated(ctx, m); err != nil {
 						s.logger.Error("failed to notify market updated",
-							zap.String("symbol", m.Symbol),
-							zap.Error(err))
+							"symbol", m.Symbol,
+							"error", err)
 					}
 				}(newMarket.Clone())
 			}
@@ -225,14 +225,14 @@ func (s *MarketConfigSync) updateMarkets(ctx context.Context, newMarkets []*mode
 	// Find removed markets
 	for symbol := range s.markets {
 		if _, exists := newMap[symbol]; !exists {
-			s.logger.Info("market removed", zap.String("symbol", symbol))
+			s.logger.Info("market removed", "symbol", symbol)
 			metrics.ActiveMarkets.Dec()
 			if s.listener != nil {
 				go func(sym string) {
 					if err := s.listener.OnMarketRemoved(ctx, sym); err != nil {
 						s.logger.Error("failed to notify market removed",
-							zap.String("symbol", sym),
-							zap.Error(err))
+							"symbol", sym,
+							"error", err)
 					}
 				}(symbol)
 			}
@@ -268,7 +268,7 @@ func (s *MarketConfigSync) dbSyncLoop() {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
 			if err := s.loadFromDB(ctx); err != nil {
-				s.logger.Error("failed to sync markets from db", zap.Error(err))
+				s.logger.Error("failed to sync markets from db", "error", err)
 			}
 			cancel()
 		case <-s.ctx.Done():
@@ -286,8 +286,8 @@ func (s *MarketConfigSync) startNacosWatcher() error {
 	// Listen for config changes
 	err := s.configCenter.ListenWithGroup(s.config.NacosDataID, s.config.NacosGroup, func(namespace, group, dataId, data string) {
 		s.logger.Info("received nacos config update",
-			zap.String("data_id", dataId),
-			zap.Int("size", len(data)))
+			"data_id", dataId,
+			"size", len(data))
 		s.handleNacosConfigChange(data)
 	})
 
@@ -296,8 +296,8 @@ func (s *MarketConfigSync) startNacosWatcher() error {
 	}
 
 	s.logger.Info("nacos config watcher started",
-		zap.String("data_id", s.config.NacosDataID),
-		zap.String("group", s.config.NacosGroup))
+		"data_id", s.config.NacosDataID,
+		"group", s.config.NacosGroup)
 
 	return nil
 }
@@ -329,13 +329,13 @@ type NacosMarket struct {
 func (s *MarketConfigSync) handleNacosConfigChange(data string) {
 	var cfg NacosMarketConfig
 	if err := json.Unmarshal([]byte(data), &cfg); err != nil {
-		s.logger.Error("failed to parse nacos config", zap.Error(err))
+		s.logger.Error("failed to parse nacos config", "error", err)
 		return
 	}
 
 	s.logger.Info("applying nacos config update",
-		zap.String("version", cfg.Version),
-		zap.Int("markets", len(cfg.Markets)))
+		"version", cfg.Version,
+		"markets", len(cfg.Markets))
 
 	// Convert to model.Market and update database
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
@@ -345,8 +345,8 @@ func (s *MarketConfigSync) handleNacosConfigChange(data string) {
 		market, err := s.nacosMarketToModel(&nm)
 		if err != nil {
 			s.logger.Error("failed to convert nacos market",
-				zap.String("symbol", nm.Symbol),
-				zap.Error(err))
+				"symbol", nm.Symbol,
+				"error", err)
 			continue
 		}
 
@@ -354,8 +354,8 @@ func (s *MarketConfigSync) handleNacosConfigChange(data string) {
 		existing, err := s.repo.GetBySymbol(ctx, market.Symbol)
 		if err != nil {
 			s.logger.Error("failed to check existing market",
-				zap.String("symbol", market.Symbol),
-				zap.Error(err))
+				"symbol", market.Symbol,
+				"error", err)
 			continue
 		}
 
@@ -363,29 +363,29 @@ func (s *MarketConfigSync) handleNacosConfigChange(data string) {
 			// Create new market
 			if err := s.repo.Create(ctx, market); err != nil {
 				s.logger.Error("failed to create market",
-					zap.String("symbol", market.Symbol),
-					zap.Error(err))
+					"symbol", market.Symbol,
+					"error", err)
 			} else {
 				s.logger.Info("created market from nacos",
-					zap.String("symbol", market.Symbol))
+					"symbol", market.Symbol)
 			}
 		} else {
 			// Update existing market
 			market.ID = existing.ID
 			if err := s.repo.Update(ctx, market); err != nil {
 				s.logger.Error("failed to update market",
-					zap.String("symbol", market.Symbol),
-					zap.Error(err))
+					"symbol", market.Symbol,
+					"error", err)
 			} else {
 				s.logger.Info("updated market from nacos",
-					zap.String("symbol", market.Symbol))
+					"symbol", market.Symbol)
 			}
 		}
 	}
 
 	// Reload from database to get updated data
 	if err := s.loadFromDB(ctx); err != nil {
-		s.logger.Error("failed to reload after nacos update", zap.Error(err))
+		s.logger.Error("failed to reload after nacos update", "error", err)
 	}
 }
 

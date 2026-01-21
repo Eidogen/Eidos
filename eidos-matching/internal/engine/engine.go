@@ -10,7 +10,7 @@
 //   - updatesChan: 订单簿更新，发送到 Kafka orderbook-updates topic
 //   - cancelsChan: 取消结果，发送到 Kafka order-cancelled topic
 //
-// TODO 对接清单:
+// 对接清单:
 //   - 监控指标: 撮合延迟、吞吐量、订单簿深度
 //   - 告警系统: 通道满、延迟过高
 //   - SetOrderBook: 支持从快照恢复订单簿
@@ -289,7 +289,7 @@ func (e *Engine) GetOrderBook() *orderbook.OrderBook {
 
 // SetOrderBook 设置订单簿 (用于从快照恢复)
 //
-// TODO [快照恢复]: 此方法用于从 Redis 快照恢复订单簿状态
+// [快照恢复]: 此方法用于从 Redis 快照恢复订单簿状态
 // 调用时机: 在 Engine.Start() 之前
 // 注意事项:
 //   - 需要同时恢复 inputSequence

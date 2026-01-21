@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // SettlementPublisher 结算消息发布者
@@ -74,14 +73,14 @@ func (p *SettlementPublisher) PublishSettlementTrade(ctx context.Context, trade 
 	// 使用 TradeID 作为分区键，保证同一成交的消息顺序
 	if err := p.producer.SendWithContext(ctx, kafka.TopicSettlements, []byte(trade.TradeID), data); err != nil {
 		logger.Error("publish settlement trade failed",
-			zap.String("trade_id", trade.TradeID),
-			zap.Error(err))
+			"trade_id", trade.TradeID,
+			"error", err)
 		return fmt.Errorf("send settlement trade: %w", err)
 	}
 
 	logger.Debug("settlement trade published",
-		zap.String("trade_id", trade.TradeID),
-		zap.String("market", trade.Market))
+		"trade_id", trade.TradeID,
+		"market", trade.Market)
 
 	return nil
 }
@@ -127,14 +126,14 @@ func (p *SettlementPublisher) PublishSettlementTradeFromResult(
 
 	if err := p.producer.SendWithContext(ctx, kafka.TopicSettlements, []byte(tradeID), data); err != nil {
 		logger.Error("publish settlement trade failed",
-			zap.String("trade_id", tradeID),
-			zap.Error(err))
+			"trade_id", tradeID,
+			"error", err)
 		return fmt.Errorf("send settlement trade: %w", err)
 	}
 
 	logger.Debug("settlement trade published",
-		zap.String("trade_id", tradeID),
-		zap.String("market", market))
+		"trade_id", tradeID,
+		"market", market)
 
 	return nil
 }

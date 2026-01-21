@@ -11,14 +11,14 @@
 //    - 消息内容: SettlementTrade (成交记录，需要上链结算)
 //    - 处理逻辑: 收集成交，批量提交到区块链
 //    - 对接服务: eidos-trading
-//    - TODO: 确认 eidos-trading 的 trade-results 处理后发送到此 topic
+//    - 确认 eidos-trading 的 trade-results 处理后发送到此 topic
 //
 // 2. Topic: withdrawals
 //    - 生产者: eidos-trading (提现服务)
 //    - 消息内容: WithdrawalRequest (提现请求)
 //    - 处理逻辑: 验证签名，调用合约执行提现
 //    - 对接服务: eidos-trading
-//    - TODO: 确认 eidos-trading 提现审核通过后发送到此 topic
+//    - 确认 eidos-trading 提现审核通过后发送到此 topic
 //
 // ========================================
 package kafka
@@ -34,7 +34,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Kafka 消费者订阅的 Topic
@@ -127,15 +126,15 @@ func (c *Consumer) Start(ctx context.Context) error {
 			}
 
 			if err := c.client.Consume(ctx, c.topics, handler); err != nil {
-				logger.Error("kafka consume error", zap.Error(err))
+				logger.Error("kafka consume error", "error", err)
 				time.Sleep(time.Second)
 			}
 		}
 	}()
 
 	logger.Info("kafka consumer started",
-		zap.Strings("topics", c.topics),
-		zap.String("group_id", c.groupID))
+		"topics", c.topics,
+		"group_id", c.groupID)
 
 	return nil
 }
@@ -172,23 +171,23 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 		case TopicSettlements:
 			if err := h.handleSettlement(ctx, msg.Value); err != nil {
 				logger.Error("failed to handle settlement message",
-					zap.String("topic", msg.Topic),
-					zap.Int64("offset", msg.Offset),
-					zap.Error(err))
+					"topic", msg.Topic,
+					"offset", msg.Offset,
+					"error", err)
 				continue // 继续处理下一条消息
 			}
 
 		case TopicWithdrawals:
 			if err := h.handleWithdrawal(ctx, msg.Value); err != nil {
 				logger.Error("failed to handle withdrawal message",
-					zap.String("topic", msg.Topic),
-					zap.Int64("offset", msg.Offset),
-					zap.Error(err))
+					"topic", msg.Topic,
+					"offset", msg.Offset,
+					"error", err)
 				continue
 			}
 
 		default:
-			logger.Warn("unknown topic", zap.String("topic", msg.Topic))
+			logger.Warn("unknown topic", "topic", msg.Topic)
 		}
 
 		session.MarkMessage(msg, "")
@@ -203,8 +202,8 @@ func (h *consumerGroupHandler) handleSettlement(ctx context.Context, data []byte
 	}
 
 	logger.Debug("received settlement trade",
-		zap.String("trade_id", trade.TradeID),
-		zap.String("market", trade.Market))
+		"trade_id", trade.TradeID,
+		"market", trade.Market)
 
 	return h.settlementSvc.AddTrade(ctx, &trade)
 }
@@ -216,8 +215,8 @@ func (h *consumerGroupHandler) handleWithdrawal(ctx context.Context, data []byte
 	}
 
 	logger.Debug("received withdrawal request",
-		zap.String("withdraw_id", req.WithdrawID),
-		zap.String("wallet", req.Wallet))
+		"withdraw_id", req.WithdrawID,
+		"wallet", req.Wallet)
 
 	return h.withdrawalSvc.ProcessWithdrawalRequest(ctx, &req)
 }

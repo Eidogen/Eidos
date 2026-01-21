@@ -2,12 +2,12 @@ package kafka
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 )
@@ -19,16 +19,16 @@ type MessageHandler interface {
 }
 
 // ConsumerConfig 消费者配置
-// TODO [Kafka]: 生产环境配置要点:
+// [Kafka] 生产环境配置要点:
 //   - GroupID 应使用 "eidos-market-consumer" (所有实例共享，实现水平扩展)
 //   - Topics: ["trade-results", "orderbook-updates"] (来自 eidos-matching)
 //   - 确保 Kafka 分区数 >= eidos-market 实例数，分区键为 market 字段
 type ConsumerConfig struct {
-	Brokers   []string
-	GroupID   string
-	ClientID  string
-	Topics    []string
-	MaxRetry  int  // 消息处理最大重试次数，默认 3
+	Brokers       []string
+	GroupID       string
+	ClientID      string
+	Topics        []string
+	MaxRetry      int  // 消息处理最大重试次数，默认 3
 	CommitOnError bool // 处理失败时是否提交 offset，默认 true（跳过失败消息）
 }
 
@@ -37,7 +37,7 @@ type Consumer struct {
 	config   ConsumerConfig
 	client   sarama.ConsumerGroup
 	handlers map[string]MessageHandler
-	logger   *zap.Logger
+	logger   *slog.Logger
 
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -51,11 +51,11 @@ type Consumer struct {
 }
 
 // NewConsumer 创建 Kafka 消费者
-// TODO [eidos-matching]: 确保 eidos-matching 使用以下分区策略:
+// [eidos-matching] 分区策略:
 //   - 分区键: 使用 market 字段 (如 "BTC-USDC") 作为 Kafka 消息的 Key
 //   - 这样同一个交易对的所有消息会路由到同一个 eidos-market 实例
 //   - 保证单个交易对的消息顺序性
-func NewConsumer(config ConsumerConfig, logger *zap.Logger) (*Consumer, error) {
+func NewConsumer(config ConsumerConfig, logger *slog.Logger) (*Consumer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V3_0_0_0
 	// 使用 RoundRobin 策略，配合按 market 分区，实现市场级别的水平扩展
@@ -76,7 +76,7 @@ func NewConsumer(config ConsumerConfig, logger *zap.Logger) (*Consumer, error) {
 		config:   config,
 		client:   client,
 		handlers: make(map[string]MessageHandler),
-		logger:   logger.Named("kafka_consumer"),
+		logger:   logger.With("component", "kafka_consumer"),
 		ctx:      ctx,
 		cancel:   cancel,
 	}, nil
@@ -85,7 +85,7 @@ func NewConsumer(config ConsumerConfig, logger *zap.Logger) (*Consumer, error) {
 // RegisterHandler 注册消息处理器
 func (c *Consumer) RegisterHandler(handler MessageHandler) {
 	c.handlers[handler.Topic()] = handler
-	c.logger.Info("handler registered", zap.String("topic", handler.Topic()))
+	c.logger.Info("handler registered", "topic", handler.Topic())
 }
 
 // Start 启动消费
@@ -109,13 +109,13 @@ func (c *Consumer) Start() error {
 				return
 			default:
 				if err := c.client.Consume(c.ctx, topics, c); err != nil {
-					c.logger.Error("consumer error", zap.Error(err))
+					c.logger.Error("consumer error", "error", err)
 				}
 			}
 		}
 	}()
 
-	c.logger.Info("consumer started", zap.Strings("topics", topics))
+	c.logger.Info("consumer started", "topics", topics)
 	return nil
 }
 
@@ -134,15 +134,15 @@ func (c *Consumer) Stop() error {
 // Setup 实现 sarama.ConsumerGroupHandler
 func (c *Consumer) Setup(session sarama.ConsumerGroupSession) error {
 	c.logger.Info("consumer session setup",
-		zap.Int32("generation", session.GenerationID()),
-		zap.String("member", session.MemberID()))
+		"generation", session.GenerationID(),
+		"member", session.MemberID())
 	return nil
 }
 
 // Cleanup 实现 sarama.ConsumerGroupHandler
 func (c *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 	c.logger.Info("consumer session cleanup",
-		zap.Int32("generation", session.GenerationID()))
+		"generation", session.GenerationID())
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (c *Consumer) Cleanup(session sarama.ConsumerGroupSession) error {
 func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	handler, ok := c.handlers[claim.Topic()]
 	if !ok {
-		c.logger.Warn("no handler for topic", zap.String("topic", claim.Topic()))
+		c.logger.Warn("no handler for topic", "topic", claim.Topic())
 		return nil
 	}
 
@@ -175,12 +175,12 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 					metrics.KafkaConsumerRetries.WithLabelValues(msg.Topic).Inc()
 					if attempt < maxRetry {
 						c.logger.Warn("message handling failed, retrying",
-							zap.String("topic", msg.Topic),
-							zap.Int32("partition", msg.Partition),
-							zap.Int64("offset", msg.Offset),
-							zap.Int("attempt", attempt),
-							zap.Int("max_retry", maxRetry),
-							zap.Error(err))
+							"topic", msg.Topic,
+							"partition", msg.Partition,
+							"offset", msg.Offset,
+							"attempt", attempt,
+							"max_retry", maxRetry,
+							"error", err)
 						// 指数退避重试
 						time.Sleep(time.Duration(attempt*100) * time.Millisecond)
 						continue
@@ -195,11 +195,11 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 				c.errorCount.Add(1)
 				metrics.KafkaConsumerErrors.WithLabelValues(msg.Topic, "handler_error").Inc()
 				c.logger.Error("message handling failed after retries",
-					zap.String("topic", msg.Topic),
-					zap.Int32("partition", msg.Partition),
-					zap.Int64("offset", msg.Offset),
-					zap.Int("retries", maxRetry),
-					zap.Error(lastErr))
+					"topic", msg.Topic,
+					"partition", msg.Partition,
+					"offset", msg.Offset,
+					"retries", maxRetry,
+					"error", lastErr)
 				// 根据配置决定是否提交 offset
 				if !c.config.CommitOnError {
 					// 不提交 offset，消息将在重启后重新消费

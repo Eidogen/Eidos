@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Logger 日志中间件
@@ -26,27 +25,27 @@ func Logger() gin.HandlerFunc {
 		method := c.Request.Method
 		userAgent := c.Request.UserAgent()
 
-		fields := []zap.Field{
-			zap.Int("status", status),
-			zap.String("method", method),
-			zap.String("path", path),
-			zap.String("query", query),
-			zap.String("ip", clientIP),
-			zap.String("user_agent", userAgent),
-			zap.Duration("latency", latency),
+		fields := []any{
+			"status", status,
+			"method", method,
+			"path", path,
+			"query", query,
+			"ip", clientIP,
+			"user_agent", userAgent,
+			"latency", latency,
 		}
 
 		// 添加管理员信息 (如果有)
 		if adminID := GetAdminID(c); adminID > 0 {
-			fields = append(fields, zap.Int64("admin_id", adminID))
+			fields = append(fields, "admin_id", adminID)
 		}
 		if username := GetUsername(c); username != "" {
-			fields = append(fields, zap.String("username", username))
+			fields = append(fields, "username", username)
 		}
 
 		// 添加错误信息 (如果有)
 		if len(c.Errors) > 0 {
-			fields = append(fields, zap.String("errors", c.Errors.String()))
+			fields = append(fields, "errors", c.Errors.String())
 		}
 
 		// 根据状态码选择日志级别

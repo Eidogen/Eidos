@@ -2,9 +2,31 @@ package config
 
 import (
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var envRegex = regexp.MustCompile(`\$\{([^:]+)(?::([^}]*))?\}`)
+
+// ExpandEnv 展开环境变量，支持 ${VAR:DEFAULT} 格式
+func ExpandEnv(s string) string {
+	return envRegex.ReplaceAllStringFunc(s, func(m string) string {
+		matches := envRegex.FindStringSubmatch(m)
+		if len(matches) < 2 {
+			return m
+		}
+		key := matches[1]
+		var defaultVal string
+		if len(matches) > 2 {
+			defaultVal = matches[2]
+		}
+		if val, ok := os.LookupEnv(key); ok {
+			return val
+		}
+		return defaultVal
+	})
+}
 
 // GetEnv 获取环境变量，支持默认值
 func GetEnv(key, defaultValue string) string {
@@ -64,6 +86,23 @@ type PostgresConfig struct {
 	ConnMaxLifetime int    `yaml:"conn_max_lifetime" json:"conn_max_lifetime"` // 秒
 }
 
+// DSN 返回 GORM/sql 连接字符串
+func (c *PostgresConfig) DSN() string {
+	return "host=" + c.Host +
+		" port=" + strconv.Itoa(c.Port) +
+		" user=" + c.User +
+		" password=" + c.Password +
+		" dbname=" + c.Database +
+		" sslmode=disable"
+}
+
+// MigrateURL 返回 golang-migrate 使用的连接字符串
+func (c *PostgresConfig) MigrateURL() string {
+	return "postgres://" + c.User + ":" + c.Password +
+		"@" + c.Host + ":" + strconv.Itoa(c.Port) +
+		"/" + c.Database + "?sslmode=disable"
+}
+
 // RedisConfig Redis 配置
 type RedisConfig struct {
 	Addresses []string `yaml:"addresses" json:"addresses"`
@@ -103,4 +142,18 @@ type EIP712Config struct {
 	DomainVersion     string `yaml:"domain_version" json:"domain_version"`
 	ChainID           int64  `yaml:"chain_id" json:"chain_id"`
 	VerifyingContract string `yaml:"verifying_contract" json:"verifying_contract"`
+}
+
+// LogConfig 日志配置
+type LogConfig struct {
+	Level  string `yaml:"level" json:"level"`   // debug, info, warn, error
+	Format string `yaml:"format" json:"format"` // json, console, color
+}
+
+// DefaultLogConfig 返回默认日志配置
+func DefaultLogConfig() LogConfig {
+	return LogConfig{
+		Level:  "info",
+		Format: "json",
+	}
 }

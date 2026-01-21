@@ -1,18 +1,17 @@
 package ws
 
 import (
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/metrics"
 )
 
 // Hub WebSocket 连接管理中心
 type Hub struct {
-	logger *zap.Logger
+	logger *slog.Logger
 
 	// 客户端管理
 	clients    map[*Client]bool
@@ -39,7 +38,7 @@ type BroadcastMessage struct {
 }
 
 // NewHub 创建 Hub
-func NewHub(logger *zap.Logger) *Hub {
+func NewHub(logger *slog.Logger) *Hub {
 	return &Hub{
 		logger:        logger,
 		clients:       make(map[*Client]bool),
@@ -64,8 +63,8 @@ func (h *Hub) Run() {
 			h.clientsMu.Unlock()
 			metrics.RecordWSConnection(true)
 			h.logger.Debug("client registered",
-				zap.String("id", client.id),
-				zap.Int("total", len(h.clients)),
+				"id", client.id,
+				"total", len(h.clients),
 			)
 
 		case client := <-h.unregister:
@@ -81,8 +80,8 @@ func (h *Hub) Run() {
 			// 清理订阅
 			h.removeClientFromAllSubscriptions(client)
 			h.logger.Debug("client unregistered",
-				zap.String("id", client.id),
-				zap.Int("total", len(h.clients)),
+				"id", client.id,
+				"total", len(h.clients),
 			)
 
 		case msg := <-h.broadcast:
@@ -130,9 +129,9 @@ func (h *Hub) Subscribe(client *Client, channel Channel, market string) {
 	metrics.RecordWSSubscription(string(channel), true)
 
 	h.logger.Debug("client subscribed",
-		zap.String("client", client.id),
-		zap.String("channel", string(channel)),
-		zap.String("market", market),
+		"client", client.id,
+		"channel", string(channel),
+		"market", market,
 	)
 }
 
@@ -153,9 +152,9 @@ func (h *Hub) Unsubscribe(client *Client, channel Channel, market string) {
 	client.RemoveSubscription(key)
 
 	h.logger.Debug("client unsubscribed",
-		zap.String("client", client.id),
-		zap.String("channel", string(channel)),
-		zap.String("market", market),
+		"client", client.id,
+		"channel", string(channel),
+		"market", market,
 	)
 }
 
@@ -170,8 +169,8 @@ func (h *Hub) Broadcast(channel Channel, market string, msg *ServerMessage) {
 	default:
 		metrics.WSMessagesDropped.Inc()
 		h.logger.Warn("broadcast channel full, dropping message",
-			zap.String("channel", string(channel)),
-			zap.String("market", market),
+			"channel", string(channel),
+			"market", market,
 		)
 	}
 }
@@ -238,7 +237,7 @@ func (h *Hub) broadcastToSubscribers(msg *BroadcastMessage) {
 
 	data, err := msg.Message.ToJSON()
 	if err != nil {
-		h.logger.Error("failed to marshal message", zap.Error(err))
+		h.logger.Error("failed to marshal message", "error", err)
 		return
 	}
 
@@ -248,7 +247,7 @@ func (h *Hub) broadcastToSubscribers(msg *BroadcastMessage) {
 			metrics.RecordWSMessage(string(msg.Channel), true)
 		} else {
 			h.logger.Debug("failed to send to client (closed or full)",
-				zap.String("client", client.id),
+				"client", client.id,
 			)
 		}
 	}
@@ -291,7 +290,7 @@ func (h *Hub) logStats() {
 	h.subMu.RUnlock()
 
 	h.logger.Info("hub stats",
-		zap.Int("clients", clientCount),
-		zap.Int("subscriptions", subCount),
+		"clients", clientCount,
+		"subscriptions", subCount,
 	)
 }

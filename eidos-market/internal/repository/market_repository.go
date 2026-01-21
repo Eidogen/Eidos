@@ -9,7 +9,7 @@ import (
 )
 
 // marketRepository 交易对仓储实现
-// TODO [eidos-admin]: 交易对配置管理
+// [eidos-admin] 交易对配置管理
 //   - eidos-admin 需要提供交易对的 CRUD 管理界面
 //   - 新增/修改交易对后，需要通知 eidos-market 重新加载
 //   - 方式1: 通过 Kafka 发送 market-config-update 事件

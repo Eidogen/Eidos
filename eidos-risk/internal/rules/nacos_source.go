@@ -11,7 +11,6 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
-	"go.uber.org/zap"
 )
 
 // NacosRuleSource loads rules from Nacos configuration center
@@ -105,9 +104,9 @@ func (s *NacosRuleSource) Load(ctx context.Context) ([]*RuleConfig, error) {
 	})
 	if err != nil {
 		logger.Error("failed to get config from nacos",
-			zap.String("data_id", s.dataID),
-			zap.String("group", s.group),
-			zap.Error(err))
+			"data_id", s.dataID,
+			"group", s.group,
+			"error", err)
 		return nil, err
 	}
 
@@ -133,8 +132,8 @@ func (s *NacosRuleSource) Watch(ctx context.Context, updates chan<- []*RuleConfi
 		Group:  s.group,
 		OnChange: func(namespace, group, dataId, data string) {
 			logger.Info("nacos config changed",
-				zap.String("data_id", dataId),
-				zap.String("group", group))
+				"data_id", dataId,
+				"group", group)
 
 			s.mu.Lock()
 			s.lastConfig = data
@@ -142,7 +141,7 @@ func (s *NacosRuleSource) Watch(ctx context.Context, updates chan<- []*RuleConfi
 
 			rules, err := s.parseConfig(data)
 			if err != nil {
-				logger.Error("failed to parse nacos config", zap.Error(err))
+				logger.Error("failed to parse nacos config", "error", err)
 				return
 			}
 

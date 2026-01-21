@@ -4,12 +4,12 @@ package kafka
 const (
 	// TopicTradeResults 成交结果
 	// 由 eidos-matching 发送，eidos-market 消费
-	// TODO: 需要 eidos-matching 实现发送逻辑
+	// eidos-matching 通过 internal/kafka/producer.go 实现发送逻辑
 	TopicTradeResults = "trade-results"
 
 	// TopicOrderBookUpdates 订单簿增量更新
 	// 由 eidos-matching 发送，eidos-market 消费
-	// TODO: 需要 eidos-matching 实现发送逻辑
+	// eidos-matching 通过 internal/kafka/producer.go 实现发送逻辑
 	TopicOrderBookUpdates = "orderbook-updates"
 
 	// TopicKline1m 1 分钟 K 线

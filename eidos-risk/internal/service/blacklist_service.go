@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // BlacklistService 黑名单服务
@@ -67,7 +66,7 @@ func (s *BlacklistService) AddToBlacklist(ctx context.Context, req *AddToBlackli
 		EffectiveUntil: req.ExpireAt,
 	}
 	if err := s.cache.Set(ctx, cacheEntry); err != nil {
-		logger.Error("failed to update blacklist cache", zap.Error(err))
+		logger.Error("failed to update blacklist cache", "error", err)
 	}
 
 	// 发送告警
@@ -86,9 +85,9 @@ func (s *BlacklistService) AddToBlacklist(ctx context.Context, req *AddToBlackli
 	})
 
 	logger.Info("wallet added to blacklist",
-		zap.String("wallet", req.Wallet),
-		zap.String("reason", req.Reason),
-		zap.String("operator", req.OperatorID))
+		"wallet", req.Wallet,
+		"reason", req.Reason,
+		"operator", req.OperatorID)
 
 	return nil
 }
@@ -104,7 +103,7 @@ func (s *BlacklistService) RemoveFromBlacklist(ctx context.Context, req *RemoveF
 
 	// 更新缓存
 	if err := s.cache.Remove(ctx, req.Wallet); err != nil {
-		logger.Error("failed to remove from blacklist cache", zap.Error(err))
+		logger.Error("failed to remove from blacklist cache", "error", err)
 	}
 
 	// 发送告警
@@ -121,9 +120,9 @@ func (s *BlacklistService) RemoveFromBlacklist(ctx context.Context, req *RemoveF
 	})
 
 	logger.Info("wallet removed from blacklist",
-		zap.String("wallet", req.Wallet),
-		zap.String("reason", req.Reason),
-		zap.String("operator", req.OperatorID))
+		"wallet", req.Wallet,
+		"reason", req.Reason,
+		"operator", req.OperatorID)
 
 	return nil
 }
@@ -193,7 +192,7 @@ func (s *BlacklistService) SyncCacheFromDB(ctx context.Context) error {
 
 	// 清空缓存
 	if err := s.cache.Clear(ctx); err != nil {
-		logger.Error("failed to clear blacklist cache", zap.Error(err))
+		logger.Error("failed to clear blacklist cache", "error", err)
 	}
 
 	// 批量加载到缓存
@@ -212,7 +211,7 @@ func (s *BlacklistService) SyncCacheFromDB(ctx context.Context) error {
 	}
 
 	logger.Info("blacklist cache synced from database",
-		zap.Int("count", len(cacheEntries)))
+		"count", len(cacheEntries))
 
 	return nil
 }
@@ -226,7 +225,7 @@ func (s *BlacklistService) CleanupExpired(ctx context.Context) (int64, error) {
 
 	if count > 0 {
 		logger.Info("cleaned up expired blacklist entries",
-			zap.Int64("count", count))
+			"count", count)
 
 		// 重新同步缓存
 		s.SyncCacheFromDB(ctx)
@@ -240,8 +239,8 @@ func (s *BlacklistService) sendAlert(ctx context.Context, alert *RiskAlertMessag
 	if s.onRiskAlert != nil {
 		if err := s.onRiskAlert(ctx, alert); err != nil {
 			logger.Error("failed to send risk alert",
-				zap.String("alert_id", alert.AlertID),
-				zap.Error(err))
+				"alert_id", alert.AlertID,
+				"error", err)
 		}
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -37,7 +36,7 @@ func NewChainClient(addr string) (*ChainClient, error) {
 		return nil, fmt.Errorf("connect to chain service: %w", err)
 	}
 
-	logger.Info("connected to eidos-chain", zap.String("addr", addr))
+	logger.Info("connected to eidos-chain", "addr", addr)
 
 	return &ChainClient{
 		conn:   conn,
@@ -72,8 +71,8 @@ func (c *ChainClient) GetOnchainBalances(ctx context.Context, wallets []string) 
 		})
 		if err != nil {
 			logger.Warn("failed to get reconciliation records",
-				zap.String("wallet", wallet),
-				zap.Error(err))
+				"wallet", wallet,
+				"error", err)
 			continue
 		}
 
@@ -90,13 +89,13 @@ func (c *ChainClient) GetOnchainBalances(ctx context.Context, wallets []string) 
 }
 
 // GetBalance 获取单个钱包的单个代币余额
-// TODO: 需要在 chain proto 中定义 GetBalance RPC
+// 需要 chain proto GetBalance RPC
 func (c *ChainClient) GetBalance(ctx context.Context, wallet, token string) (decimal.Decimal, error) {
 	return decimal.Zero, fmt.Errorf("not implemented: GetBalance RPC not defined in proto")
 }
 
 // BatchGetBalances 批量获取余额
-// TODO: 需要在 chain proto 中定义 BatchGetBalances RPC
+// 需要 chain proto BatchGetBalances RPC
 func (c *ChainClient) BatchGetBalances(ctx context.Context, requests []*BalanceRequest) (map[string]map[string]decimal.Decimal, error) {
 	return nil, fmt.Errorf("not implemented: BatchGetBalances RPC not defined in proto")
 }
@@ -140,8 +139,8 @@ func (p *ReconciliationDataProviderImpl) GetOffchainBalances(ctx context.Context
 		})
 		if err != nil {
 			logger.Warn("failed to get balances",
-				zap.String("wallet", wallet),
-				zap.Error(err))
+				"wallet", wallet,
+				"error", err)
 			continue
 		}
 

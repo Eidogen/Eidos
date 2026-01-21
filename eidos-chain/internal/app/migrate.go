@@ -4,7 +4,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/migrations"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ func AutoMigrate(db *gorm.DB) error {
 
 	migrator := migrate.NewMigrator(sqlDB, "eidos-chain", logger.L())
 	if err := migrator.AutoMigrate(migrations.FS, "."); err != nil {
-		logger.Error("auto migration failed", zap.Error(err))
+		logger.Error("auto migration failed", "error", err)
 		return err
 	}
 

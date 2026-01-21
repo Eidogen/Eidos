@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -35,14 +35,14 @@ const (
 // KlineCache provides caching for K-line data
 type KlineCache struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewKlineCache creates a new kline cache
-func NewKlineCache(client redis.UniversalClient, logger *zap.Logger) *KlineCache {
+func NewKlineCache(client redis.UniversalClient, logger *slog.Logger) *KlineCache {
 	return &KlineCache{
 		client: client,
-		logger: logger.Named("kline_cache"),
+		logger: logger.With("component", "kline_cache"),
 	}
 }
 
@@ -275,9 +275,9 @@ func (c *KlineCache) WarmCache(ctx context.Context, market string, interval mode
 	}
 
 	c.logger.Info("warming kline cache",
-		zap.String("market", market),
-		zap.String("interval", string(interval)),
-		zap.Int("count", len(klines)))
+		"market", market,
+		"interval", string(interval),
+		"count", len(klines))
 
 	return c.SaveCompletedKlines(ctx, market, interval, klines)
 }

@@ -3,9 +3,9 @@ package handler
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -28,14 +28,14 @@ type EnhancedMarketServiceInterface interface {
 type EnhancedMarketHandler struct {
 	marketv1.UnimplementedMarketServiceServer
 	svc    EnhancedMarketServiceInterface
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewEnhancedMarketHandler creates an enhanced gRPC handler
-func NewEnhancedMarketHandler(svc *service.EnhancedMarketService, logger *zap.Logger) *EnhancedMarketHandler {
+func NewEnhancedMarketHandler(svc *service.EnhancedMarketService, logger *slog.Logger) *EnhancedMarketHandler {
 	return &EnhancedMarketHandler{
 		svc:    svc,
-		logger: logger.Named("grpc_handler"),
+		logger: logger.With("component", "grpc_handler"),
 	}
 }
 

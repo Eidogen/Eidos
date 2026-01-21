@@ -2,13 +2,14 @@ package aggregator
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -33,7 +34,7 @@ func (m *mockDepthPublisher) GetDepths() []*model.Depth {
 }
 
 func TestDepthManager_ApplyUpdate(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels:       100,
@@ -78,7 +79,7 @@ func TestDepthManager_ApplyUpdate(t *testing.T) {
 }
 
 func TestDepthManager_UpdateExisting(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -118,7 +119,7 @@ func TestDepthManager_UpdateExisting(t *testing.T) {
 }
 
 func TestDepthManager_RemoveLevel(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -157,7 +158,7 @@ func TestDepthManager_RemoveLevel(t *testing.T) {
 }
 
 func TestDepthManager_Idempotent(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -185,7 +186,7 @@ func TestDepthManager_Idempotent(t *testing.T) {
 }
 
 func TestDepthManager_GetBestPrices(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -219,7 +220,7 @@ func TestDepthManager_GetBestPrices(t *testing.T) {
 }
 
 func TestDepthManager_Limit(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -255,7 +256,7 @@ func TestDepthManager_Limit(t *testing.T) {
 }
 
 func TestDepthManager_ApplySnapshot(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,
@@ -299,7 +300,7 @@ func TestDepthManager_ApplySnapshot(t *testing.T) {
 }
 
 func TestDepthManager_Stats(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := DepthManagerConfig{
 		MaxLevels: 100,

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
@@ -400,18 +399,18 @@ func (s *balanceService) enqueueBalanceLog(ctx context.Context, wallet, token st
 
 	if err := msg.SetPayload(payload); err != nil {
 		logger.Error("set outbox payload failed",
-			zap.String("wallet", wallet),
-			zap.String("token", token),
-			zap.Error(err))
+			"wallet", wallet,
+			"token", token,
+			"error", err)
 		return
 	}
 
 	if err := s.outboxRepo.Create(ctx, msg); err != nil {
 		logger.Error("create outbox message failed",
-			zap.String("wallet", wallet),
-			zap.String("token", token),
-			zap.String("messageID", msg.MessageID),
-			zap.Error(err))
+			"wallet", wallet,
+			"token", token,
+			"messageID", msg.MessageID,
+			"error", err)
 	}
 }
 

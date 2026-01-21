@@ -8,7 +8,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/metrics"
-	"go.uber.org/zap"
 )
 
 // AsyncTaskManager 异步任务管理器
@@ -60,8 +59,8 @@ func (m *AsyncTaskManager) Submit(taskName, taskID string, fn func(ctx context.C
 		select {
 		case <-m.ctx.Done():
 			logger.Warn("async task skipped due to shutdown",
-				zap.String("task", taskName),
-				zap.String("id", taskID),
+				"task", taskName,
+				"id", taskID,
 			)
 			return
 		default:
@@ -81,25 +80,25 @@ func (m *AsyncTaskManager) Submit(taskName, taskID string, fn func(ctx context.C
 
 			if taskCtx.Err() == context.DeadlineExceeded {
 				logger.Error("async task timeout",
-					zap.String("task", taskName),
-					zap.String("id", taskID),
-					zap.Duration("timeout", m.timeout),
-					zap.Error(err),
+					"task", taskName,
+					"id", taskID,
+					"timeout", m.timeout,
+					"error", err,
 				)
 			} else {
 				logger.Error("async task failed",
-					zap.String("task", taskName),
-					zap.String("id", taskID),
-					zap.Duration("duration", duration),
-					zap.Error(err),
+					"task", taskName,
+					"id", taskID,
+					"duration", duration,
+					"error", err,
 				)
 			}
 		} else if duration > m.timeout/2 {
 			// 任务耗时超过一半超时时间，记录警告
 			logger.Warn("async task slow",
-				zap.String("task", taskName),
-				zap.String("id", taskID),
-				zap.Duration("duration", duration),
+				"task", taskName,
+				"id", taskID,
+				"duration", duration,
 			)
 		}
 	}()
@@ -126,7 +125,7 @@ func (m *AsyncTaskManager) Shutdown(timeout time.Duration) {
 		pending := m.pendingTasks
 		m.mu.Unlock()
 		logger.Warn("async task manager shutdown timeout",
-			zap.Int64("pending_tasks", pending),
+			"pending_tasks", pending,
 		)
 	}
 }

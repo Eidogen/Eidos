@@ -9,7 +9,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/service"
-	"go.uber.org/zap"
 )
 
 const (
@@ -97,15 +96,15 @@ func (p *AlertProducer) SendRiskAlert(ctx context.Context, alert *service.RiskAl
 	partition, offset, err := p.producer.SendMessage(msg)
 	if err != nil {
 		logger.Error("failed to send risk alert",
-			zap.String("alert_id", alert.AlertID),
-			zap.Error(err))
+			"alert_id", alert.AlertID,
+			"error", err)
 		return err
 	}
 
 	logger.Debug("risk alert sent",
-		zap.String("alert_id", alert.AlertID),
-		zap.Int32("partition", partition),
-		zap.Int64("offset", offset))
+		"alert_id", alert.AlertID,
+		"partition", partition,
+		"offset", offset)
 
 	return nil
 }

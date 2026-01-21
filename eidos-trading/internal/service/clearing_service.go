@@ -16,7 +16,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/publisher"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -125,7 +124,7 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 	if err := s.balanceCache.ClearTrade(ctx, clearReq); err != nil {
 		if errors.Is(err, cache.ErrRedisTradeProcessed) {
 			logger.Debug("trade already processed (idempotent)",
-				zap.String("trade_id", msg.TradeID))
+				"trade_id", msg.TradeID)
 			return nil
 		}
 		return fmt.Errorf("redis clear trade: %w", err)
@@ -141,13 +140,13 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 		// 1. 尝试回滚 Redis (RollbackTrade)
 		// 2. 将错误返回给 Kafka Consumer (依靠 Kafka 重试机制)
 		logger.Error("persist trade to db failed, attempting rollback",
-			zap.String("trade_id", msg.TradeID),
-			zap.Error(err))
+			"trade_id", msg.TradeID,
+			"error", err)
 
 		if rbErr := s.rollbackSingleTrade(ctx, msg.TradeID); rbErr != nil {
 			logger.Error("CRITICAL: rollback trade failed after db error",
-				zap.String("trade_id", msg.TradeID),
-				zap.Error(rbErr))
+				"trade_id", msg.TradeID,
+				"error", rbErr)
 			metrics.RecordDataIntegrityCritical("trade", "db_persist_failed_rollback_failed")
 		} else {
 			metrics.RecordOutboxError("trade", "db_persist_failed_rolled_back")
@@ -157,8 +156,8 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 	}
 
 	logger.Info("trade cleared successfully",
-		zap.String("trade_id", msg.TradeID),
-		zap.String("market", msg.Market),
+		"trade_id", msg.TradeID,
+		"market", msg.Market,
 	)
 
 	// 6. 发布订单和余额变更消息
@@ -185,8 +184,8 @@ func (s *clearingService) ProcessTradeResult(ctx context.Context, msg *worker.Tr
 			// 结算消息发送失败不影响清算结果，记录错误后继续
 			// eidos-jobs 定时任务会扫描未结算的成交并重新发送
 			logger.Warn("publish settlement trade failed, will be retried by jobs",
-				zap.String("trade_id", msg.TradeID),
-				zap.Error(err))
+				"trade_id", msg.TradeID,
+				"error", err)
 		}
 	}
 
@@ -316,15 +315,15 @@ func (s *clearingService) handleSettlementSuccess(ctx context.Context, msg *work
 		// 2. Redis 余额结算: pending → settled
 		// 同步执行
 		if err := s.settleBalancesForTrades(ctx, msg.TradeIDs); err != nil {
-			logger.Warn("settle balances failed", zap.Error(err))
+			logger.Warn("settle balances failed", "error", err)
 			// 结算失败只会导致余额一直在 pending，不会导致资金丢失，不影响 DB 状态
 		}
 
 		logger.Info("settlement confirmed",
-			zap.String("settlement_id", msg.SettlementID),
-			zap.String("tx_hash", msg.TxHash),
-			zap.Int64("block_number", msg.BlockNumber),
-			zap.Int("trade_count", len(msg.TradeIDs)),
+			"settlement_id", msg.SettlementID,
+			"tx_hash", msg.TxHash,
+			"block_number", msg.BlockNumber,
+			"trade_count", len(msg.TradeIDs),
 		)
 
 		return nil
@@ -334,9 +333,9 @@ func (s *clearingService) handleSettlementSuccess(ctx context.Context, msg *work
 // handleSettlementFailure 处理结算失败 (回滚)
 func (s *clearingService) handleSettlementFailure(ctx context.Context, msg *worker.SettlementConfirmedMessage) error {
 	logger.Warn("settlement failed, starting rollback",
-		zap.String("settlement_id", msg.SettlementID),
-		zap.String("status", msg.Status),
-		zap.Int("trade_count", len(msg.TradeIDs)),
+		"settlement_id", msg.SettlementID,
+		"status", msg.Status,
+		"trade_count", len(msg.TradeIDs),
 	)
 
 	var rollbackErrors []error
@@ -345,8 +344,8 @@ func (s *clearingService) handleSettlementFailure(ctx context.Context, msg *work
 	for _, tradeID := range msg.TradeIDs {
 		if err := s.rollbackSingleTrade(ctx, tradeID); err != nil {
 			logger.Error("rollback trade failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			rollbackErrors = append(rollbackErrors, err)
 			// 继续处理其他成交
 		}
@@ -370,22 +369,22 @@ func (s *clearingService) handleSettlementFailure(ctx context.Context, msg *work
 		return nil
 	}); err != nil {
 		logger.Error("update trade status to rolled_back failed",
-			zap.String("settlement_id", msg.SettlementID),
-			zap.Error(err))
+			"settlement_id", msg.SettlementID,
+			"error", err)
 		rollbackErrors = append(rollbackErrors, err)
 	}
 
 	if len(rollbackErrors) > 0 {
 		logger.Error("settlement rollback completed with errors",
-			zap.String("settlement_id", msg.SettlementID),
-			zap.Int("error_count", len(rollbackErrors)))
+			"settlement_id", msg.SettlementID,
+			"error_count", len(rollbackErrors))
 		metrics.RecordDataIntegrityCritical("settlement", "rollback_failed")
 		return fmt.Errorf("rollback completed with %d errors", len(rollbackErrors))
 	}
 
 	logger.Info("settlement rollback completed successfully",
-		zap.String("settlement_id", msg.SettlementID),
-		zap.Int("trade_count", len(msg.TradeIDs)))
+		"settlement_id", msg.SettlementID,
+		"trade_count", len(msg.TradeIDs))
 
 	metrics.RecordSettlement("rolled_back")
 	return nil
@@ -424,9 +423,9 @@ func (s *clearingService) rollbackSingleTrade(ctx context.Context, tradeID strin
 	}
 
 	logger.Info("trade rollback success",
-		zap.String("trade_id", tradeID),
-		zap.String("maker", trade.MakerWallet),
-		zap.String("taker", trade.TakerWallet))
+		"trade_id", tradeID,
+		"maker", trade.MakerWallet,
+		"taker", trade.TakerWallet)
 
 	return nil
 }
@@ -437,16 +436,16 @@ func (s *clearingService) settleBalancesForTrades(ctx context.Context, tradeIDs 
 		var trade model.Trade
 		if err := s.db.WithContext(ctx).Where("trade_id = ?", tradeID).First(&trade).Error; err != nil {
 			logger.Error("settle: get trade failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			continue
 		}
 
 		marketCfg, err := s.marketProvider.GetMarket(trade.Market)
 		if err != nil {
 			logger.Error("settle: get market config failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			continue
 		}
 
@@ -468,7 +467,7 @@ func (s *clearingService) settleBalancesForTrades(ctx context.Context, tradeIDs 
 		}
 
 		logger.Debug("trade settled",
-			zap.String("trade_id", tradeID))
+			"trade_id", tradeID)
 	}
 
 	return nil

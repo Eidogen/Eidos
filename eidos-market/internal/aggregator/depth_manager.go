@@ -2,12 +2,12 @@ package aggregator
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -58,7 +58,7 @@ type DepthManager struct {
 
 	publisher        DepthPublisher
 	snapshotProvider DepthSnapshotProvider
-	logger           *zap.Logger
+	logger           *slog.Logger
 
 	// 脏标记和发布
 	dirty     atomic.Bool
@@ -79,7 +79,7 @@ func NewDepthManager(
 	market string,
 	publisher DepthPublisher,
 	snapshotProvider DepthSnapshotProvider,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config DepthManagerConfig,
 ) *DepthManager {
 	return &DepthManager{
@@ -89,7 +89,7 @@ func NewDepthManager(
 		asks:             make(map[string]*model.PriceLevel),
 		publisher:        publisher,
 		snapshotProvider: snapshotProvider,
-		logger:           logger.With(zap.String("market", market)),
+		logger:           logger.With("market", market),
 		closeCh:          make(chan struct{}),
 	}
 }
@@ -110,10 +110,10 @@ func (dm *DepthManager) Stop() {
 		close(dm.closeCh)
 		dm.wg.Wait()
 		dm.logger.Info("depth manager stopped",
-			zap.Int64("total_updates", dm.updateCount.Load()),
-			zap.Int64("total_publishes", dm.publishCount.Load()),
-			zap.Int64("total_syncs", dm.syncCount.Load()),
-			zap.Int64("total_gaps", dm.gapCount.Load()))
+			"total_updates", dm.updateCount.Load(),
+			"total_publishes", dm.publishCount.Load(),
+			"total_syncs", dm.syncCount.Load(),
+			"total_gaps", dm.gapCount.Load())
 	})
 }
 
@@ -136,8 +136,8 @@ func (dm *DepthManager) ApplyUpdate(ctx context.Context, update *model.DepthUpda
 		dm.gapCount.Add(1)
 		metrics.DepthSequenceGaps.WithLabelValues(dm.market).Inc()
 		dm.logger.Warn("sequence gap detected",
-			zap.Uint64("expected", dm.sequence+1),
-			zap.Uint64("got", update.Sequence))
+			"expected", dm.sequence+1,
+			"got", update.Sequence)
 
 		// 触发全量同步（通过 DepthSnapshotProvider 从 eidos-matching 获取快照）
 		if dm.snapshotProvider != nil {
@@ -210,9 +210,9 @@ func (dm *DepthManager) ApplySnapshot(snapshot *model.Depth) {
 	dm.syncCount.Add(1)
 
 	dm.logger.Info("snapshot applied",
-		zap.Uint64("sequence", snapshot.Sequence),
-		zap.Int("bids", len(snapshot.Bids)),
-		zap.Int("asks", len(snapshot.Asks)))
+		"sequence", snapshot.Sequence,
+		"bids", len(snapshot.Bids),
+		"asks", len(snapshot.Asks))
 }
 
 // syncSnapshot 同步全量快照
@@ -223,7 +223,7 @@ func (dm *DepthManager) syncSnapshot(ctx context.Context) {
 
 	snapshot, err := dm.snapshotProvider.GetSnapshot(ctx, dm.market)
 	if err != nil {
-		dm.logger.Error("failed to sync snapshot", zap.Error(err))
+		dm.logger.Error("failed to sync snapshot", "error", err)
 		metrics.DepthSnapshotRequests.WithLabelValues(dm.market, "error").Inc()
 		return
 	}
@@ -371,7 +371,7 @@ func (dm *DepthManager) publish() {
 	defer cancel()
 
 	if err := dm.publisher.PublishDepth(ctx, dm.market, depth); err != nil {
-		dm.logger.Warn("failed to publish depth", zap.Error(err))
+		dm.logger.Warn("failed to publish depth", "error", err)
 		metrics.PubSubPublishErrors.WithLabelValues("depth").Inc()
 	} else {
 		dm.publishCount.Add(1)

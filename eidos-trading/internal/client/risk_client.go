@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -72,7 +71,7 @@ func NewRiskClient(cfg *RiskClientConfig) (*RiskClient, error) {
 	}
 
 	logger.Info("connected to eidos-risk",
-		zap.String("addr", cfg.Addr),
+		"addr", cfg.Addr,
 	)
 
 	return &RiskClient{
@@ -116,8 +115,8 @@ func (c *RiskClient) CheckOrder(ctx context.Context, wallet, market string, side
 			if isUnavailableError(err) {
 				if c.cfg.FailOpen {
 					logger.Warn("risk service unavailable, fail-open mode enabled",
-						zap.String("wallet", wallet),
-						zap.Error(err))
+						"wallet", wallet,
+						"error", err)
 					return nil
 				}
 				// 重试
@@ -159,8 +158,8 @@ func (c *RiskClient) CheckWithdrawal(ctx context.Context, wallet, token string, 
 			if isUnavailableError(err) {
 				if c.cfg.FailOpen {
 					logger.Warn("risk service unavailable for withdrawal check, fail-open mode enabled",
-						zap.String("wallet", wallet),
-						zap.Error(err))
+						"wallet", wallet,
+						"error", err)
 					return nil
 				}
 				if i < c.cfg.MaxRetries {

@@ -3,10 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/aggregator"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
@@ -62,7 +61,7 @@ type MarketService struct {
 
 	publisher        Publisher
 	snapshotProvider aggregator.DepthSnapshotProvider
-	logger           *zap.Logger
+	logger           *slog.Logger
 
 	// 后台任务管理
 	asyncWg sync.WaitGroup
@@ -75,7 +74,7 @@ func NewMarketService(
 	tradeRepo repository.TradeRepository,
 	publisher Publisher,
 	snapshotProvider aggregator.DepthSnapshotProvider,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	config MarketServiceConfig,
 ) *MarketService {
 	return &MarketService{
@@ -101,7 +100,7 @@ func (s *MarketService) InitMarkets(ctx context.Context) error {
 		s.initMarket(market.Symbol)
 	}
 
-	s.logger.Info("markets initialized", zap.Int("count", len(markets)))
+	s.logger.Info("markets initialized", "count", len(markets))
 	return nil
 }
 
@@ -114,7 +113,7 @@ func (s *MarketService) initMarket(symbol string) {
 		return
 	}
 
-	logger := s.logger.With(zap.String("market", symbol))
+	logger := s.logger.With("market", symbol)
 
 	agg := &MarketAggregator{
 		kline: aggregator.NewKlineAggregator(
@@ -146,7 +145,7 @@ func (s *MarketService) initMarket(symbol string) {
 
 	s.aggregators[symbol] = agg
 	metrics.ActiveMarkets.Inc()
-	s.logger.Info("market initialized", zap.String("symbol", symbol))
+	s.logger.Info("market initialized", "symbol", symbol)
 }
 
 // getOrCreateAggregator 获取或创建市场聚合器
@@ -195,8 +194,8 @@ func (s *MarketService) ProcessTrade(ctx context.Context, trade *model.TradeEven
 	t, err := trade.ToTrade()
 	if err != nil {
 		s.logger.Error("failed to convert trade event",
-			zap.String("trade_id", trade.TradeID),
-			zap.Error(err))
+			"trade_id", trade.TradeID,
+			"error", err)
 		metrics.TradeProcessingErrors.WithLabelValues(trade.Market, "convert_error").Inc()
 		return err
 	}
@@ -209,7 +208,7 @@ func (s *MarketService) ProcessTrade(ctx context.Context, trade *model.TradeEven
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.tradeRepo.Create(ctx, t); err != nil {
-				s.logger.Error("failed to save trade", zap.Error(err))
+				s.logger.Error("failed to save trade", "error", err)
 				metrics.TradeProcessingErrors.WithLabelValues(trade.Market, "db_error").Inc()
 			}
 		}()
@@ -223,7 +222,7 @@ func (s *MarketService) ProcessTrade(ctx context.Context, trade *model.TradeEven
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			if err := s.publisher.PublishTrade(ctx, trade.Market, t); err != nil {
-				s.logger.Warn("failed to publish trade", zap.Error(err))
+				s.logger.Warn("failed to publish trade", "error", err)
 				metrics.PubSubPublishErrors.WithLabelValues("trade").Inc()
 			} else {
 				metrics.PubSubPublishTotal.WithLabelValues("trade").Inc()
@@ -363,7 +362,7 @@ func (s *MarketService) Stop() {
 		agg.kline.Stop()
 		agg.ticker.Stop()
 		agg.depth.Stop()
-		s.logger.Info("market stopped", zap.String("symbol", symbol))
+		s.logger.Info("market stopped", "symbol", symbol)
 	}
 
 	s.logger.Info("market service stopped")

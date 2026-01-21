@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -33,14 +33,14 @@ const (
 // RedisCache Redis 缓存实现
 type RedisCache struct {
 	client redis.UniversalClient
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewRedisCache 创建 Redis 缓存
-func NewRedisCache(client redis.UniversalClient, logger *zap.Logger) *RedisCache {
+func NewRedisCache(client redis.UniversalClient, logger *slog.Logger) *RedisCache {
 	return &RedisCache{
 		client: client,
-		logger: logger.Named("redis_cache"),
+		logger: logger.With("component", "redis_cache"),
 	}
 }
 

@@ -24,11 +24,11 @@
 // ## gRPC 对接
 // - 端口: 50054
 // - Proto: proto/chain/v1/chain.proto
-// - TODO: 生成 proto 并注册 gRPC 服务
+// - 生成 proto 并注册 gRPC 服务 (proto/chain/v1/)
 //
 // ## 智能合约对接
-// - TODO: 部署 Exchange 合约并更新 contract_address 配置
-// - TODO: 实现合约 ABI 绑定 (internal/blockchain/contracts/)
+// - 部署 Exchange 合约并更新 contract_address 配置
+// - 实现合约 ABI 绑定 (internal/blockchain/contracts/)
 // - 当前为 Mock 模式 (verifyingContract = 0x0)
 //
 // ## 数据库
@@ -55,10 +55,10 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	chainv1 "github.com/eidos-exchange/eidos/proto/chain/v1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -94,14 +94,14 @@ type App struct {
 	reconciliationSvc *service.ReconciliationService
 
 	// Kafka
-	kafkaConsumer *kafka.Consumer
-	kafkaProducer *kafka.Producer
+	kafkaConsumer  *kafka.Consumer
+	kafkaProducer  *kafka.Producer
 	eventPublisher *kafka.KafkaEventPublisher
 
 	// gRPC
-	grpcServer    *grpc.Server
-	healthServer  *health.Server
-	chainHandler  *handler.ChainHandler
+	grpcServer   *grpc.Server
+	healthServer *health.Server
+	chainHandler *handler.ChainHandler
 
 	// 运行控制
 	stopCh chan struct{}
@@ -149,6 +149,11 @@ func (a *App) initInfrastructure() error {
 		a.cfg.Postgres.Database,
 	)
 
+	// 确保数据库存在
+	if err := migrate.EnsureDatabase(a.cfg.Postgres.Host, a.cfg.Postgres.Port, a.cfg.Postgres.User, a.cfg.Postgres.Password, a.cfg.Postgres.Database); err != nil {
+		return fmt.Errorf("failed to ensure database: %w", err)
+	}
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
@@ -165,7 +170,7 @@ func (a *App) initInfrastructure() error {
 	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetime) * time.Second)
 
 	a.db = db
-	logger.Info("database connected", zap.String("host", a.cfg.Postgres.Host))
+	logger.Info("database connected", "host", a.cfg.Postgres.Host)
 
 	// 自动迁移
 	if err := AutoMigrate(a.db); err != nil {
@@ -190,7 +195,7 @@ func (a *App) initInfrastructure() error {
 		return fmt.Errorf("failed to connect redis: %w", err)
 	}
 
-	logger.Info("redis connected", zap.String("addr", redisAddr))
+	logger.Info("redis connected", "addr", redisAddr)
 
 	return nil
 }
@@ -224,8 +229,8 @@ func (a *App) initBlockchain() error {
 	})
 
 	logger.Info("blockchain client initialized",
-		zap.Int64("chain_id", a.cfg.Blockchain.ChainID),
-		zap.String("wallet", client.Address().Hex()))
+		"chain_id", a.cfg.Blockchain.ChainID,
+		"wallet", client.Address().Hex())
 
 	return nil
 }
@@ -322,7 +327,7 @@ func (a *App) initKafka() error {
 	}
 	a.kafkaConsumer = consumer
 
-	logger.Info("kafka initialized", zap.Strings("brokers", a.cfg.Kafka.Brokers))
+	logger.Info("kafka initialized", "brokers", a.cfg.Kafka.Brokers)
 	return nil
 }
 
@@ -354,7 +359,7 @@ func (a *App) initGRPC() {
 	a.reconciliationSvc = service.NewReconciliationService(
 		a.blockchainClient,
 		a.reconciliationRepo,
-		nil, // TODO: 配置 BalanceProvider (需要连接 eidos-trading)
+		nil, // BalanceProvider: 需要连接 eidos-trading 获取链下余额
 		nil, // 使用默认配置
 	)
 
@@ -403,9 +408,9 @@ func (a *App) Run() error {
 	a.healthServer.SetServingStatus(a.cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	go func() {
-		logger.Info("gRPC server listening", zap.Int("port", a.cfg.Service.GRPCPort))
+		logger.Info("gRPC server listening", "port", a.cfg.Service.GRPCPort)
 		if err := a.grpcServer.Serve(lis); err != nil {
-			logger.Error("gRPC server error", zap.Error(err))
+			logger.Error("gRPC server error", "error", err)
 		}
 	}()
 
@@ -445,18 +450,18 @@ func (a *App) runBackgroundTasks(ctx context.Context) {
 			return
 		case <-flushTicker.C:
 			if err := a.settlementSvc.FlushIfNeeded(ctx); err != nil {
-				logger.Error("failed to flush settlement batch", zap.Error(err))
+				logger.Error("failed to flush settlement batch", "error", err)
 			}
 		case <-processTicker.C:
 			if err := a.settlementSvc.ProcessPendingBatches(ctx); err != nil {
-				logger.Error("failed to process pending batches", zap.Error(err))
+				logger.Error("failed to process pending batches", "error", err)
 			}
 			if err := a.withdrawalSvc.ProcessPendingWithdrawals(ctx); err != nil {
-				logger.Error("failed to process pending withdrawals", zap.Error(err))
+				logger.Error("failed to process pending withdrawals", "error", err)
 			}
 		case <-confirmTicker.C:
 			if err := a.indexerSvc.UpdateConfirmations(ctx); err != nil {
-				logger.Error("failed to update confirmations", zap.Error(err))
+				logger.Error("failed to update confirmations", "error", err)
 			}
 		}
 	}

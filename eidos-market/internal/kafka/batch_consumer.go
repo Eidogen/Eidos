@@ -3,12 +3,12 @@ package kafka
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 )
@@ -55,7 +55,7 @@ type BatchConsumer struct {
 	config   BatchConsumerConfig
 	client   sarama.ConsumerGroup
 	handlers map[string]BatchMessageHandler
-	logger   *zap.Logger
+	logger   *slog.Logger
 
 	// Batch accumulator
 	batchMu       sync.Mutex
@@ -77,7 +77,7 @@ type BatchConsumer struct {
 }
 
 // NewBatchConsumer creates a new batch consumer
-func NewBatchConsumer(config BatchConsumerConfig, logger *zap.Logger) (*BatchConsumer, error) {
+func NewBatchConsumer(config BatchConsumerConfig, logger *slog.Logger) (*BatchConsumer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V3_0_0_0
 	saramaConfig.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{
@@ -108,7 +108,7 @@ func NewBatchConsumer(config BatchConsumerConfig, logger *zap.Logger) (*BatchCon
 		config:        config,
 		client:        client,
 		handlers:      make(map[string]BatchMessageHandler),
-		logger:        logger.Named("batch_consumer"),
+		logger:        logger.With("component", "batch_consumer"),
 		batches:       make(map[string][]*sarama.ConsumerMessage),
 		batchSessions: make(map[string]sarama.ConsumerGroupSession),
 		workerPool:    workerPool,
@@ -121,7 +121,7 @@ func NewBatchConsumer(config BatchConsumerConfig, logger *zap.Logger) (*BatchCon
 func (c *BatchConsumer) RegisterHandler(handler BatchMessageHandler) {
 	c.handlers[handler.Topic()] = handler
 	c.batches[handler.Topic()] = make([]*sarama.ConsumerMessage, 0, c.config.BatchSize)
-	c.logger.Info("batch handler registered", zap.String("topic", handler.Topic()))
+	c.logger.Info("batch handler registered", "topic", handler.Topic())
 }
 
 // Start starts consuming messages
@@ -150,16 +150,16 @@ func (c *BatchConsumer) Start() error {
 				return
 			default:
 				if err := c.client.Consume(c.ctx, topics, c); err != nil {
-					c.logger.Error("consumer error", zap.Error(err))
+					c.logger.Error("consumer error", "error", err)
 				}
 			}
 		}
 	}()
 
 	c.logger.Info("batch consumer started",
-		zap.Strings("topics", topics),
-		zap.Int("batch_size", c.config.BatchSize),
-		zap.Duration("batch_timeout", c.config.BatchTimeout))
+		"topics", topics,
+		"batch_size", c.config.BatchSize,
+		"batch_timeout", c.config.BatchTimeout)
 
 	return nil
 }
@@ -176,9 +176,9 @@ func (c *BatchConsumer) Stop() error {
 		c.wg.Wait()
 		err = c.client.Close()
 		c.logger.Info("batch consumer stopped",
-			zap.Int64("messages", c.messagesProcessed.Load()),
-			zap.Int64("batches", c.batchesProcessed.Load()),
-			zap.Int64("errors", c.errorsCount.Load()))
+			"messages", c.messagesProcessed.Load(),
+			"batches", c.batchesProcessed.Load(),
+			"errors", c.errorsCount.Load())
 	})
 	return err
 }
@@ -186,8 +186,8 @@ func (c *BatchConsumer) Stop() error {
 // Setup implements sarama.ConsumerGroupHandler
 func (c *BatchConsumer) Setup(session sarama.ConsumerGroupSession) error {
 	c.logger.Info("consumer session setup",
-		zap.Int32("generation", session.GenerationID()),
-		zap.String("member", session.MemberID()))
+		"generation", session.GenerationID(),
+		"member", session.MemberID())
 	return nil
 }
 
@@ -196,7 +196,7 @@ func (c *BatchConsumer) Cleanup(session sarama.ConsumerGroupSession) error {
 	// Flush remaining batches before cleanup
 	c.flushAllBatches()
 	c.logger.Info("consumer session cleanup",
-		zap.Int32("generation", session.GenerationID()))
+		"generation", session.GenerationID())
 	return nil
 }
 
@@ -206,7 +206,7 @@ func (c *BatchConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 
 	_, ok := c.handlers[topic]
 	if !ok {
-		c.logger.Warn("no handler for topic", zap.String("topic", topic))
+		c.logger.Warn("no handler for topic", "topic", topic)
 		return nil
 	}
 
@@ -315,10 +315,10 @@ func (c *BatchConsumer) processBatch(topic string, messages []*sarama.ConsumerMe
 			c.errorsCount.Add(1)
 			metrics.KafkaConsumerErrors.WithLabelValues(topic, "batch_error").Inc()
 			c.logger.Warn("batch processing failed, retrying",
-				zap.String("topic", topic),
-				zap.Int("batch_size", len(messages)),
-				zap.Int("attempt", attempt),
-				zap.Error(err))
+				"topic", topic,
+				"batch_size", len(messages),
+				"attempt", attempt,
+				"error", err)
 
 			if attempt < c.config.MaxRetries {
 				time.Sleep(c.config.RetryBackoff * time.Duration(attempt))
@@ -332,9 +332,9 @@ func (c *BatchConsumer) processBatch(topic string, messages []*sarama.ConsumerMe
 
 	if lastErr != nil {
 		c.logger.Error("batch processing failed after retries",
-			zap.String("topic", topic),
-			zap.Int("batch_size", len(messages)),
-			zap.Error(lastErr))
+			"topic", topic,
+			"batch_size", len(messages),
+			"error", lastErr)
 	}
 
 	// Mark messages as consumed

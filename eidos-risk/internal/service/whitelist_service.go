@@ -11,7 +11,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // WhitelistService provides whitelist management functionality
@@ -81,7 +80,7 @@ func (s *WhitelistService) AddAddress(ctx context.Context, req *AddAddressReques
 	// Update cache if active
 	if status == model.WhitelistStatusActive {
 		if err := s.withdrawCache.AddToWhitelist(ctx, req.Wallet, req.TargetAddress); err != nil {
-			logger.Error("failed to update whitelist cache", zap.Error(err))
+			logger.Error("failed to update whitelist cache", "error", err)
 		}
 	}
 
@@ -101,9 +100,9 @@ func (s *WhitelistService) AddAddress(ctx context.Context, req *AddAddressReques
 	})
 
 	logger.Info("address added to whitelist",
-		zap.String("wallet", req.Wallet),
-		zap.String("target_address", req.TargetAddress),
-		zap.String("status", string(status)))
+		"wallet", req.Wallet,
+		"target_address", req.TargetAddress,
+		"status", string(status))
 
 	return entry, nil
 }
@@ -130,7 +129,7 @@ func (s *WhitelistService) RemoveAddress(ctx context.Context, req *RemoveAddress
 
 	// Update cache
 	if err := s.withdrawCache.RemoveFromWhitelist(ctx, entry.WalletAddress, entry.TargetAddress); err != nil {
-		logger.Error("failed to update whitelist cache", zap.Error(err))
+		logger.Error("failed to update whitelist cache", "error", err)
 	}
 
 	// Send alert
@@ -150,8 +149,8 @@ func (s *WhitelistService) RemoveAddress(ctx context.Context, req *RemoveAddress
 	})
 
 	logger.Info("address removed from whitelist",
-		zap.String("wallet", entry.WalletAddress),
-		zap.String("target_address", entry.TargetAddress))
+		"wallet", entry.WalletAddress,
+		"target_address", entry.TargetAddress)
 
 	return nil
 }
@@ -209,8 +208,8 @@ func (s *WhitelistService) AddVIP(ctx context.Context, req *AddVIPRequest) (*mod
 	})
 
 	logger.Info("VIP status granted",
-		zap.String("wallet", req.Wallet),
-		zap.String("label", req.Label))
+		"wallet", req.Wallet,
+		"label", req.Label)
 
 	return entry, nil
 }
@@ -268,8 +267,8 @@ func (s *WhitelistService) AddMarketMaker(ctx context.Context, req *AddMarketMak
 	})
 
 	logger.Info("Market maker status granted",
-		zap.String("wallet", req.Wallet),
-		zap.String("label", req.Label))
+		"wallet", req.Wallet,
+		"label", req.Label)
 
 	return entry, nil
 }
@@ -372,7 +371,7 @@ func (s *WhitelistService) ApproveEntry(ctx context.Context, entryID, approver s
 	// Update cache if it's an address whitelist
 	if entry.ListType == model.WhitelistTypeAddress && entry.TargetAddress != "" {
 		if err := s.withdrawCache.AddToWhitelist(ctx, entry.WalletAddress, entry.TargetAddress); err != nil {
-			logger.Error("failed to update whitelist cache", zap.Error(err))
+			logger.Error("failed to update whitelist cache", "error", err)
 		}
 	}
 
@@ -392,8 +391,8 @@ func (s *WhitelistService) ApproveEntry(ctx context.Context, entryID, approver s
 	})
 
 	logger.Info("whitelist entry approved",
-		zap.String("entry_id", entryID),
-		zap.String("approver", approver))
+		"entry_id", entryID,
+		"approver", approver)
 
 	return nil
 }
@@ -428,9 +427,9 @@ func (s *WhitelistService) RejectEntry(ctx context.Context, entryID, rejector, r
 	})
 
 	logger.Info("whitelist entry rejected",
-		zap.String("entry_id", entryID),
-		zap.String("rejector", rejector),
-		zap.String("reason", reason))
+		"entry_id", entryID,
+		"rejector", rejector,
+		"reason", reason)
 
 	return nil
 }
@@ -448,14 +447,14 @@ func (s *WhitelistService) SyncCacheFromDB(ctx context.Context) error {
 		if entry.IsValid(time.Now().UnixMilli()) && entry.TargetAddress != "" {
 			if err := s.withdrawCache.AddToWhitelist(ctx, entry.WalletAddress, entry.TargetAddress); err != nil {
 				logger.Error("failed to sync whitelist entry to cache",
-					zap.String("wallet", entry.WalletAddress),
-					zap.Error(err))
+					"wallet", entry.WalletAddress,
+					"error", err)
 			}
 		}
 	}
 
 	logger.Info("whitelist cache synced from database",
-		zap.Int("count", len(entries)))
+		"count", len(entries))
 
 	return nil
 }
@@ -469,7 +468,7 @@ func (s *WhitelistService) CleanupExpired(ctx context.Context) (int64, error) {
 
 	if count > 0 {
 		logger.Info("cleaned up expired whitelist entries",
-			zap.Int64("count", count))
+			"count", count)
 
 		// Sync cache
 		s.SyncCacheFromDB(ctx)
@@ -483,8 +482,8 @@ func (s *WhitelistService) sendAlert(ctx context.Context, alert *RiskAlertMessag
 	if s.onRiskAlert != nil {
 		if err := s.onRiskAlert(ctx, alert); err != nil {
 			logger.Error("failed to send risk alert",
-				zap.String("alert_id", alert.AlertID),
-				zap.Error(err))
+				"alert_id", alert.AlertID,
+				"error", err)
 		}
 	}
 }

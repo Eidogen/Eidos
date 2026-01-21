@@ -1,19 +1,19 @@
 package ws
 
 import (
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 // createTestLogger 创建测试用 logger
-func createTestLogger() *zap.Logger {
-	logger, _ := zap.NewDevelopment()
-	return logger
+func createTestLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 // createMockClient 创建测试用客户端（不依赖真实 websocket 连接）
@@ -744,7 +744,7 @@ func TestClient_SendWhenClosed(t *testing.T) {
 
 // TestClient_SendBufferFull 测试发送缓冲区满
 func TestClient_SendBufferFull(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	client := &Client{
 		id:            "test",
 		send:          make(chan []byte, 1), // 小缓冲区

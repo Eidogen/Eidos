@@ -8,7 +8,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
-	"go.uber.org/zap"
 )
 
 // DepositHandler 处理充值事件
@@ -31,10 +30,10 @@ func (h *DepositHandler) HandleEvent(ctx context.Context, eventType string, payl
 	}
 
 	logger.Info("processing deposit",
-		zap.String("tx_hash", msg.TxHash),
-		zap.String("wallet", msg.Wallet),
-		zap.String("token", msg.Token),
-		zap.String("amount", msg.Amount),
+		"tx_hash", msg.TxHash,
+		"wallet", msg.Wallet,
+		"token", msg.Token,
+		"amount", msg.Amount,
 	)
 
 	// 转换为服务层消息类型
@@ -80,9 +79,9 @@ func (h *WithdrawalConfirmedHandler) HandleEvent(ctx context.Context, eventType 
 	}
 
 	logger.Info("processing withdrawal confirmed",
-		zap.String("withdrawal_id", msg.WithdrawalID),
-		zap.String("tx_hash", msg.TxHash),
-		zap.String("status", msg.Status),
+		"withdrawal_id", msg.WithdrawalID,
+		"tx_hash", msg.TxHash,
+		"status", msg.Status,
 	)
 
 	// 转换为服务层消息类型
@@ -127,9 +126,9 @@ func (h *SettlementConfirmedHandler) HandleEvent(ctx context.Context, eventType 
 	}
 
 	logger.Info("processing settlement confirmed",
-		zap.String("settlement_id", msg.SettlementID),
-		zap.String("tx_hash", msg.TxHash),
-		zap.String("status", msg.Status),
+		"settlement_id", msg.SettlementID,
+		"tx_hash", msg.TxHash,
+		"status", msg.Status,
 	)
 
 	// 调用清算服务处理结算确认

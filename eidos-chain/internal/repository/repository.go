@@ -2,10 +2,39 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+// PostgreSQL 可重试错误码
+// 参考: https://www.postgresql.org/docs/current/errcodes-appendix.html
+const (
+	// Class 40 — Transaction Rollback
+	pgErrSerializationFailure = "40001" // serialization_failure
+	pgErrDeadlockDetected     = "40P01" // deadlock_detected
+
+	// Class 08 — Connection Exception
+	pgErrConnectionFailure    = "08006" // connection_failure
+	pgErrConnectionException  = "08000" // connection_exception
+	pgErrSQLClientCantConnect = "08001" // sqlclient_unable_to_establish_sqlconnection
+
+	// Class 53 — Insufficient Resources
+	pgErrInsufficientResources = "53000" // insufficient_resources
+	pgErrDiskFull              = "53100" // disk_full
+	pgErrOutOfMemory           = "53200" // out_of_memory
+	pgErrTooManyConnections    = "53300" // too_many_connections
+
+	// Class 57 — Operator Intervention
+	pgErrOperatorIntervention = "57000" // operator_intervention
+	pgErrQueryCanceled        = "57014" // query_canceled
+	pgErrAdminShutdown        = "57P01" // admin_shutdown
+	pgErrCrashShutdown        = "57P02" // crash_shutdown
+	pgErrCannotConnectNow     = "57P03" // cannot_connect_now
+	pgErrDatabaseDropped      = "57P04" // database_dropped
 )
 
 // Repository 基础仓储
@@ -56,8 +85,37 @@ func (r *Repository) TransactionWithRetry(ctx context.Context, maxRetries int, f
 }
 
 // isRetryableError 判断是否为可重试错误
+// 主要包括: 死锁、序列化失败、连接问题、资源不足等临时性错误
 func isRetryableError(err error) bool {
-	// TODO: 根据具体数据库错误码判断
+	if err == nil {
+		return false
+	}
+
+	// 检查是否为 PostgreSQL 错误
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		// 事务回滚类错误 - 可重试
+		case pgErrSerializationFailure, pgErrDeadlockDetected:
+			return true
+		// 连接异常类错误 - 可重试
+		case pgErrConnectionFailure, pgErrConnectionException, pgErrSQLClientCantConnect:
+			return true
+		// 资源不足类错误 - 可重试 (可能是临时性的)
+		case pgErrInsufficientResources, pgErrTooManyConnections:
+			return true
+		// 操作干预类错误 - 部分可重试
+		case pgErrQueryCanceled, pgErrCannotConnectNow:
+			return true
+		// 磁盘满、内存不足 - 不重试 (需要人工干预)
+		case pgErrDiskFull, pgErrOutOfMemory:
+			return false
+		// 管理员关闭、崩溃、数据库删除 - 不重试
+		case pgErrAdminShutdown, pgErrCrashShutdown, pgErrDatabaseDropped:
+			return false
+		}
+	}
+
 	return false
 }
 

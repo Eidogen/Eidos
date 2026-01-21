@@ -3,14 +3,15 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/alert"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
-	"go.uber.org/zap"
 )
 
 // OutboxRelayConfig Outbox Relay 配置
@@ -40,12 +41,13 @@ type OutboxRelay struct {
 	cfg      *OutboxRelayConfig
 	repo     *repository.OutboxRepository
 	producer *kafka.Producer
+	alerter  alert.Alerter
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 }
 
 // NewOutboxRelay 创建 Outbox Relay
-func NewOutboxRelay(cfg *OutboxRelayConfig, repo *repository.OutboxRepository, producer *kafka.Producer) *OutboxRelay {
+func NewOutboxRelay(cfg *OutboxRelayConfig, repo *repository.OutboxRepository, producer *kafka.Producer, alerter alert.Alerter) *OutboxRelay {
 	if cfg == nil {
 		cfg = DefaultOutboxRelayConfig()
 	}
@@ -53,6 +55,7 @@ func NewOutboxRelay(cfg *OutboxRelayConfig, repo *repository.OutboxRepository, p
 		cfg:      cfg,
 		repo:     repo,
 		producer: producer,
+		alerter:  alerter,
 	}
 }
 
@@ -73,8 +76,8 @@ func (r *OutboxRelay) Start(ctx context.Context) {
 	go r.recoveryLoop(ctx)
 
 	logger.Info("outbox relay started",
-		zap.Duration("relay_interval", r.cfg.RelayInterval),
-		zap.Int("batch_size", r.cfg.BatchSize),
+		"relay_interval", r.cfg.RelayInterval,
+		"batch_size", r.cfg.BatchSize,
 	)
 }
 
@@ -108,7 +111,7 @@ func (r *OutboxRelay) relayLoop(ctx context.Context) {
 func (r *OutboxRelay) processBatch(ctx context.Context) {
 	messages, err := r.repo.FetchPending(ctx, r.cfg.BatchSize)
 	if err != nil {
-		logger.Error("fetch pending messages failed", zap.Error(err))
+		logger.Error("fetch pending messages failed", "error", err)
 		return
 	}
 
@@ -119,21 +122,21 @@ func (r *OutboxRelay) processBatch(ctx context.Context) {
 	for _, msg := range messages {
 		if err := r.sendMessage(ctx, msg); err != nil {
 			logger.Error("send message failed",
-				zap.Int64("id", msg.ID),
-				zap.String("message_id", msg.MessageID),
-				zap.String("topic", msg.Topic),
-				zap.Error(err),
+				"id", msg.ID,
+				"message_id", msg.MessageID,
+				"topic", msg.Topic,
+				"error", err,
 			)
 			// 标记失败
 			if markErr := r.repo.MarkFailed(ctx, msg.ID, err); markErr != nil {
-				logger.Error("mark message failed error", zap.Error(markErr))
+				logger.Error("mark message failed error", "error", markErr)
 			}
 			continue
 		}
 
 		// 标记已发送
 		if err := r.repo.MarkSent(ctx, msg.ID); err != nil {
-			logger.Error("mark message sent error", zap.Error(err))
+			logger.Error("mark message sent error", "error", err)
 		}
 	}
 }
@@ -166,12 +169,12 @@ func (r *OutboxRelay) cleanup(ctx context.Context) {
 	beforeTime := time.Now().Add(-r.cfg.Retention).UnixMilli()
 	deleted, err := r.repo.CleanSent(ctx, beforeTime, r.cfg.BatchSize)
 	if err != nil {
-		logger.Error("cleanup sent messages failed", zap.Error(err))
+		logger.Error("cleanup sent messages failed", "error", err)
 		return
 	}
 
 	if deleted > 0 {
-		logger.Info("cleaned up sent messages", zap.Int64("count", deleted))
+		logger.Info("cleaned up sent messages", "count", deleted)
 	}
 }
 
@@ -179,15 +182,26 @@ func (r *OutboxRelay) cleanup(ctx context.Context) {
 func (r *OutboxRelay) alertFailedMessages(ctx context.Context) {
 	count, err := r.repo.CountFailed(ctx)
 	if err != nil {
-		logger.Error("count failed messages error", zap.Error(err))
+		logger.Error("count failed messages error", "error", err)
 		return
 	}
 
 	if count > 0 {
 		logger.Warn("outbox has failed messages",
-			zap.Int64("count", count),
+			"count", count,
 		)
-		// TODO: 发送告警通知
+		// 发送告警通知
+		if r.alerter != nil {
+			r.alerter.SendAsync(ctx, &alert.Alert{
+				Title:    "Outbox 消息发送失败",
+				Message:  fmt.Sprintf("当前有 %d 条消息发送失败，请检查 Kafka 连接状态和消息内容", count),
+				Severity: alert.SeverityWarning,
+				Tags: map[string]string{
+					"component":    "outbox_relay",
+					"failed_count": fmt.Sprintf("%d", count),
+				},
+			})
+		}
 	}
 }
 
@@ -213,14 +227,14 @@ func (r *OutboxRelay) recoveryLoop(ctx context.Context) {
 func (r *OutboxRelay) recoverStaleMessages(ctx context.Context) {
 	recovered, err := r.repo.RecoverStaleProcessing(ctx, r.cfg.StaleThreshold)
 	if err != nil {
-		logger.Error("recover stale processing messages failed", zap.Error(err))
+		logger.Error("recover stale processing messages failed", "error", err)
 		return
 	}
 
 	if recovered > 0 {
 		logger.Info("recovered stale processing messages",
-			zap.Int64("count", recovered),
-			zap.Duration("threshold", r.cfg.StaleThreshold),
+			"count", recovered,
+			"threshold", r.cfg.StaleThreshold,
 		)
 	}
 }

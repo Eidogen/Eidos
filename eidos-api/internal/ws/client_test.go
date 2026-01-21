@@ -2,19 +2,20 @@ package ws
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 )
 
 func TestNewClient(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{
 		MaxMessageSize:   4096,
@@ -39,7 +40,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_WalletOperations(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -60,7 +61,7 @@ func TestClient_WalletOperations(t *testing.T) {
 }
 
 func TestClient_SubscriptionOperations(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -98,7 +99,7 @@ func TestClient_SubscriptionOperations(t *testing.T) {
 }
 
 func TestClient_SubscriptionConcurrency(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -135,7 +136,7 @@ func TestClient_SubscriptionConcurrency(t *testing.T) {
 }
 
 func TestClient_Send(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -162,7 +163,7 @@ func TestClient_Send(t *testing.T) {
 }
 
 func TestClient_Send_BufferFull(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -186,7 +187,7 @@ func TestClient_Send_BufferFull(t *testing.T) {
 }
 
 func TestClient_Send_Closed(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -208,7 +209,7 @@ func TestClient_Send_Closed(t *testing.T) {
 }
 
 func TestClient_Close(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -233,7 +234,7 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestClient_MarkClosed(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -258,7 +259,7 @@ func TestClient_MarkClosed(t *testing.T) {
 }
 
 func TestClient_CloseConcurrency(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	cfg := config.WebSocketConfig{}
 
@@ -311,7 +312,7 @@ func TestClient_IsValidChannel(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Ping(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -346,7 +347,7 @@ func TestClient_HandleMessage_Ping(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_Success(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -384,7 +385,7 @@ func TestClient_HandleMessage_Subscribe_Success(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_InvalidChannel(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -421,7 +422,7 @@ func TestClient_HandleMessage_Subscribe_InvalidChannel(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_MissingMarket(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -457,7 +458,7 @@ func TestClient_HandleMessage_Subscribe_MissingMarket(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_MaxSubscriptions(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -498,7 +499,7 @@ func TestClient_HandleMessage_Subscribe_MaxSubscriptions(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_PrivateChannelNoAuth(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -536,7 +537,7 @@ func TestClient_HandleMessage_Subscribe_PrivateChannelNoAuth(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Subscribe_PrivateChannelWithAuth(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -573,7 +574,7 @@ func TestClient_HandleMessage_Subscribe_PrivateChannelWithAuth(t *testing.T) {
 }
 
 func TestClient_HandleMessage_Unsubscribe(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -612,7 +613,7 @@ func TestClient_HandleMessage_Unsubscribe(t *testing.T) {
 }
 
 func TestClient_HandleMessage_InvalidJSON(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -648,7 +649,7 @@ func TestClient_HandleMessage_InvalidJSON(t *testing.T) {
 }
 
 func TestClient_HandleMessage_UnknownType(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
 	defer hub.Stop()
@@ -684,7 +685,7 @@ func TestClient_HandleMessage_UnknownType(t *testing.T) {
 }
 
 func TestClient_SendError(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	cfg := config.WebSocketConfig{}
@@ -717,7 +718,7 @@ func TestClient_SendError(t *testing.T) {
 }
 
 func TestClient_SendError_BufferFull(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 
 	cfg := config.WebSocketConfig{}

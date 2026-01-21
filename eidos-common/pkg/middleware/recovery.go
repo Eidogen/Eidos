@@ -5,7 +5,6 @@ import (
 	"runtime/debug"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,9 +21,9 @@ func RecoveryUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Error("grpc panic recovered",
-					zap.Any("panic", r),
-					zap.String("method", info.FullMethod),
-					zap.String("stack", string(debug.Stack())),
+					"panic", r,
+					"method", info.FullMethod,
+					"stack", string(debug.Stack()),
 				)
 				err = status.Errorf(codes.Internal, "internal error")
 			}
@@ -45,9 +44,9 @@ func RecoveryStreamServerInterceptor() grpc.StreamServerInterceptor {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Error("grpc stream panic recovered",
-					zap.Any("panic", r),
-					zap.String("method", info.FullMethod),
-					zap.String("stack", string(debug.Stack())),
+					"panic", r,
+					"method", info.FullMethod,
+					"stack", string(debug.Stack()),
 				)
 				err = status.Errorf(codes.Internal, "internal error")
 			}

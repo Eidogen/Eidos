@@ -3,9 +3,9 @@ package event
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/service"
@@ -17,7 +17,7 @@ type OrderBookProcessor interface {
 }
 
 // OrderBookUpdateMessage Kafka 消息格式
-// TODO [eidos-matching]: 需要 eidos-matching 发送订单簿增量更新到 Kafka
+// [eidos-matching] 发送订单簿增量更新到 Kafka
 //
 //	Topic: orderbook-updates
 //	Key: market 字段 (用于分区，如 "BTC-USDC")
@@ -49,22 +49,22 @@ type PriceLevelMessage struct {
 // 消费 Kafka orderbook-updates Topic
 type OrderBookHandler struct {
 	svc    OrderBookProcessor
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewOrderBookHandler 创建订单簿事件处理器
-func NewOrderBookHandler(svc *service.MarketService, logger *zap.Logger) *OrderBookHandler {
+func NewOrderBookHandler(svc *service.MarketService, logger *slog.Logger) *OrderBookHandler {
 	return &OrderBookHandler{
 		svc:    svc,
-		logger: logger.Named("orderbook_handler"),
+		logger: logger.With("component", "orderbook_handler"),
 	}
 }
 
 // NewOrderBookHandlerWithProcessor 创建订单簿事件处理器 (用于测试)
-func NewOrderBookHandlerWithProcessor(svc OrderBookProcessor, logger *zap.Logger) *OrderBookHandler {
+func NewOrderBookHandlerWithProcessor(svc OrderBookProcessor, logger *slog.Logger) *OrderBookHandler {
 	return &OrderBookHandler{
 		svc:    svc,
-		logger: logger.Named("orderbook_handler"),
+		logger: logger.With("component", "orderbook_handler"),
 	}
 }
 
@@ -73,8 +73,8 @@ func (h *OrderBookHandler) Handle(ctx context.Context, key, value []byte) error 
 	var msg OrderBookUpdateMessage
 	if err := json.Unmarshal(value, &msg); err != nil {
 		h.logger.Error("failed to unmarshal orderbook update",
-			zap.Error(err),
-			zap.ByteString("value", value))
+			"error", err,
+			"value", string(value))
 		return err
 	}
 
@@ -85,15 +85,15 @@ func (h *OrderBookHandler) Handle(ctx context.Context, key, value []byte) error 
 	}
 
 	h.logger.Debug("received orderbook update",
-		zap.String("market", update.Market),
-		zap.Int("bids", len(update.Bids)),
-		zap.Int("asks", len(update.Asks)),
-		zap.Uint64("sequence", update.Sequence))
+		"market", update.Market,
+		"bids", len(update.Bids),
+		"asks", len(update.Asks),
+		"sequence", update.Sequence)
 
 	if err := h.svc.ProcessOrderBookUpdate(ctx, update); err != nil {
 		h.logger.Error("failed to process orderbook update",
-			zap.String("market", msg.Market),
-			zap.Error(err))
+			"market", msg.Market,
+			"error", err)
 		return err
 	}
 
@@ -112,12 +112,12 @@ func (h *OrderBookHandler) toDepthUpdate(msg *OrderBookUpdateMessage) (*model.De
 	for _, bid := range msg.Bids {
 		price, err := decimal.NewFromString(bid.Price)
 		if err != nil {
-			h.logger.Error("invalid bid price", zap.String("price", bid.Price), zap.Error(err))
+			h.logger.Error("invalid bid price", "price", bid.Price, "error", err)
 			return nil, err
 		}
 		amount, err := decimal.NewFromString(bid.Amount)
 		if err != nil {
-			h.logger.Error("invalid bid amount", zap.String("amount", bid.Amount), zap.Error(err))
+			h.logger.Error("invalid bid amount", "amount", bid.Amount, "error", err)
 			return nil, err
 		}
 		update.Bids = append(update.Bids, &model.PriceLevel{
@@ -129,12 +129,12 @@ func (h *OrderBookHandler) toDepthUpdate(msg *OrderBookUpdateMessage) (*model.De
 	for _, ask := range msg.Asks {
 		price, err := decimal.NewFromString(ask.Price)
 		if err != nil {
-			h.logger.Error("invalid ask price", zap.String("price", ask.Price), zap.Error(err))
+			h.logger.Error("invalid ask price", "price", ask.Price, "error", err)
 			return nil, err
 		}
 		amount, err := decimal.NewFromString(ask.Amount)
 		if err != nil {
-			h.logger.Error("invalid ask amount", zap.String("amount", ask.Amount), zap.Error(err))
+			h.logger.Error("invalid ask amount", "amount", ask.Amount, "error", err)
 			return nil, err
 		}
 		update.Asks = append(update.Asks, &model.PriceLevel{

@@ -4,12 +4,12 @@ package event
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"sort"
 	"sync"
 
 	"github.com/IBM/sarama"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
@@ -23,15 +23,15 @@ type BatchOrderBookProcessor interface {
 // BatchOrderBookHandler handles batches of orderbook update events
 type BatchOrderBookHandler struct {
 	processor   BatchOrderBookProcessor
-	logger      *zap.Logger
+	logger      *slog.Logger
 	workerCount int
 }
 
 // NewBatchOrderBookHandler creates a new batch orderbook handler
-func NewBatchOrderBookHandler(processor BatchOrderBookProcessor, logger *zap.Logger) *BatchOrderBookHandler {
+func NewBatchOrderBookHandler(processor BatchOrderBookProcessor, logger *slog.Logger) *BatchOrderBookHandler {
 	return &BatchOrderBookHandler{
 		processor:   processor,
-		logger:      logger.Named("batch_orderbook_handler"),
+		logger:      logger.With("component", "batch_orderbook_handler"),
 		workerCount: 8,
 	}
 }
@@ -49,8 +49,8 @@ func (h *BatchOrderBookHandler) HandleBatch(ctx context.Context, messages []*sar
 		var rawMsg OrderBookUpdateMessage
 		if err := json.Unmarshal(msg.Value, &rawMsg); err != nil {
 			h.logger.Warn("failed to unmarshal orderbook update",
-				zap.Error(err),
-				zap.ByteString("value", msg.Value))
+				"error", err,
+				"value", string(msg.Value))
 			metrics.DepthUpdatesTotal.WithLabelValues("unknown").Inc()
 			continue
 		}
@@ -58,8 +58,8 @@ func (h *BatchOrderBookHandler) HandleBatch(ctx context.Context, messages []*sar
 		update, err := h.toDepthUpdate(&rawMsg)
 		if err != nil {
 			h.logger.Warn("failed to convert orderbook update",
-				zap.String("market", rawMsg.Market),
-				zap.Error(err))
+				"market", rawMsg.Market,
+				"error", err)
 			continue
 		}
 
@@ -92,9 +92,9 @@ func (h *BatchOrderBookHandler) HandleBatch(ctx context.Context, messages []*sar
 			for _, u := range updates {
 				if err := h.processor.ProcessOrderBookUpdate(ctx, u.update); err != nil {
 					h.logger.Error("failed to process orderbook update",
-						zap.String("market", market),
-						zap.Uint64("sequence", u.sequence),
-						zap.Error(err))
+						"market", market,
+						"sequence", u.sequence,
+						"error", err)
 					errCh <- err
 				}
 			}
@@ -112,14 +112,14 @@ func (h *BatchOrderBookHandler) HandleBatch(ctx context.Context, messages []*sar
 
 	if len(errs) > 0 {
 		h.logger.Warn("batch processing completed with errors",
-			zap.Int("total", len(messages)),
-			zap.Int("errors", len(errs)))
+			"total", len(messages),
+			"errors", len(errs))
 		return errs[0]
 	}
 
 	h.logger.Debug("batch processed successfully",
-		zap.Int("count", len(messages)),
-		zap.Int("markets", len(marketGroups)))
+		"count", len(messages),
+		"markets", len(marketGroups))
 
 	return nil
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
 	_ "github.com/lib/pq" // PostgreSQL driver
-	"go.uber.org/zap"
 )
 
 // Pool PostgreSQL 连接池
@@ -41,10 +40,10 @@ func NewPool(cfg *Config) (*Pool, error) {
 	}
 
 	logger.Info("connecting to postgresql",
-		zap.String("host", cfg.Host),
-		zap.Int("port", cfg.Port),
-		zap.String("database", cfg.Database),
-		zap.Int("max_open_conns", cfg.MaxOpenConns),
+		"host", cfg.Host,
+		"port", cfg.Port,
+		"database", cfg.Database,
+		"max_open_conns", cfg.MaxOpenConns,
 	)
 
 	db, err := sql.Open("postgres", cfg.DSN())
@@ -80,9 +79,9 @@ func NewPool(cfg *Config) (*Pool, error) {
 	}
 
 	logger.Info("postgresql connection pool created",
-		zap.String("host", cfg.Host),
-		zap.Int("port", cfg.Port),
-		zap.String("database", cfg.Database),
+		"host", cfg.Host,
+		"port", cfg.Port,
+		"database", cfg.Database,
 	)
 
 	return pool, nil
@@ -163,7 +162,7 @@ func (p *Pool) runHealthCheck() {
 				if isHealthy {
 					logger.Info("postgresql connection recovered")
 				} else {
-					logger.Error("postgresql connection lost", zap.Error(err))
+					logger.Error("postgresql connection lost", "error", err)
 				}
 			}
 
@@ -232,20 +231,20 @@ func (p *Pool) logQuery(ctx context.Context, operation, query string, duration t
 	// 检查慢查询
 	if duration >= p.config.SlowQueryThreshold {
 		atomic.AddUint64(&p.slowQueryCount, 1)
-		logger.WithContext(ctx).Warn("slow query detected",
-			zap.String("operation", operation),
-			zap.Duration("duration", duration),
-			zap.String("query", truncateQuery(query, 200)),
+		logger.Warn("slow query detected",
+			"operation", operation,
+			"duration", duration,
+			"query", truncateQuery(query, 200),
 		)
 	}
 
 	// 记录错误
 	if err != nil && p.config.LogLevel != "silent" {
-		logger.WithContext(ctx).Error("database query failed",
-			zap.String("operation", operation),
-			zap.Duration("duration", duration),
-			zap.String("query", truncateQuery(query, 200)),
-			zap.Error(err),
+		logger.Error("database query failed",
+			"operation", operation,
+			"duration", duration,
+			"query", truncateQuery(query, 200),
+			"error", err,
 		)
 	}
 }
@@ -271,10 +270,10 @@ func NewPoolWithRetry(cfg *Config) (*Pool, error) {
 
 		if i < cfg.MaxRetries {
 			logger.Warn("failed to connect to postgresql, retrying",
-				zap.Int("attempt", i+1),
-				zap.Int("max_retries", cfg.MaxRetries),
-				zap.Duration("retry_interval", cfg.RetryInterval),
-				zap.Error(err),
+				"attempt", i+1,
+				"max_retries", cfg.MaxRetries,
+				"retry_interval", cfg.RetryInterval,
+				"error", err,
 			)
 			time.Sleep(cfg.RetryInterval)
 		}

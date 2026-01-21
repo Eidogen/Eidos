@@ -323,9 +323,6 @@ func TestOrder_InvalidMarket(t *testing.T) {
 }
 
 // TestOrder_AmountBelowMinimum 数量低于最小值测试
-// 注意: 当前服务实现中 validateCreateOrderRequest 只检查基础参数
-// 没有实现与 MarketConfig.MinAmount 的验证，所以小数量订单可以创建成功
-// TODO: 在服务中添加最小数量验证
 func TestOrder_AmountBelowMinimum(t *testing.T) {
 	suite := NewTestSuite(t)
 	defer suite.Cleanup()
@@ -338,8 +335,7 @@ func TestOrder_AmountBelowMinimum(t *testing.T) {
 	require.NoError(t, err)
 
 	// 尝试下单数量低于最小值 (ETH-USDT 最小 0.001)
-	// 当前实现允许这种订单，因为没有实现最小数量验证
-	order, err := suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
+	_, err = suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
 		Wallet:        wallet,
 		Market:        market,
 		Side:          model.OrderSideBuy,
@@ -351,15 +347,12 @@ func TestOrder_AmountBelowMinimum(t *testing.T) {
 		ExpireAt:      time.Now().Add(24 * time.Hour).UnixMilli(),
 		Signature:     MockSignature(),
 	})
-	// 当前行为: 订单创建成功 (未来应该返回错误)
-	assert.NoError(t, err)
-	assert.NotNil(t, order)
+	// 期望返回错误: 数量低于最小值
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, service.ErrInvalidOrder)
 }
 
 // TestOrder_PriceBelowMinimum 价格低于最小值测试
-// 注意: 当前服务实现中 validateCreateOrderRequest 只检查价格 > 0
-// 没有实现与 MarketConfig.MinPrice 的验证，所以低价格订单可以创建成功
-// TODO: 在服务中添加最小价格验证
 func TestOrder_PriceBelowMinimum(t *testing.T) {
 	suite := NewTestSuite(t)
 	defer suite.Cleanup()
@@ -372,8 +365,7 @@ func TestOrder_PriceBelowMinimum(t *testing.T) {
 	require.NoError(t, err)
 
 	// 尝试下单价格低于最小值 (ETH-USDT 最小价格 1)
-	// 当前实现允许这种订单，因为没有实现最小价格验证
-	order, err := suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
+	_, err = suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
 		Wallet:        wallet,
 		Market:        market,
 		Side:          model.OrderSideBuy,
@@ -385,15 +377,12 @@ func TestOrder_PriceBelowMinimum(t *testing.T) {
 		ExpireAt:      time.Now().Add(24 * time.Hour).UnixMilli(),
 		Signature:     MockSignature(),
 	})
-	// 当前行为: 订单创建成功 (未来应该返回错误)
-	assert.NoError(t, err)
-	assert.NotNil(t, order)
+	// 期望返回错误: 价格低于最小值
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, service.ErrInvalidOrder)
 }
 
 // TestOrder_ExpiredOrder 过期订单测试
-// 注意: 当前服务实现中 validateCreateOrderRequest 没有验证 ExpireAt
-// 过期订单可以创建成功，过期处理由后台任务或撮合引擎负责
-// TODO: 在服务中添加过期时间验证
 func TestOrder_ExpiredOrder(t *testing.T) {
 	suite := NewTestSuite(t)
 	defer suite.Cleanup()
@@ -406,8 +395,7 @@ func TestOrder_ExpiredOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	// 创建一个已过期的订单
-	// 当前实现允许创建，过期检查在其他地方处理
-	order, err := suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
+	_, err = suite.orderSvc.CreateOrder(suite.ctx, &service.CreateOrderRequest{
 		Wallet:        wallet,
 		Market:        market,
 		Side:          model.OrderSideBuy,
@@ -419,9 +407,9 @@ func TestOrder_ExpiredOrder(t *testing.T) {
 		ExpireAt:      time.Now().Add(-1 * time.Hour).UnixMilli(), // 已过期
 		Signature:     MockSignature(),
 	})
-	// 当前行为: 订单创建成功 (未来应该返回错误)
-	assert.NoError(t, err)
-	assert.NotNil(t, order)
+	// 期望返回错误: 订单已过期
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, service.ErrInvalidOrder)
 }
 
 // TestOrder_CancelNonExistentOrder 取消不存在的订单测试

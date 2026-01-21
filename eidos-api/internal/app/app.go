@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -30,7 +30,7 @@ import (
 // App 应用实例
 type App struct {
 	cfg    *config.Config
-	logger *zap.Logger
+	logger *slog.Logger
 
 	// HTTP 服务
 	httpServer *http.Server
@@ -70,7 +70,7 @@ type App struct {
 }
 
 // New 创建应用实例
-func New(cfg *config.Config, logger *zap.Logger) *App {
+func New(cfg *config.Config, logger *slog.Logger) *App {
 	return &App{
 		cfg:    cfg,
 		logger: logger,
@@ -93,9 +93,9 @@ func (a *App) Start(ctx context.Context) error {
 	// 4. 启动 HTTP 服务
 	go func() {
 		addr := fmt.Sprintf(":%d", a.cfg.Service.HTTPPort)
-		a.logger.Info("starting HTTP server", zap.String("addr", addr))
+		a.logger.Info("starting HTTP server", "addr", addr)
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.logger.Error("HTTP server error", zap.Error(err))
+			a.logger.Error("HTTP server error", "error", err)
 		}
 	}()
 
@@ -104,7 +104,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	// 6. 启动 Redis Pub/Sub 订阅器（接收 eidos-market 推送的行情数据）
 	if err := a.wsSubscriber.Start(ctx); err != nil {
-		a.logger.Warn("failed to start ws subscriber", zap.Error(err))
+		a.logger.Warn("failed to start ws subscriber", "error", err)
 		// 订阅失败不影响服务启动，WebSocket 仍可工作但不会收到实时推送
 	}
 
@@ -136,31 +136,31 @@ func (a *App) Stop(ctx context.Context) error {
 	// 停止 HTTP 服务
 	if a.httpServer != nil {
 		if err := a.httpServer.Shutdown(ctx); err != nil {
-			a.logger.Error("HTTP server shutdown error", zap.Error(err))
+			a.logger.Error("HTTP server shutdown error", "error", err)
 		}
 	}
 
 	// 关闭 gRPC 连接
 	if a.tradingConn != nil {
 		if err := a.tradingConn.Close(); err != nil {
-			a.logger.Error("trading gRPC connection close error", zap.Error(err))
+			a.logger.Error("trading gRPC connection close error", "error", err)
 		}
 	}
 	if a.marketConn != nil {
 		if err := a.marketConn.Close(); err != nil {
-			a.logger.Error("market gRPC connection close error", zap.Error(err))
+			a.logger.Error("market gRPC connection close error", "error", err)
 		}
 	}
 	if a.riskConn != nil {
 		if err := a.riskConn.Close(); err != nil {
-			a.logger.Error("risk gRPC connection close error", zap.Error(err))
+			a.logger.Error("risk gRPC connection close error", "error", err)
 		}
 	}
 
 	// 关闭 Redis
 	if a.redis != nil {
 		if err := a.redis.Close(); err != nil {
-			a.logger.Error("Redis close error", zap.Error(err))
+			a.logger.Error("Redis close error", "error", err)
 		}
 	}
 
@@ -173,13 +173,13 @@ func (a *App) WaitForShutdown() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-	a.logger.Info("received shutdown signal", zap.String("signal", sig.String()))
+	a.logger.Info("received shutdown signal", "signal", sig.String())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := a.Stop(ctx); err != nil {
-		a.logger.Error("application stop error", zap.Error(err))
+		a.logger.Error("application stop error", "error", err)
 	}
 }
 
@@ -195,7 +195,7 @@ func (a *App) initDependencies(ctx context.Context) error {
 	if err := a.redis.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis ping: %w", err)
 	}
-	a.logger.Info("redis connected", zap.String("addr", a.cfg.Redis.Addr()))
+	a.logger.Info("redis connected", "addr", a.cfg.Redis.Addr())
 
 	// 初始化 Nacos (如果启用)
 	var err error
@@ -216,9 +216,9 @@ func (a *App) initDependencies(ctx context.Context) error {
 		marketAddr = nacos.BuildTarget("eidos-market")
 		riskAddr = nacos.BuildTarget("eidos-risk")
 		a.logger.Info("using nacos service discovery",
-			zap.String("trading", tradingAddr),
-			zap.String("market", marketAddr),
-			zap.String("risk", riskAddr))
+			"trading", tradingAddr,
+			"market", marketAddr,
+			"risk", riskAddr)
 	}
 
 	a.tradingConn, err = grpc.NewClient(
@@ -229,7 +229,7 @@ func (a *App) initDependencies(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("grpc dial trading: %w", err)
 	}
-	a.logger.Info("trading gRPC connected", zap.String("addr", tradingAddr))
+	a.logger.Info("trading gRPC connected", "addr", tradingAddr)
 
 	// 初始化 Trading Client
 	a.tradingClient = client.NewTradingClient(a.tradingConn)
@@ -243,7 +243,7 @@ func (a *App) initDependencies(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("grpc dial market: %w", err)
 	}
-	a.logger.Info("market gRPC connected", zap.String("addr", marketAddr))
+	a.logger.Info("market gRPC connected", "addr", marketAddr)
 
 	// 初始化 Market Client
 	a.marketClient = client.NewMarketClient(a.marketConn)
@@ -256,9 +256,9 @@ func (a *App) initDependencies(ctx context.Context) error {
 			grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
 		)
 		if err != nil {
-			a.logger.Warn("risk gRPC connection failed, continuing without risk service", zap.Error(err))
+			a.logger.Warn("risk gRPC connection failed, continuing without risk service", "error", err)
 		} else {
-			a.logger.Info("risk gRPC connected", zap.String("addr", riskAddr))
+			a.logger.Info("risk gRPC connected", "addr", riskAddr)
 			a.riskClient = client.NewRiskClient(a.riskConn)
 		}
 	}
@@ -370,7 +370,7 @@ func (a *App) initNacos() error {
 	if err != nil {
 		return fmt.Errorf("create nacos client: %w", err)
 	}
-	a.logger.Info("nacos client created", zap.String("server", a.cfg.Nacos.ServerAddr))
+	a.logger.Info("nacos client created", "server", a.cfg.Nacos.ServerAddr)
 
 	// 创建服务发现器
 	a.nacosDiscovery = nacos.NewDiscovery(a.nacosClient)
@@ -397,9 +397,9 @@ func (a *App) initNacos() error {
 		return fmt.Errorf("register service: %w", err)
 	}
 	a.logger.Info("service registered to nacos",
-		zap.String("name", a.serviceInstance.ServiceName),
-		zap.String("ip", a.serviceInstance.IP),
-		zap.Uint64("port", a.serviceInstance.Port))
+		"name", a.serviceInstance.ServiceName,
+		"ip", a.serviceInstance.IP,
+		"port", a.serviceInstance.Port)
 
 	return nil
 }
@@ -409,7 +409,7 @@ func (a *App) stopNacos() {
 	// 注销服务
 	if a.nacosRegistry != nil && a.serviceInstance != nil {
 		if err := a.nacosRegistry.Deregister(a.serviceInstance); err != nil {
-			a.logger.Error("deregister service from nacos failed", zap.Error(err))
+			a.logger.Error("deregister service from nacos failed", "error", err)
 		} else {
 			a.logger.Info("service deregistered from nacos")
 		}
@@ -418,7 +418,7 @@ func (a *App) stopNacos() {
 	// 取消所有订阅
 	if a.nacosDiscovery != nil {
 		if err := a.nacosDiscovery.UnsubscribeAll(); err != nil {
-			a.logger.Error("unsubscribe all services failed", zap.Error(err))
+			a.logger.Error("unsubscribe all services failed", "error", err)
 		}
 	}
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -81,8 +80,8 @@ func (j *DataCleanupJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		count, err := j.cleanupPartitionedTable(ctx, tableName, config)
 		if err != nil {
 			logger.Error("failed to cleanup partitioned table",
-				zap.String("table", tableName),
-				zap.Error(err))
+				"table", tableName,
+				"error", err)
 			result.ErrorCount++
 			partitionResults[tableName] = map[string]interface{}{"error": err.Error()}
 		} else {
@@ -105,8 +104,8 @@ func (j *DataCleanupJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		count, err := j.cleanupRegularTable(ctx, tableName, config)
 		if err != nil {
 			logger.Error("failed to cleanup regular table",
-				zap.String("table", tableName),
-				zap.Error(err))
+				"table", tableName,
+				"error", err)
 			result.ErrorCount++
 			regularResults[tableName] = map[string]interface{}{"error": err.Error()}
 		} else {
@@ -129,8 +128,8 @@ func (j *DataCleanupJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 		count, err := j.cleanupTimescaleTable(ctx, tableName, config)
 		if err != nil {
 			logger.Error("failed to cleanup timescale table",
-				zap.String("table", tableName),
-				zap.Error(err))
+				"table", tableName,
+				"error", err)
 			result.ErrorCount++
 			timescaleResults[tableName] = map[string]interface{}{"error": err.Error()}
 		} else {
@@ -142,9 +141,9 @@ func (j *DataCleanupJob) Execute(ctx context.Context) (*scheduler.JobResult, err
 	result.Details["timescale_tables"] = timescaleResults
 
 	logger.Info("data cleanup completed",
-		zap.Int("processed", result.ProcessedCount),
-		zap.Int("affected", result.AffectedCount),
-		zap.Int("errors", result.ErrorCount))
+		"processed", result.ProcessedCount,
+		"affected", result.AffectedCount,
+		"errors", result.ErrorCount)
 
 	return result, nil
 }
@@ -182,18 +181,18 @@ func (j *DataCleanupJob) cleanupPartitionedTable(ctx context.Context, tableName 
 		// 检查分区是否过期
 		if year < cutoffYear || (year == cutoffYear && month < cutoffMonth) {
 			logger.Info("dropping partition",
-				zap.String("partition", partition),
-				zap.Int("year", year),
-				zap.Int("month", month))
+				"partition", partition,
+				"year", year,
+				"month", month)
 
-			// TODO: 如果配置了 archive_before_drop，先导出数据
+			// 如果配置了 archive_before_drop，先导出数据 (通过 ArchiveJob 实现)
 
 			// 删除分区
 			dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", partition)
 			if err := j.db.WithContext(ctx).Exec(dropSQL).Error; err != nil {
 				logger.Error("failed to drop partition",
-					zap.String("partition", partition),
-					zap.Error(err))
+					"partition", partition,
+					"error", err)
 				continue
 			}
 
@@ -279,9 +278,9 @@ func (j *DataCleanupJob) cleanupTimescaleTable(ctx context.Context, tableName st
 
 		if err != nil {
 			logger.Warn("failed to drop chunks",
-				zap.String("table", tableName),
-				zap.String("interval", interval),
-				zap.Error(err))
+				"table", tableName,
+				"interval", interval,
+				"error", err)
 			continue
 		}
 

@@ -4,10 +4,10 @@ package client
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -21,7 +21,7 @@ import (
 type MatchingClient struct {
 	conn   *grpc.ClientConn
 	client matchingpb.MatchingServiceClient
-	logger *zap.Logger
+	logger *slog.Logger
 	config *MatchingClientConfig
 }
 
@@ -42,7 +42,7 @@ func DefaultMatchingClientConfig(addr string) *MatchingClientConfig {
 }
 
 // NewMatchingClient 创建撮合服务客户端
-func NewMatchingClient(cfg *MatchingClientConfig, logger *zap.Logger) (*MatchingClient, error) {
+func NewMatchingClient(cfg *MatchingClientConfig, logger *slog.Logger) (*MatchingClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ConnectTimeout)
 	defer cancel()
 
@@ -55,7 +55,7 @@ func NewMatchingClient(cfg *MatchingClientConfig, logger *zap.Logger) (*Matching
 	}
 
 	logger.Info("connected to eidos-matching",
-		zap.String("addr", cfg.Addr),
+		"addr", cfg.Addr,
 	)
 
 	return &MatchingClient{
@@ -78,8 +78,8 @@ func (c *MatchingClient) GetSnapshot(ctx context.Context, market string) (*model
 	})
 	if err != nil {
 		c.logger.Error("failed to get orderbook snapshot",
-			zap.String("market", market),
-			zap.Error(err))
+			"market", market,
+			"error", err)
 		return nil, fmt.Errorf("get orderbook: %w", err)
 	}
 
@@ -111,10 +111,10 @@ func (c *MatchingClient) GetSnapshot(ctx context.Context, market string) (*model
 	}
 
 	c.logger.Debug("orderbook snapshot fetched",
-		zap.String("market", market),
-		zap.Uint64("sequence", depth.Sequence),
-		zap.Int("bids", len(depth.Bids)),
-		zap.Int("asks", len(depth.Asks)))
+		"market", market,
+		"sequence", depth.Sequence,
+		"bids", len(depth.Bids),
+		"asks", len(depth.Asks))
 
 	return depth, nil
 }

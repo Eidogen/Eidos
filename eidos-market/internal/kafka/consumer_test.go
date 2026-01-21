@@ -3,6 +3,8 @@ package kafka
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -10,7 +12,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 // mockMessageHandler 模拟消息处理器
@@ -86,7 +87,7 @@ func TestConsumer_RegisterHandler(t *testing.T) {
 	// Create a consumer with nil client (will fail on Start but we can test RegisterHandler)
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	handler1 := newMockHandler("trade-results")
@@ -103,7 +104,7 @@ func TestConsumer_RegisterHandler(t *testing.T) {
 func TestConsumer_RegisterHandler_Overwrite(t *testing.T) {
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	handler1 := newMockHandler("test-topic")
@@ -120,7 +121,7 @@ func TestConsumer_RegisterHandler_Overwrite(t *testing.T) {
 func TestConsumer_Stats(t *testing.T) {
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	// Initially all stats are zero
@@ -172,7 +173,7 @@ func TestConsumerStartNoHandlers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -292,7 +293,7 @@ func TestConsumer_Setup(t *testing.T) {
 
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -308,7 +309,7 @@ func TestConsumer_Cleanup(t *testing.T) {
 
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -324,7 +325,7 @@ func TestConsumer_ConsumeClaimNoHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},
@@ -345,7 +346,7 @@ func TestConsumer_ConsumeClaimSuccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},
@@ -388,7 +389,7 @@ func TestConsumer_ConsumeClaimWithRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},
@@ -428,7 +429,7 @@ func TestConsumer_ConsumeClaimAllRetriesFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},
@@ -465,7 +466,7 @@ func TestConsumer_ConsumeClaimNotCommitOnError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 2, CommitOnError: false}, // Do not commit on error
@@ -503,7 +504,7 @@ func TestConsumer_ConsumeClaimContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},
@@ -526,7 +527,7 @@ func TestConsumer_MultipleMessages(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
 		handlers: make(map[string]MessageHandler),
-		logger:   zap.NewNop(),
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ctx:      ctx,
 		cancel:   cancel,
 		config:   ConsumerConfig{MaxRetry: 3, CommitOnError: true},

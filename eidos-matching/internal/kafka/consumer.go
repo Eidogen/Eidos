@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // ConsumerConfig 消费者配置
@@ -359,11 +359,11 @@ func (c *Consumer) parseCancelMessage(data []byte) (*model.CancelMessage, error)
 func (c *Consumer) commitMessage(reader *kafkago.Reader, msg kafkago.Message) {
 	if c.config.CommitMode == "manual" {
 		if err := reader.CommitMessages(c.ctx, msg); err != nil {
-			zap.L().Warn("commit message failed",
-				zap.String("topic", msg.Topic),
-				zap.Int("partition", msg.Partition),
-				zap.Int64("offset", msg.Offset),
-				zap.Error(err))
+			slog.Warn("commit message failed",
+				"topic", msg.Topic,
+				"partition", msg.Partition,
+				"offset", msg.Offset,
+				"error", err)
 		}
 	}
 }
@@ -389,7 +389,7 @@ func (c *Consumer) GetOffsets() map[string]int64 {
 }
 
 // SeekToOffset 设置偏移量 (用于恢复)
-// TODO: 需要在 Start 之前调用
+// 注意: 需要在 Start 之前调用
 func (c *Consumer) SeekToOffset(topic string, partition int, offset int64) error {
 	// kafka-go 需要在创建 Reader 时指定 StartOffset
 	// 或者使用 SetOffset 方法
@@ -469,20 +469,20 @@ func (c *Consumer) sendToDLQ(writer *kafkago.Writer, originalMsg kafkago.Message
 		Value: data,
 	}); err != nil {
 		metrics.RecordKafkaError(writer.Topic, "dlq_send")
-		zap.L().Error("send to DLQ failed",
-			zap.String("dlq_topic", writer.Topic),
-			zap.String("original_topic", originalMsg.Topic),
-			zap.Int64("offset", originalMsg.Offset),
-			zap.Error(err))
+		slog.Error("send to DLQ failed",
+			"dlq_topic", writer.Topic,
+			"original_topic", originalMsg.Topic,
+			"offset", originalMsg.Offset,
+			"error", err)
 		return
 	}
 
-	zap.L().Warn("message sent to DLQ",
-		zap.String("dlq_topic", writer.Topic),
-		zap.String("original_topic", originalMsg.Topic),
-		zap.Int64("offset", originalMsg.Offset),
-		zap.String("error_type", errorType),
-		zap.String("error_msg", errorMsg))
+	slog.Warn("message sent to DLQ",
+		"dlq_topic", writer.Topic,
+		"original_topic", originalMsg.Topic,
+		"offset", originalMsg.Offset,
+		"error_type", errorType,
+		"error_msg", errorMsg)
 	metrics.RecordKafkaMessage(writer.Topic, false)
 }
 

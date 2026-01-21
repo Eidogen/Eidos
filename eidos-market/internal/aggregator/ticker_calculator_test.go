@@ -2,6 +2,8 @@ package aggregator
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -34,7 +35,7 @@ func (m *mockTickerPublisher) GetTickers() []*model.Ticker {
 }
 
 func TestTickerCalculator_ProcessTrade(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	publisher := &mockTickerPublisher{}
 
 	config := TickerCalculatorConfig{
@@ -105,7 +106,7 @@ func TestTickerCalculator_ProcessTrade(t *testing.T) {
 }
 
 func TestTickerCalculator_PriceChange(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := TickerCalculatorConfig{
 		PublishInterval: time.Hour,
@@ -146,7 +147,7 @@ func TestTickerCalculator_PriceChange(t *testing.T) {
 }
 
 func TestTickerCalculator_UpdateBestPrices(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := TickerCalculatorConfig{
 		PublishInterval: time.Hour,
@@ -172,7 +173,7 @@ func TestTickerCalculator_UpdateBestPrices(t *testing.T) {
 }
 
 func TestTickerCalculator_BucketExpiry(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := TickerCalculatorConfig{
 		PublishInterval: time.Hour,
@@ -218,7 +219,7 @@ func TestTickerCalculator_BucketExpiry(t *testing.T) {
 }
 
 func TestTickerCalculator_Stats(t *testing.T) {
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	config := TickerCalculatorConfig{
 		PublishInterval: time.Hour,

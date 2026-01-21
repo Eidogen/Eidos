@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
@@ -125,10 +124,10 @@ func (r *OrderOutboxRelay) Start(ctx context.Context) {
 	go r.cleanupLoop(ctx)
 
 	logger.Info("order outbox relay started",
-		zap.Int("shard_count", r.cfg.ShardCount),
-		zap.Duration("relay_interval", r.cfg.RelayInterval),
-		zap.Int("batch_size", r.cfg.BatchSize),
-		zap.String("instance_id", r.cfg.InstanceID),
+		"shard_count", r.cfg.ShardCount,
+		"relay_interval", r.cfg.RelayInterval,
+		"batch_size", r.cfg.BatchSize,
+		"instance_id", r.cfg.InstanceID,
 	)
 }
 
@@ -184,8 +183,8 @@ func (r *OrderOutboxRelay) relayLoop(ctx context.Context, shardID int) {
 				if r.tryAcquireLock(ctx, lockKey) {
 					r.setLockStatus(shardID, true)
 					logger.Info("acquired shard lock",
-						zap.Int("shard_id", shardID),
-						zap.String("instance_id", r.cfg.InstanceID),
+						"shard_id", shardID,
+						"instance_id", r.cfg.InstanceID,
 					)
 				}
 			}
@@ -203,7 +202,7 @@ func (r *OrderOutboxRelay) tryAcquireLock(ctx context.Context, lockKey string) b
 	// 使用 SET NX EX 原子获取锁
 	ok, err := r.rdb.SetNX(ctx, lockKey, r.cfg.InstanceID, r.cfg.LockTTL).Result()
 	if err != nil {
-		logger.Error("try acquire lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("try acquire lock failed", "key", lockKey, "error", err)
 		return false
 	}
 	return ok
@@ -221,7 +220,7 @@ func (r *OrderOutboxRelay) renewLock(ctx context.Context, lockKey string) bool {
 
 	result, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID, r.cfg.LockTTL.Milliseconds()).Int()
 	if err != nil {
-		logger.Error("renew lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("renew lock failed", "key", lockKey, "error", err)
 		return false
 	}
 	return result == 1
@@ -242,13 +241,13 @@ func (r *OrderOutboxRelay) releaseLock(ctx context.Context, shardID int, lockKey
 	`)
 
 	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
-		logger.Error("release lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("release lock failed", "key", lockKey, "error", err)
 	}
 
 	r.setLockStatus(shardID, false)
 	logger.Info("released shard lock",
-		zap.Int("shard_id", shardID),
-		zap.String("instance_id", r.cfg.InstanceID),
+		"shard_id", shardID,
+		"instance_id", r.cfg.InstanceID,
 	)
 }
 
@@ -295,8 +294,8 @@ func (r *OrderOutboxRelay) processBatch(ctx context.Context, shardID int, pendin
 				return // 队列为空
 			}
 			logger.Error("rpop order outbox failed",
-				zap.Int("shard_id", shardID),
-				zap.Error(err),
+				"shard_id", shardID,
+				"error", err,
 			)
 			return
 		}
@@ -304,14 +303,14 @@ func (r *OrderOutboxRelay) processBatch(ctx context.Context, shardID int, pendin
 		// 处理该订单
 		if err := r.processOrder(ctx, orderID); err != nil {
 			logger.Error("process order outbox failed",
-				zap.String("order_id", orderID),
-				zap.Error(err),
+				"order_id", orderID,
+				"error", err,
 			)
 			// 处理失败，重新放回队列左侧 (会在下一轮重试)
 			if pushErr := r.rdb.LPush(ctx, pendingKey, orderID).Err(); pushErr != nil {
 				logger.Error("lpush order back to outbox failed",
-					zap.String("order_id", orderID),
-					zap.Error(pushErr),
+					"order_id", orderID,
+					"error", pushErr,
 				)
 			}
 
@@ -340,7 +339,7 @@ func (r *OrderOutboxRelay) processOrder(ctx context.Context, orderID string) err
 	if len(result) == 0 {
 		// 记录不存在，可能已被处理
 		logger.Warn("order outbox record not found, may already processed",
-			zap.String("order_id", orderID))
+			"order_id", orderID)
 		return nil
 	}
 
@@ -413,13 +412,13 @@ func (r *OrderOutboxRelay) processOrder(ctx context.Context, orderID string) err
 		"updated_at", time.Now().UnixMilli(),
 	).Err(); err != nil {
 		logger.Warn("update outbox status to sent failed",
-			zap.String("order_id", orderID),
-			zap.Error(err))
+			"order_id", orderID,
+			"error", err)
 	}
 
 	logger.Debug("order sent to matching engine",
-		zap.String("order_id", orderID),
-		zap.String("market", orderMsg.Market),
+		"order_id", orderID,
+		"market", orderMsg.Market,
 	)
 
 	return nil
@@ -460,7 +459,7 @@ func (r *OrderOutboxRelay) recoverStaleMessages(ctx context.Context) {
 	for {
 		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			logger.Error("scan outbox keys failed", zap.Error(err))
+			logger.Error("scan outbox keys failed", "error", err)
 			return
 		}
 
@@ -513,15 +512,15 @@ func (r *OrderOutboxRelay) recoverStaleMessages(ctx context.Context) {
 			recovered, err := script.Run(ctx, r.rdb, []string{key, pendingKey}, orderID, time.Now().UnixMilli()).Int()
 			if err != nil {
 				logger.Error("recover stale order failed",
-					zap.String("order_id", orderID),
-					zap.Error(err))
+					"order_id", orderID,
+					"error", err)
 				continue
 			}
 
 			if recovered == 1 {
 				logger.Info("recovered stale processing order",
-					zap.String("order_id", orderID),
-					zap.Int("shard_id", shardID),
+					"order_id", orderID,
+					"shard_id", shardID,
 				)
 			}
 		}
@@ -568,7 +567,7 @@ func (r *OrderOutboxRelay) releaseLockSimple(ctx context.Context, lockKey string
 	`)
 
 	if _, err := script.Run(ctx, r.rdb, []string{lockKey}, r.cfg.InstanceID).Result(); err != nil {
-		logger.Error("release simple lock failed", zap.String("key", lockKey), zap.Error(err))
+		logger.Error("release simple lock failed", "key", lockKey, "error", err)
 	}
 }
 
@@ -583,7 +582,7 @@ func (r *OrderOutboxRelay) cleanupSentMessages(ctx context.Context) {
 	for {
 		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			logger.Error("scan outbox keys for cleanup failed", zap.Error(err))
+			logger.Error("scan outbox keys for cleanup failed", "error", err)
 			return
 		}
 
@@ -610,8 +609,8 @@ func (r *OrderOutboxRelay) cleanupSentMessages(ctx context.Context) {
 			// 删除记录
 			if err := r.rdb.Del(ctx, key).Err(); err != nil {
 				logger.Error("delete sent outbox record failed",
-					zap.String("key", key),
-					zap.Error(err))
+					"key", key,
+					"error", err)
 				continue
 			}
 			deleted++
@@ -625,7 +624,7 @@ func (r *OrderOutboxRelay) cleanupSentMessages(ctx context.Context) {
 
 	if deleted > 0 {
 		logger.Info("cleaned up sent order outbox records",
-			zap.Int("count", deleted),
+			"count", deleted,
 		)
 	}
 }
@@ -660,7 +659,7 @@ func (r *OrderOutboxRelay) alertFailedMessages(ctx context.Context) {
 
 	if failedCount > 0 {
 		logger.Warn("order outbox has failed messages",
-			zap.Int("count", failedCount),
+			"count", failedCount,
 		)
 		// 发送告警通知 (Metrics)
 		metrics.RecordOutboxError("order", "processing_failed_in_db")

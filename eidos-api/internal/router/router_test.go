@@ -1,6 +1,8 @@
 package router
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +12,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
@@ -23,7 +24,7 @@ func TestNew(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	cfg := &config.Config{}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := New(engine, cfg, logger, nil, nil)
 
@@ -37,7 +38,7 @@ func TestRegisterMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	cfg := &config.Config{}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := New(engine, cfg, logger, nil, nil)
 	r.RegisterMiddleware()
@@ -62,7 +63,7 @@ func TestRegisterRoutes_HealthEndpoints(t *testing.T) {
 			MaxSubscriptions: 50,
 		},
 	}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := New(engine, cfg, logger, nil, nil)
 	r.RegisterMiddleware()
@@ -163,7 +164,7 @@ func TestRegisterRoutes_WithRateLimit(t *testing.T) {
 			TimestampToleranceMs: 300000,
 		},
 	}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	sw := ratelimit.NewSlidingWindow(redisClient)
 	rg := cache.NewReplayGuard(redisClient)
@@ -243,7 +244,7 @@ func TestRegisterRoutes_AllEndpointsExist(t *testing.T) {
 			TimestampToleranceMs: 300000,
 		},
 	}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	sw := ratelimit.NewSlidingWindow(redisClient)
 	rg := cache.NewReplayGuard(redisClient)
@@ -365,7 +366,7 @@ func TestRouter_PublicEndpointsAccessible(t *testing.T) {
 			TimestampToleranceMs: 300000,
 		},
 	}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	sw := ratelimit.NewSlidingWindow(redisClient)
 	rg := cache.NewReplayGuard(redisClient)

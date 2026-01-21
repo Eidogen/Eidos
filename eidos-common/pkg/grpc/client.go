@@ -2,14 +2,17 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
@@ -111,7 +114,7 @@ func (f *ClientFactory) createConnection(target string) (*grpc.ClientConn, error
 	}
 
 	logger.Info("grpc connection created",
-		zap.String("target", target),
+		"target", target,
 	)
 
 	return conn, nil
@@ -124,8 +127,17 @@ func (f *ClientFactory) buildDialOptions() []grpc.DialOption {
 	// TLS 配置
 	if f.config.Insecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		// 加载 TLS 证书
+		tlsCreds, err := f.loadTLSCredentials()
+		if err != nil {
+			logger.Warn("failed to load TLS credentials, falling back to insecure",
+				"error", err)
+			opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		} else {
+			opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
+		}
 	}
-	// TODO: 添加 TLS 支持
 
 	// 保活配置
 	opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
@@ -170,6 +182,35 @@ func (f *ClientFactory) buildDialOptions() []grpc.DialOption {
 	return opts
 }
 
+// loadTLSCredentials 加载 TLS 证书
+func (f *ClientFactory) loadTLSCredentials() (credentials.TransportCredentials, error) {
+	// 如果没有配置证书文件，使用系统根证书
+	if f.config.CertFile == "" {
+		tlsConfig := &tls.Config{
+			ServerName: f.config.ServerName,
+		}
+		return credentials.NewTLS(tlsConfig), nil
+	}
+
+	// 加载 CA 证书
+	caCert, err := os.ReadFile(f.config.CertFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA cert file: %w", err)
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to append CA cert")
+	}
+
+	tlsConfig := &tls.Config{
+		RootCAs:    certPool,
+		ServerName: f.config.ServerName,
+	}
+
+	return credentials.NewTLS(tlsConfig), nil
+}
+
 // Close 关闭所有连接
 func (f *ClientFactory) Close() error {
 	var lastErr error
@@ -178,8 +219,8 @@ func (f *ClientFactory) Close() error {
 		if err := conn.Close(); err != nil {
 			lastErr = err
 			logger.Error("failed to close grpc connection",
-				zap.String("target", key.(string)),
-				zap.Error(err),
+				"target", key.(string),
+				"error", err,
 			)
 		}
 		return true
@@ -209,16 +250,17 @@ func UnaryClientLoggingInterceptor() grpc.UnaryClientInterceptor {
 		err := invoker(ctx, method, req, reply, cc, opts...)
 		duration := time.Since(start)
 
-		fields := []zap.Field{
-			zap.String("method", method),
-			zap.Duration("duration", duration),
-		}
-
 		if err != nil {
-			fields = append(fields, zap.Error(err))
-			logger.WithContext(ctx).Debug("grpc client call failed", fields...)
+			logger.Debug("grpc client call failed",
+				"method", method,
+				"duration", duration,
+				"error", err,
+			)
 		} else {
-			logger.WithContext(ctx).Debug("grpc client call completed", fields...)
+			logger.Debug("grpc client call completed",
+				"method", method,
+				"duration", duration,
+			)
 		}
 
 		return err
@@ -238,10 +280,10 @@ func StreamClientLoggingInterceptor() grpc.StreamClientInterceptor {
 		start := time.Now()
 		stream, err := streamer(ctx, desc, cc, method, opts...)
 
-		logger.WithContext(ctx).Debug("grpc client stream started",
-			zap.String("method", method),
-			zap.Duration("setup_duration", time.Since(start)),
-			zap.Error(err),
+		logger.Debug("grpc client stream started",
+			"method", method,
+			"setup_duration", time.Since(start),
+			"error", err,
 		)
 
 		return stream, err

@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 )
 
 // ReconciliationTask 对账任务
@@ -166,9 +165,9 @@ func (s *ReconciliationService) TriggerReconciliation(ctx context.Context, walle
 	go s.runReconciliation(context.Background(), task)
 
 	logger.Info("reconciliation triggered",
-		zap.String("task_id", taskID),
-		zap.String("wallet", walletAddress),
-		zap.String("token", token))
+		"task_id", taskID,
+		"wallet", walletAddress,
+		"token", token)
 
 	return taskID, nil
 }
@@ -194,8 +193,8 @@ func (s *ReconciliationService) runReconciliation(ctx context.Context, task *Rec
 			task.ErrorMessage = fmt.Sprintf("panic: %v", r)
 			task.CompletedAt = time.Now().UnixMilli()
 			logger.Error("reconciliation panic",
-				zap.String("task_id", task.TaskID),
-				zap.Any("panic", r))
+				"task_id", task.TaskID,
+				"panic", r)
 		}
 	}()
 
@@ -250,9 +249,9 @@ func (s *ReconciliationService) runReconciliation(ctx context.Context, task *Rec
 
 		if err := s.reconcileBatch(ctx, task, batch, tokens); err != nil {
 			logger.Error("reconcile batch failed",
-				zap.String("task_id", task.TaskID),
-				zap.Int("batch_start", i),
-				zap.Error(err))
+				"task_id", task.TaskID,
+				"batch_start", i,
+				"error", err)
 			// 继续处理下一批
 		}
 	}
@@ -261,9 +260,9 @@ func (s *ReconciliationService) runReconciliation(ctx context.Context, task *Rec
 	task.CompletedAt = time.Now().UnixMilli()
 
 	logger.Info("reconciliation completed",
-		zap.String("task_id", task.TaskID),
-		zap.Int64("total_checked", task.TotalChecked),
-		zap.Int64("discrepancies", task.Discrepancies))
+		"task_id", task.TaskID,
+		"total_checked", task.TotalChecked,
+		"discrepancies", task.Discrepancies)
 }
 
 // reconcileBatch 对账一批钱包
@@ -297,9 +296,9 @@ func (s *ReconciliationService) reconcileBatch(ctx context.Context, task *Reconc
 			onChainBalance, err := s.getOnChainBalance(ctx, wallet, token)
 			if err != nil {
 				logger.Warn("get on-chain balance failed",
-					zap.String("wallet", wallet),
-					zap.String("token", token),
-					zap.Error(err))
+					"wallet", wallet,
+					"token", token,
+					"error", err)
 				continue
 			}
 
@@ -339,9 +338,9 @@ func (s *ReconciliationService) reconcileBatch(ctx context.Context, task *Reconc
 
 			if err := s.reconciliationRepo.Create(ctx, record); err != nil {
 				logger.Error("create reconciliation record failed",
-					zap.String("wallet", wallet),
-					zap.String("token", token),
-					zap.Error(err))
+					"wallet", wallet,
+					"token", token,
+					"error", err)
 			}
 
 			task.TotalChecked++

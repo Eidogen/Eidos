@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
-	"go.uber.org/zap"
 )
 
 // DBRuleSource loads rules from database
@@ -52,7 +51,7 @@ func (s *DBRuleSource) Load(ctx context.Context) ([]*RuleConfig, error) {
 	}
 
 	logger.Debug("rules loaded from database",
-		zap.Int("count", len(configs)))
+		"count", len(configs))
 
 	return configs, nil
 }
@@ -69,7 +68,7 @@ func (s *DBRuleSource) Watch(ctx context.Context, updates chan<- []*RuleConfig) 
 		case <-ticker.C:
 			rules, err := s.Load(ctx)
 			if err != nil {
-				logger.Error("failed to poll rules from database", zap.Error(err))
+				logger.Error("failed to poll rules from database", "error", err)
 				continue
 			}
 

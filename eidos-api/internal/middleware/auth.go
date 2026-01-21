@@ -13,7 +13,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/crypto"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 const (
@@ -68,10 +67,10 @@ func Auth(cfg *AuthConfig) gin.HandlerFunc {
 		tolerance := cfg.EIP712Config.TimestampToleranceMs
 		if now-ts > tolerance || ts-now > tolerance {
 			logger.Warn("signature expired",
-				zap.String("wallet", wallet),
-				zap.Int64("timestamp", ts),
-				zap.Int64("now", now),
-				zap.Int64("diff", now-ts),
+				"wallet", wallet,
+				"timestamp", ts,
+				"now", now,
+				"diff", now-ts,
 			)
 			abortWithError(c, dto.ErrSignatureExpired)
 			return
@@ -81,12 +80,12 @@ func Auth(cfg *AuthConfig) gin.HandlerFunc {
 		if cfg.ReplayGuard != nil {
 			allowed, err := cfg.ReplayGuard.CheckAndMark(c.Request.Context(), wallet, timestamp, signature)
 			if err != nil {
-				logger.Error("replay guard check failed", zap.Error(err))
+				logger.Error("replay guard check failed", "error", err)
 				// 出错时仍然继续，不阻塞请求
 			} else if !allowed {
 				logger.Warn("signature replay detected",
-					zap.String("wallet", wallet),
-					zap.String("timestamp", timestamp),
+					"wallet", wallet,
+					"timestamp", timestamp,
 				)
 				abortWithError(c, dto.ErrSignatureReplay)
 				return
@@ -123,8 +122,8 @@ func Auth(cfg *AuthConfig) gin.HandlerFunc {
 			valid, err := crypto.VerifySignature(wallet, typedHash, sigBytes)
 			if err != nil || !valid {
 				logger.Warn("signature verification failed",
-					zap.String("wallet", wallet),
-					zap.Error(err),
+					"wallet", wallet,
+					"error", err,
 				)
 				abortWithError(c, dto.ErrInvalidSignature)
 				return

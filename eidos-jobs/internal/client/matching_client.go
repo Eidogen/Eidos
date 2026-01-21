@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -42,7 +41,7 @@ func NewMatchingClient(addr string, kafkaProducer KafkaProducer) (*MatchingClien
 		return nil, fmt.Errorf("connect to matching service: %w", err)
 	}
 
-	logger.Info("connected to eidos-matching", zap.String("addr", addr))
+	logger.Info("connected to eidos-matching", "addr", addr)
 
 	return &MatchingClient{
 		conn:          conn,
@@ -81,16 +80,16 @@ func (c *MatchingClient) ExpireOrders(ctx context.Context, requests []*jobs.Orde
 		data, err := json.Marshal(msg)
 		if err != nil {
 			logger.Error("marshal cancel request",
-				zap.String("order_id", req.OrderID),
-				zap.Error(err))
+				"order_id", req.OrderID,
+				"error", err)
 			continue
 		}
 
 		// 发送到 cancel-requests topic
 		if err := c.kafkaProducer.SendWithContext(ctx, "cancel-requests", []byte(req.OrderID), data); err != nil {
 			logger.Error("send cancel request to kafka",
-				zap.String("order_id", req.OrderID),
-				zap.Error(err))
+				"order_id", req.OrderID,
+				"error", err)
 			continue
 		}
 
@@ -98,8 +97,8 @@ func (c *MatchingClient) ExpireOrders(ctx context.Context, requests []*jobs.Orde
 	}
 
 	logger.Info("expire orders sent",
-		zap.Int("total", len(requests)),
-		zap.Int("success", successCount))
+		"total", len(requests),
+		"success", successCount)
 
 	return successCount, nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 )
 
 // ReconciliationDataProvider 对账数据提供者接口
@@ -96,7 +95,7 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 		if err != nil {
 			return result, fmt.Errorf("failed to get all wallets: %w", err)
 		}
-		logger.Info("starting full reconciliation", zap.Int("wallet_count", len(wallets)))
+		logger.Info("starting full reconciliation", "wallet_count", len(wallets))
 	} else {
 		// 增量对账：只对账上一小时有变动的钱包
 		startTime := checkpoint.LastTime
@@ -106,9 +105,9 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 			return result, fmt.Errorf("failed to get changed wallets: %w", err)
 		}
 		logger.Info("starting incremental reconciliation",
-			zap.Int("wallet_count", len(wallets)),
-			zap.Int64("start_time", startTime),
-			zap.Int64("end_time", endTime))
+			"wallet_count", len(wallets),
+			"start_time", startTime,
+			"end_time", endTime)
 	}
 
 	if len(wallets) == 0 {
@@ -139,7 +138,7 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 		// 获取链下余额
 		offchainBalances, err := j.dataProvider.GetOffchainBalances(ctx, batch)
 		if err != nil {
-			logger.Error("failed to get offchain balances", zap.Error(err))
+			logger.Error("failed to get offchain balances", "error", err)
 			result.ErrorCount++
 			continue
 		}
@@ -147,7 +146,7 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 		// 获取链上余额
 		onchainBalances, err := j.dataProvider.GetOnchainBalances(ctx, batch)
 		if err != nil {
-			logger.Error("failed to get onchain balances", zap.Error(err))
+			logger.Error("failed to get onchain balances", "error", err)
 			result.ErrorCount++
 			continue
 		}
@@ -203,7 +202,7 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 	// 保存对账记录
 	if len(records) > 0 {
 		if err := j.reconRepo.BatchCreate(ctx, records); err != nil {
-			logger.Error("failed to save reconciliation records", zap.Error(err))
+			logger.Error("failed to save reconciliation records", "error", err)
 			result.ErrorCount++
 		}
 	}
@@ -214,7 +213,7 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 		LastTime: now.UnixMilli(),
 	}
 	if err := j.reconRepo.UpsertCheckpoint(ctx, newCheckpoint); err != nil {
-		logger.Error("failed to update checkpoint", zap.Error(err))
+		logger.Error("failed to update checkpoint", "error", err)
 	}
 
 	// 发送告警
@@ -229,10 +228,10 @@ func (j *ReconciliationJob) Execute(ctx context.Context) (*scheduler.JobResult, 
 	result.Details["reconcile_type"] = string(reconcileType)
 
 	logger.Info("reconciliation completed",
-		zap.Int("processed", result.ProcessedCount),
-		zap.Int("matched", matchedCount),
-		zap.Int("mismatched", mismatchedCount),
-		zap.String("total_diff", totalDiff.String()))
+		"processed", result.ProcessedCount,
+		"matched", matchedCount,
+		"mismatched", mismatchedCount,
+		"total_diff", totalDiff.String())
 
 	return result, nil
 }
@@ -257,8 +256,8 @@ func (j *ReconciliationJob) sendAlert(ctx context.Context, totalDiff decimal.Dec
 	if severity == "info" {
 		// 小额差异仅记录日志，不发送告警
 		logger.Info("small reconciliation diff detected, skipping alert",
-			zap.String("total_diff", totalDiff.String()),
-			zap.Int("count", mismatchedCount))
+			"total_diff", totalDiff.String(),
+			"count", mismatchedCount)
 		return
 	}
 
@@ -274,34 +273,30 @@ func (j *ReconciliationJob) sendAlert(ctx context.Context, totalDiff decimal.Dec
 	}
 
 	if err := j.alertFunc(ctx, alert); err != nil {
-		logger.Error("failed to send reconciliation alert", zap.Error(err))
+		logger.Error("failed to send reconciliation alert", "error", err)
 	}
 }
 
 // MockReconciliationDataProvider 模拟对账数据提供者 (用于测试)
+// 实际实现见 eidos-jobs/internal/client/chain_client.go ReconciliationDataProviderImpl
 type MockReconciliationDataProvider struct{}
 
 func (p *MockReconciliationDataProvider) GetOffchainBalances(ctx context.Context, wallets []string) (map[string]map[string]decimal.Decimal, error) {
-	// TODO: 实际实现通过 gRPC 调用 trading 服务
 	return make(map[string]map[string]decimal.Decimal), nil
 }
 
 func (p *MockReconciliationDataProvider) GetOnchainBalances(ctx context.Context, wallets []string) (map[string]map[string]decimal.Decimal, error) {
-	// TODO: 实际实现通过 gRPC 调用 chain 服务
 	return make(map[string]map[string]decimal.Decimal), nil
 }
 
 func (p *MockReconciliationDataProvider) GetChangedWallets(ctx context.Context, startTime, endTime int64) ([]string, error) {
-	// TODO: 实际实现通过查询数据库
 	return nil, nil
 }
 
 func (p *MockReconciliationDataProvider) GetAllWallets(ctx context.Context) ([]string, error) {
-	// TODO: 实际实现通过查询数据库
 	return nil, nil
 }
 
 func (p *MockReconciliationDataProvider) GetLatestBlockNumber(ctx context.Context) (int64, error) {
-	// TODO: 实际实现通过 gRPC 调用 chain 服务
 	return 0, nil
 }

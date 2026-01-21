@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
@@ -108,8 +107,8 @@ func (w *outboxWorker) Start(ctx context.Context) error {
 	w.mu.Unlock()
 
 	logger.Info("outbox worker started",
-		zap.Int("batchSize", w.batchSize),
-		zap.Duration("pollInterval", w.pollInterval))
+		"batchSize", w.batchSize,
+		"pollInterval", w.pollInterval)
 
 	// 启动 goroutines
 	w.wg.Add(2)
@@ -199,7 +198,7 @@ func (w *outboxWorker) processBatch(ctx context.Context) int {
 
 	messages, err := w.outboxRepo.FetchPending(processCtx, w.batchSize)
 	if err != nil {
-		logger.Error("fetch pending outbox messages failed", zap.Error(err))
+		logger.Error("fetch pending outbox messages failed", "error", err)
 		return 0
 	}
 
@@ -211,13 +210,13 @@ func (w *outboxWorker) processBatch(ctx context.Context) int {
 	for _, msg := range messages {
 		if err := w.processMessage(processCtx, msg); err != nil {
 			logger.Error("process outbox message failed",
-				zap.Int64("id", msg.ID),
-				zap.String("messageID", msg.MessageID),
-				zap.String("topic", msg.Topic),
-				zap.Error(err))
+				"id", msg.ID,
+				"messageID", msg.MessageID,
+				"topic", msg.Topic,
+				"error", err)
 
 			if markErr := w.outboxRepo.MarkFailed(processCtx, msg.ID, err); markErr != nil {
-				logger.Error("mark outbox message failed", zap.Error(markErr))
+				logger.Error("mark outbox message failed", "error", markErr)
 			}
 
 			w.mu.Lock()
@@ -225,7 +224,7 @@ func (w *outboxWorker) processBatch(ctx context.Context) int {
 			w.mu.Unlock()
 		} else {
 			if markErr := w.outboxRepo.MarkSent(processCtx, msg.ID); markErr != nil {
-				logger.Error("mark outbox message sent failed", zap.Error(markErr))
+				logger.Error("mark outbox message sent failed", "error", markErr)
 			}
 
 			w.mu.Lock()
@@ -340,11 +339,11 @@ func (w *outboxWorker) cleanOldMessages(ctx context.Context) {
 	beforeTime := time.Now().Add(-retentionPeriod).UnixMilli()
 	deleted, err := w.outboxRepo.CleanSent(cleanCtx, beforeTime, 1000)
 	if err != nil {
-		logger.Error("clean old outbox messages failed", zap.Error(err))
+		logger.Error("clean old outbox messages failed", "error", err)
 		return
 	}
 
 	if deleted > 0 {
-		logger.Info("cleaned old outbox messages", zap.Int64("deleted", deleted))
+		logger.Info("cleaned old outbox messages", "deleted", deleted)
 	}
 }

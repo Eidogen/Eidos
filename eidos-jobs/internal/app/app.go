@@ -24,7 +24,7 @@
 // 7. data-cleanup: 数据清理 (每日凌晨4点)
 // 8. partition-manage: 分区管理 (每月1日)
 //
-// ## TODO: 上游对接 (eidos-trading)
+// ## 上游对接 (eidos-trading)
 // 需要实现 TradingClient 接口:
 // - GetExpiredOrders: 获取需要过期的订单
 //
@@ -34,22 +34,22 @@
 // - GetActiveUserCount: 获取活跃用户数
 // - GetNewUserCount: 获取新增用户数
 //
-// ## TODO: 上游对接 (eidos-matching)
+// ## 上游对接 (eidos-matching)
 // 需要实现 MatchingClient 接口:
 // - ExpireOrders: 发送过期订单请求到撮合引擎
 //
-// ## TODO: 上游对接 (eidos-chain)
+// ## 上游对接 (eidos-chain)
 // 需要实现 ReconciliationDataProvider 接口:
 // - GetOnchainBalances: 获取链上余额
 // - GetChangedWallets: 获取有变动的钱包
 // - GetLatestBlockNumber: 获取最新区块号
 //
-// ## TODO: 上游对接 (eidos-market)
+// ## 上游对接 (eidos-market)
 // 需要实现 KlineDataProvider 接口:
 // - GetMinuteKlines: 获取分钟K线数据
 // - UpsertKlines: 批量保存K线数据
 //
-// ## TODO: 下游对接 (监控系统)
+// ## 下游对接 (监控系统)
 // 健康监控任务会检查以下组件:
 // - 数据库连接
 // - Redis 连接
@@ -66,7 +66,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -237,8 +236,8 @@ func (a *App) initDB() error {
 
 	a.db = db
 	logger.Info("database connected",
-		zap.String("host", a.cfg.Postgres.Host),
-		zap.String("database", a.cfg.Postgres.Database))
+		"host", a.cfg.Postgres.Host,
+		"database", a.cfg.Postgres.Database)
 
 	// 自动迁移
 	if err := AutoMigrate(a.db); err != nil {
@@ -266,8 +265,8 @@ func (a *App) initRedis() error {
 	}
 
 	logger.Info("redis connected",
-		zap.String("host", a.cfg.Redis.Host),
-		zap.Int("db", a.cfg.Redis.DB))
+		"host", a.cfg.Redis.Host,
+		"db", a.cfg.Redis.DB)
 
 	return nil
 }
@@ -292,18 +291,18 @@ func (a *App) initClients() {
 		a.tradingClient, err = client.NewTradingClient(a.cfg.GRPCClients.Trading)
 		if err != nil {
 			logger.Warn("failed to connect to trading service, using mock",
-				zap.String("addr", a.cfg.GRPCClients.Trading),
-				zap.Error(err))
+				"addr", a.cfg.GRPCClients.Trading,
+				"error", err)
 		}
 	}
 
 	// Matching 客户端
 	if a.cfg.GRPCClients.Matching != "" {
-		a.matchingClient, err = client.NewMatchingClient(a.cfg.GRPCClients.Matching, nil) // TODO: pass Kafka producer
+		a.matchingClient, err = client.NewMatchingClient(a.cfg.GRPCClients.Matching, nil) // 可选: 传入 Kafka producer 用于发送过期订单
 		if err != nil {
 			logger.Warn("failed to connect to matching service, using mock",
-				zap.String("addr", a.cfg.GRPCClients.Matching),
-				zap.Error(err))
+				"addr", a.cfg.GRPCClients.Matching,
+				"error", err)
 		}
 	}
 
@@ -312,8 +311,8 @@ func (a *App) initClients() {
 		a.marketClient, err = client.NewMarketClient(a.cfg.GRPCClients.Market)
 		if err != nil {
 			logger.Warn("failed to connect to market service, using mock",
-				zap.String("addr", a.cfg.GRPCClients.Market),
-				zap.Error(err))
+				"addr", a.cfg.GRPCClients.Market,
+				"error", err)
 		}
 	}
 
@@ -322,8 +321,8 @@ func (a *App) initClients() {
 		a.chainClient, err = client.NewChainClient(a.cfg.GRPCClients.Chain)
 		if err != nil {
 			logger.Warn("failed to connect to chain service, using mock",
-				zap.String("addr", a.cfg.GRPCClients.Chain),
-				zap.Error(err))
+				"addr", a.cfg.GRPCClients.Chain,
+				"error", err)
 		}
 	}
 
@@ -346,7 +345,7 @@ func (a *App) initScheduler() {
 	)
 
 	logger.Info("scheduler initialized",
-		zap.Int("max_concurrent_jobs", maxConcurrent))
+		"max_concurrent_jobs", maxConcurrent)
 }
 
 // registerJobs 注册任务
@@ -599,12 +598,12 @@ func (a *App) startGRPC() error {
 	healthServer.SetServingStatus(a.cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	logger.Info("starting gRPC server",
-		zap.String("addr", addr),
-		zap.String("service", a.cfg.Service.Name))
+		"addr", addr,
+		"service", a.cfg.Service.Name)
 
 	go func() {
 		if err := a.grpcServer.Serve(lis); err != nil {
-			logger.Error("gRPC server error", zap.Error(err))
+			logger.Error("gRPC server error", "error", err)
 		}
 	}()
 

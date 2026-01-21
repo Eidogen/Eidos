@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/app"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
@@ -23,11 +22,12 @@ func main() {
 		panic("load config: " + err.Error())
 	}
 
-	// 初始化日志
+	// 初始化日志（使用配置中的日志级别和格式）
 	if err := logger.Init(&logger.Config{
 		Level:       cfg.Log.Level,
 		Format:      cfg.Log.Format,
 		ServiceName: cfg.Service.Name,
+		Environment: cfg.Service.Env,
 	}); err != nil {
 		panic("init logger: " + err.Error())
 	}
@@ -35,9 +35,9 @@ func main() {
 
 	log := logger.L()
 	log.Info("starting service",
-		zap.String("service", cfg.Service.Name),
-		zap.String("env", cfg.Service.Env),
-		zap.Int("port", cfg.Service.HTTPPort),
+		"service", cfg.Service.Name,
+		"env", cfg.Service.Env,
+		"port", cfg.Service.HTTPPort,
 	)
 
 	// 创建应用
@@ -46,11 +46,11 @@ func main() {
 	// 启动应用
 	ctx := context.Background()
 	if err := application.Start(ctx); err != nil {
-		log.Fatal("failed to start application", zap.Error(err))
+		logger.Fatal("failed to start application", "error", err)
 	}
 
-	log.Info("service started successfully",
-		zap.Int("port", cfg.Service.HTTPPort),
+	logger.Info("service started successfully",
+		"port", cfg.Service.HTTPPort,
 	)
 
 	// 等待关闭信号

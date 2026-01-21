@@ -7,7 +7,6 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Handler 消息处理器接口
@@ -74,9 +73,9 @@ func NewConsumerGroup(cfg *ConsumerConfig) (*ConsumerGroup, error) {
 	}
 
 	logger.Info("kafka consumer group created",
-		zap.Strings("brokers", cfg.Brokers),
-		zap.String("group_id", cfg.GroupID),
-		zap.Strings("topics", cfg.Topics),
+		"brokers", cfg.Brokers,
+		"group_id", cfg.GroupID,
+		"topics", cfg.Topics,
 	)
 
 	return c, nil
@@ -103,7 +102,7 @@ func (c *ConsumerGroup) Start(ctx context.Context) error {
 				if err == sarama.ErrClosedConsumerGroup {
 					return
 				}
-				logger.Error("consumer error", zap.Error(err))
+				logger.Error("consumer error", "error", err)
 			}
 
 			// 检查是否需要退出
@@ -142,8 +141,8 @@ func (c *ConsumerGroup) Stop() error {
 // Setup 实现 sarama.ConsumerGroupHandler
 func (c *ConsumerGroup) Setup(session sarama.ConsumerGroupSession) error {
 	logger.Info("consumer session setup",
-		zap.Int32("generation_id", session.GenerationID()),
-		zap.String("member_id", session.MemberID()),
+		"generation_id", session.GenerationID(),
+		"member_id", session.MemberID(),
 	)
 	close(c.ready)
 	return nil
@@ -152,7 +151,7 @@ func (c *ConsumerGroup) Setup(session sarama.ConsumerGroupSession) error {
 // Cleanup 实现 sarama.ConsumerGroupHandler
 func (c *ConsumerGroup) Cleanup(session sarama.ConsumerGroupSession) error {
 	logger.Info("consumer session cleanup",
-		zap.Int32("generation_id", session.GenerationID()),
+		"generation_id", session.GenerationID(),
 	)
 	return nil
 }
@@ -166,7 +165,7 @@ func (c *ConsumerGroup) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 	c.mu.RUnlock()
 
 	if !ok {
-		logger.Warn("no handler for topic", zap.String("topic", topic))
+		logger.Warn("no handler for topic", "topic", topic)
 		return nil
 	}
 
@@ -190,10 +189,10 @@ func (c *ConsumerGroup) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			// 调用处理器
 			if err := handler.Handle(session.Context(), m); err != nil {
 				logger.Error("handle message failed",
-					zap.String("topic", topic),
-					zap.Int32("partition", msg.Partition),
-					zap.Int64("offset", msg.Offset),
-					zap.Error(err),
+					"topic", topic,
+					"partition", msg.Partition,
+					"offset", msg.Offset,
+					"error", err,
 				)
 				// 不标记消息，下次重新消费
 				continue

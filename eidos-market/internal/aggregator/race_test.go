@@ -2,13 +2,14 @@ package aggregator
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
@@ -58,7 +59,7 @@ func newRaceTestKlineAggregator(market string) *KlineAggregator {
 		market,
 		&raceTestKlineRepo{},
 		&raceTestKlinePublisher{},
-		zap.NewNop(),
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DefaultKlineAggregatorConfig(),
 	)
 }
@@ -67,7 +68,7 @@ func newRaceTestTickerCalculator(market string) *TickerCalculator {
 	return NewTickerCalculator(
 		market,
 		&raceTestTickerPublisher{},
-		zap.NewNop(),
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DefaultTickerCalculatorConfig(),
 	)
 }
@@ -77,7 +78,7 @@ func newRaceTestDepthManager(market string) *DepthManager {
 		market,
 		&raceTestDepthPublisher{},
 		&raceTestSnapshotProvider{},
-		zap.NewNop(),
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DefaultDepthManagerConfig(),
 	)
 }

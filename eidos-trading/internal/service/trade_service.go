@@ -12,7 +12,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
-	"go.uber.org/zap"
 )
 
 var (
@@ -262,8 +261,8 @@ func (s *tradeService) RollbackTrades(ctx context.Context, tradeIDs []string) er
 		trade, err := s.tradeRepo.GetByTradeID(ctx, tradeID)
 		if err != nil {
 			logger.Error("rollback: get trade failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			rollbackErrors = append(rollbackErrors, err)
 			continue
 		}
@@ -271,9 +270,9 @@ func (s *tradeService) RollbackTrades(ctx context.Context, tradeIDs []string) er
 		cfg, err := s.marketConfig.GetMarket(trade.Market)
 		if err != nil {
 			logger.Error("rollback: get market config failed",
-				zap.String("trade_id", tradeID),
-				zap.String("market", trade.Market),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"market", trade.Market,
+				"error", err)
 			rollbackErrors = append(rollbackErrors, err)
 			continue
 		}
@@ -295,13 +294,13 @@ func (s *tradeService) RollbackTrades(ctx context.Context, tradeIDs []string) er
 
 		if err := s.balanceCache.RollbackTrade(ctx, rollbackReq); err != nil {
 			logger.Error("rollback: redis rollback failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			rollbackErrors = append(rollbackErrors, err)
 			// 继续处理其他成交，不中断
 		} else {
 			logger.Info("rollback: redis rollback success",
-				zap.String("trade_id", tradeID))
+				"trade_id", tradeID)
 		}
 
 		// 2. 更新 DB 成交状态为已回滚
@@ -310,8 +309,8 @@ func (s *tradeService) RollbackTrades(ctx context.Context, tradeIDs []string) er
 			model.SettlementStatusRolledBack,
 			""); err != nil {
 			logger.Error("rollback: update trade status failed",
-				zap.String("trade_id", tradeID),
-				zap.Error(err))
+				"trade_id", tradeID,
+				"error", err)
 			rollbackErrors = append(rollbackErrors, err)
 			continue
 		}

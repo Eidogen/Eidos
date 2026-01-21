@@ -8,7 +8,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 const (
@@ -98,8 +97,8 @@ func (l *DistributedLock) startWatchdog(ctx context.Context) {
 			case <-ticker.C:
 				if err := l.renew(ctx); err != nil {
 					logger.Warn("failed to renew lock",
-						zap.String("key", l.key),
-						zap.Error(err))
+						"key", l.key,
+						"error", err)
 				}
 			}
 		}

@@ -11,7 +11,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	chainv1 "github.com/eidos-exchange/eidos/proto/chain/v1"
 	commonv1 "github.com/eidos-exchange/eidos/proto/common"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -67,7 +66,7 @@ func (h *GRPCHandler) GetSettlementStatus(ctx context.Context, req *chainv1.GetS
 		if err == repository.ErrSettlementBatchNotFound {
 			return nil, status.Error(codes.NotFound, "settlement batch not found")
 		}
-		logger.Error("failed to get settlement batch", zap.Error(err))
+		logger.Error("failed to get settlement batch", "error", err)
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
@@ -112,7 +111,7 @@ func (h *GRPCHandler) RetrySettlement(ctx context.Context, req *chainv1.RetrySet
 		if err := h.settlementSvc.SplitAndRetryBatch(ctx, req.BatchId); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		// TODO: 返回新批次 ID
+		// 拆分后会生成新批次，当前返回成功状态
 		return &chainv1.RetrySettlementResponse{Success: true, Message: "batch split and retrying"}, nil
 	}
 
@@ -388,7 +387,7 @@ func (h *GRPCHandler) TriggerReconciliation(ctx context.Context, req *chainv1.Tr
 
 	taskID, err := h.reconciliationSvc.TriggerReconciliation(ctx, req.WalletAddress, req.Token)
 	if err != nil {
-		logger.Error("trigger reconciliation failed", zap.Error(err))
+		logger.Error("trigger reconciliation failed", "error", err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -270,17 +269,17 @@ func (j *HealthMonitorJob) checkEndpoint(ctx context.Context, endpoint ServiceEn
 func (j *HealthMonitorJob) sendAlert(ctx context.Context, alert *HealthAlert) {
 	if j.alertFunc == nil {
 		logger.Warn("health alert (no handler configured)",
-			zap.String("service", alert.Service),
-			zap.String("type", alert.AlertType),
-			zap.String("severity", alert.Severity),
-			zap.String("message", alert.Message))
+			"service", alert.Service,
+			"type", alert.AlertType,
+			"severity", alert.Severity,
+			"message", alert.Message)
 		return
 	}
 
 	if err := j.alertFunc(ctx, alert); err != nil {
 		logger.Error("failed to send health alert",
-			zap.String("service", alert.Service),
-			zap.Error(err))
+			"service", alert.Service,
+			"error", err)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -113,14 +112,14 @@ func (m *ScriptManager) Load(ctx context.Context, name string) error {
 	// 验证哈希
 	if hash != script.hash {
 		logger.Warn("script hash mismatch",
-			zap.String("name", name),
-			zap.String("expected", script.hash),
-			zap.String("actual", hash),
+			"name", name,
+			"expected", script.hash,
+			"actual", hash,
 		)
 	}
 
 	m.loaded[name] = true
-	logger.Debug("script loaded", zap.String("name", name), zap.String("hash", hash))
+	logger.Debug("script loaded", "name", name, "hash", hash)
 
 	return nil
 }
@@ -137,8 +136,8 @@ func (m *ScriptManager) LoadAll(ctx context.Context) error {
 	for _, name := range names {
 		if err := m.Load(ctx, name); err != nil {
 			logger.Error("failed to load script",
-				zap.String("name", name),
-				zap.Error(err),
+				"name", name,
+				"error", err,
 			)
 			return err
 		}
@@ -160,8 +159,8 @@ func (m *ScriptManager) Run(ctx context.Context, name string, keys []string, arg
 	result, err := script.Run(ctx, m.client, keys, args...).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		logger.Debug("script execution failed",
-			zap.String("name", name),
-			zap.Error(err),
+			"name", name,
+			"error", err,
 		)
 	}
 

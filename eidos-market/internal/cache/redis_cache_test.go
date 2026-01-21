@@ -3,6 +3,8 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -11,14 +13,13 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-market/internal/model"
 )
 
 func TestRedisCache_SetTicker(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	ticker := &model.Ticker{
@@ -48,7 +49,7 @@ func TestRedisCache_SetTicker(t *testing.T) {
 
 func TestRedisCache_GetTicker(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestRedisCache_GetTicker(t *testing.T) {
 
 func TestRedisCache_SetDepth(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	depth := &model.Depth{
@@ -124,7 +125,7 @@ func TestRedisCache_SetDepth(t *testing.T) {
 
 func TestRedisCache_GetDepth(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -162,7 +163,7 @@ func TestRedisCache_GetDepth(t *testing.T) {
 
 func TestRedisCache_PushTrade(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	trade := &model.Trade{
@@ -186,7 +187,7 @@ func TestRedisCache_PushTrade(t *testing.T) {
 
 func TestRedisCache_GetRecentTrades(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -221,7 +222,7 @@ func TestRedisCache_GetRecentTrades(t *testing.T) {
 
 func TestRedisCache_SetKline(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	kline := &model.Kline{
@@ -253,7 +254,7 @@ func TestRedisCache_SetKline(t *testing.T) {
 
 func TestRedisCache_GetKline(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -287,7 +288,7 @@ func TestRedisCache_GetKline(t *testing.T) {
 
 func TestRedisCache_SetMarkets(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	markets := []*model.Market{
@@ -307,7 +308,7 @@ func TestRedisCache_SetMarkets(t *testing.T) {
 
 func TestRedisCache_GetMarkets(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -337,7 +338,7 @@ func TestRedisCache_GetMarkets(t *testing.T) {
 
 func TestRedisCache_Ping(t *testing.T) {
 	db, mock := redismock.NewClientMock()
-	cache := NewRedisCache(db, zap.NewNop())
+	cache := NewRedisCache(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {

@@ -2,11 +2,12 @@ package app
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 )
@@ -19,7 +20,7 @@ func TestNew(t *testing.T) {
 			Env:      "test",
 		},
 	}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	app := New(cfg, logger)
 
@@ -30,7 +31,7 @@ func TestNew(t *testing.T) {
 
 func TestApp_Stop_WithNilComponents(t *testing.T) {
 	cfg := &config.Config{}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	app := New(cfg, logger)
 
@@ -44,7 +45,7 @@ func TestApp_Stop_WithNilComponents(t *testing.T) {
 
 func TestApp_Engine_ReturnsNil_BeforeInit(t *testing.T) {
 	cfg := &config.Config{}
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	app := New(cfg, logger)
 

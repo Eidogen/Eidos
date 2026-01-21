@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
 )
@@ -166,11 +164,11 @@ func (j *SettlementTriggerJob) Execute(ctx context.Context) (*scheduler.JobResul
 	result.Details["duration_ms"] = duration.Milliseconds()
 
 	logger.Info("settlement trigger job completed",
-		zap.Int("retry_count", retryCount),
-		zap.Int("batches_created", batchCreated),
-		zap.Int("batches_submitted", batchSubmitted),
-		zap.Int("errors", result.ErrorCount),
-		zap.Duration("duration", duration))
+		"retry_count", retryCount,
+		"batches_created", batchCreated,
+		"batches_submitted", batchSubmitted,
+		"errors", result.ErrorCount,
+		"duration", duration)
 
 	return result, nil
 }
@@ -179,7 +177,7 @@ func (j *SettlementTriggerJob) Execute(ctx context.Context) (*scheduler.JobResul
 func (j *SettlementTriggerJob) processTimeoutBatches(ctx context.Context) (int, int) {
 	timedOutBatches, err := j.dataProvider.GetTimedOutBatches(ctx, j.config.RetryTimeout)
 	if err != nil {
-		logger.Error("failed to get timed out batches", zap.Error(err))
+		logger.Error("failed to get timed out batches", "error", err)
 		return 0, 1
 	}
 
@@ -187,7 +185,7 @@ func (j *SettlementTriggerJob) processTimeoutBatches(ctx context.Context) (int, 
 		return 0, 0
 	}
 
-	logger.Info("found timed out settlement batches", zap.Int("count", len(timedOutBatches)))
+	logger.Info("found timed out settlement batches", "count", len(timedOutBatches))
 
 	retryCount := 0
 	errorCount := 0
@@ -202,13 +200,13 @@ func (j *SettlementTriggerJob) processTimeoutBatches(ctx context.Context) (int, 
 		// 检查重试次数
 		if batch.RetryCount >= j.config.MaxRetries {
 			logger.Error("batch exceeded max retries, marking as failed",
-				zap.String("batch_id", batch.BatchID),
-				zap.Int("retry_count", batch.RetryCount))
+				"batch_id", batch.BatchID,
+				"retry_count", batch.RetryCount)
 
 			if err := j.dataProvider.MarkBatchFailed(ctx, batch.BatchID, "exceeded max retries"); err != nil {
 				logger.Error("failed to mark batch as failed",
-					zap.String("batch_id", batch.BatchID),
-					zap.Error(err))
+					"batch_id", batch.BatchID,
+					"error", err)
 				errorCount++
 			}
 
@@ -225,13 +223,13 @@ func (j *SettlementTriggerJob) processTimeoutBatches(ctx context.Context) (int, 
 
 		// 重试批次
 		logger.Info("retrying timed out batch",
-			zap.String("batch_id", batch.BatchID),
-			zap.Int("retry_count", batch.RetryCount))
+			"batch_id", batch.BatchID,
+			"retry_count", batch.RetryCount)
 
 		if err := j.dataProvider.RetrySettlementBatch(ctx, batch.BatchID); err != nil {
 			logger.Error("failed to retry settlement batch",
-				zap.String("batch_id", batch.BatchID),
-				zap.Error(err))
+				"batch_id", batch.BatchID,
+				"error", err)
 			errorCount++
 
 			j.sendAlert(ctx, "timeout_retry", batch.BatchID,
@@ -253,7 +251,7 @@ func (j *SettlementTriggerJob) processPendingTrades(ctx context.Context) (int, i
 	// 获取待结算交易数量
 	pendingCount, err := j.dataProvider.GetPendingTradeCount(ctx)
 	if err != nil {
-		logger.Error("failed to get pending trade count", zap.Error(err))
+		logger.Error("failed to get pending trade count", "error", err)
 		return 0, 0, 1
 	}
 
@@ -265,7 +263,7 @@ func (j *SettlementTriggerJob) processPendingTrades(ctx context.Context) (int, i
 	// 检查是否需要创建批次
 	lastBatchTime, err := j.dataProvider.GetLastBatchTime(ctx)
 	if err != nil {
-		logger.Warn("failed to get last batch time, assuming should create batch", zap.Error(err))
+		logger.Warn("failed to get last batch time, assuming should create batch", "error", err)
 		lastBatchTime = time.Time{} // 如果获取失败，假设很久以前
 	}
 
@@ -275,10 +273,10 @@ func (j *SettlementTriggerJob) processPendingTrades(ctx context.Context) (int, i
 
 	if !shouldCreateBatch {
 		logger.Debug("not enough pending trades and max wait time not reached",
-			zap.Int("pending_count", pendingCount),
-			zap.Int("min_batch_size", j.config.MinBatchSize),
-			zap.Duration("time_since_last_batch", timeSinceLastBatch),
-			zap.Duration("max_wait_time", j.config.MaxWaitTime))
+			"pending_count", pendingCount,
+			"min_batch_size", j.config.MinBatchSize,
+			"time_since_last_batch", timeSinceLastBatch,
+			"max_wait_time", j.config.MaxWaitTime)
 		return 0, 0, 0
 	}
 
@@ -307,7 +305,7 @@ func (j *SettlementTriggerJob) processPendingTrades(ctx context.Context) (int, i
 		// 获取待结算交易
 		trades, err := j.dataProvider.GetPendingTrades(ctx, j.config.BatchSize)
 		if err != nil {
-			logger.Error("failed to get pending trades", zap.Error(err))
+			logger.Error("failed to get pending trades", "error", err)
 			errorCount++
 			break
 		}
@@ -325,28 +323,28 @@ func (j *SettlementTriggerJob) processPendingTrades(ctx context.Context) (int, i
 		// 创建批次
 		batch, err := j.dataProvider.CreateSettlementBatch(ctx, tradeIDs)
 		if err != nil {
-			logger.Error("failed to create settlement batch", zap.Error(err))
+			logger.Error("failed to create settlement batch", "error", err)
 			errorCount++
 			break
 		}
 
 		batchCreated++
 		logger.Info("created settlement batch",
-			zap.String("batch_id", batch.BatchID),
-			zap.Int("trade_count", len(tradeIDs)))
+			"batch_id", batch.BatchID,
+			"trade_count", len(tradeIDs))
 
 		// 提交批次
 		if err := j.dataProvider.SubmitSettlementBatch(ctx, batch.BatchID); err != nil {
 			logger.Error("failed to submit settlement batch",
-				zap.String("batch_id", batch.BatchID),
-				zap.Error(err))
+				"batch_id", batch.BatchID,
+				"error", err)
 			errorCount++
 			continue
 		}
 
 		batchSubmitted++
 		logger.Info("submitted settlement batch",
-			zap.String("batch_id", batch.BatchID))
+			"batch_id", batch.BatchID)
 
 		pendingCount -= len(trades)
 
@@ -375,8 +373,8 @@ func (j *SettlementTriggerJob) sendAlert(ctx context.Context, alertType, batchID
 
 	if err := j.alertFunc(ctx, alert); err != nil {
 		logger.Warn("failed to send settlement alert",
-			zap.String("alert_type", alertType),
-			zap.Error(err))
+			"alert_type", alertType,
+			"error", err)
 	}
 }
 

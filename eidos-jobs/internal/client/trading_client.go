@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -36,7 +35,7 @@ func NewTradingClient(addr string) (*TradingClient, error) {
 		return nil, fmt.Errorf("connect to trading service: %w", err)
 	}
 
-	logger.Info("connected to eidos-trading", zap.String("addr", addr))
+	logger.Info("connected to eidos-trading", "addr", addr)
 
 	return &TradingClient{
 		conn:   conn,
@@ -179,7 +178,7 @@ func (p *StatsDataProviderImpl) GetActiveUserCount(ctx context.Context, startTim
 
 // GetNewUserCount 获取新增用户数
 func (p *StatsDataProviderImpl) GetNewUserCount(ctx context.Context, date string) (int64, error) {
-	// TODO: 需要用户表支持，暂时返回 0
+	// 需要用户表支持，暂时返回 0
 	// 实际实现需要查询用户注册表
 	return 0, nil
 }

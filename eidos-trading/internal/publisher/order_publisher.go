@@ -10,7 +10,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
-	"go.uber.org/zap"
 )
 
 // OrderPublisher 订单状态更新发布者
@@ -84,15 +83,15 @@ func (p *OrderPublisher) PublishOrderUpdate(ctx context.Context, order *model.Or
 
 	if err := p.producer.SendWithContext(ctx, kafka.TopicOrderUpdates, key, data); err != nil {
 		logger.Error("publish order update failed",
-			zap.String("order_id", order.OrderID),
-			zap.Error(err),
+			"order_id", order.OrderID,
+			"error", err,
 		)
 		return fmt.Errorf("send order update: %w", err)
 	}
 
 	logger.Debug("order update published",
-		zap.String("order_id", order.OrderID),
-		zap.String("status", order.Status.String()),
+		"order_id", order.OrderID,
+		"status", order.Status.String(),
 	)
 
 	return nil

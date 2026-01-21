@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 
+	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -427,7 +428,7 @@ func convertReconciliationRecord(rec *model.ReconciliationRecord) *jobsv1.Reconc
 	return result
 }
 
-// addDecimals 简单的十进制加法 (用于汇总差异)
+// addDecimals 十进制精确加法 (用于汇总差异)
 func addDecimals(a, b string) string {
 	if a == "" {
 		return b
@@ -435,6 +436,13 @@ func addDecimals(a, b string) string {
 	if b == "" {
 		return a
 	}
-	// TODO: 使用 decimal 库进行精确计算
-	return a
+	aVal, err := decimal.NewFromString(a)
+	if err != nil {
+		return b
+	}
+	bVal, err := decimal.NewFromString(b)
+	if err != nil {
+		return a
+	}
+	return aVal.Add(bVal).String()
 }

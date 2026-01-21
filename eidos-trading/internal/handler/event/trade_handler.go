@@ -9,7 +9,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
-	"go.uber.org/zap"
 )
 
 // TradeEventHandler 处理成交事件
@@ -32,10 +31,10 @@ func (h *TradeEventHandler) HandleEvent(ctx context.Context, eventType string, p
 	}
 
 	logger.Info("processing trade result",
-		zap.String("trade_id", msg.TradeID),
-		zap.String("market", msg.Market),
-		zap.String("maker_order_id", msg.MakerOrderID),
-		zap.String("taker_order_id", msg.TakerOrderID),
+		"trade_id", msg.TradeID,
+		"market", msg.Market,
+		"maker_order_id", msg.MakerOrderID,
+		"taker_order_id", msg.TakerOrderID,
 	)
 
 	// 调用清算服务处理成交
@@ -71,9 +70,9 @@ func (h *OrderCancelledHandler) HandleEvent(ctx context.Context, eventType strin
 	}
 
 	logger.Info("processing order cancelled",
-		zap.String("order_id", msg.OrderID),
-		zap.String("market", msg.Market),
-		zap.String("result", msg.Result),
+		"order_id", msg.OrderID,
+		"market", msg.Market,
+		"result", msg.Result,
 	)
 
 	// 转换为服务层消息类型
@@ -120,8 +119,8 @@ func (h *OrderAcceptedHandler) HandleEvent(ctx context.Context, eventType string
 	}
 
 	logger.Debug("processing order accepted",
-		zap.String("order_id", msg.OrderID),
-		zap.String("market", msg.Market),
+		"order_id", msg.OrderID,
+		"market", msg.Market,
 	)
 
 	// 转换为服务层消息类型

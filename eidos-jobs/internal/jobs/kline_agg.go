@@ -8,7 +8,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
-	"go.uber.org/zap"
 )
 
 // Kline K线数据
@@ -77,7 +76,7 @@ func (j *KlineAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	// 1. 每小时生成 1h K线
 	hourlyCount, err := j.generateKlines(ctx, markets, "1m", "1h", now)
 	if err != nil {
-		logger.Error("failed to generate 1h klines", zap.Error(err))
+		logger.Error("failed to generate 1h klines", "error", err)
 		result.ErrorCount++
 	}
 	result.Details["1h_klines"] = hourlyCount
@@ -87,7 +86,7 @@ func (j *KlineAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	if now.Hour()%4 == 0 {
 		fourHourCount, err := j.generateKlines(ctx, markets, "1h", "4h", now)
 		if err != nil {
-			logger.Error("failed to generate 4h klines", zap.Error(err))
+			logger.Error("failed to generate 4h klines", "error", err)
 			result.ErrorCount++
 		}
 		result.Details["4h_klines"] = fourHourCount
@@ -98,7 +97,7 @@ func (j *KlineAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	if now.Hour() == 0 && now.Minute() >= 1 && now.Minute() < 5 {
 		dailyCount, err := j.generateDailyKlines(ctx, markets, now.AddDate(0, 0, -1))
 		if err != nil {
-			logger.Error("failed to generate 1d klines", zap.Error(err))
+			logger.Error("failed to generate 1d klines", "error", err)
 			result.ErrorCount++
 		}
 		result.Details["1d_klines"] = dailyCount
@@ -108,8 +107,8 @@ func (j *KlineAggJob) Execute(ctx context.Context) (*scheduler.JobResult, error)
 	result.AffectedCount = result.ProcessedCount
 
 	logger.Info("kline aggregation completed",
-		zap.Int("processed", result.ProcessedCount),
-		zap.Int("errors", result.ErrorCount))
+		"processed", result.ProcessedCount,
+		"errors", result.ErrorCount)
 
 	return result, nil
 }
@@ -142,9 +141,9 @@ func (j *KlineAggJob) generateKlines(ctx context.Context, markets []string, sour
 		klines, err := j.dataProvider.GetKlines(ctx, market, sourceInterval, startTime.UnixMilli(), endTime.UnixMilli())
 		if err != nil {
 			logger.Warn("failed to get source klines",
-				zap.String("market", market),
-				zap.String("interval", sourceInterval),
-				zap.Error(err))
+				"market", market,
+				"interval", sourceInterval,
+				"error", err)
 			continue
 		}
 
@@ -158,9 +157,9 @@ func (j *KlineAggJob) generateKlines(ctx context.Context, markets []string, sour
 		// 保存聚合后的K线
 		if err := j.dataProvider.SaveKline(ctx, aggregated); err != nil {
 			logger.Warn("failed to save aggregated kline",
-				zap.String("market", market),
-				zap.String("interval", targetInterval),
-				zap.Error(err))
+				"market", market,
+				"interval", targetInterval,
+				"error", err)
 			continue
 		}
 
@@ -188,8 +187,8 @@ func (j *KlineAggJob) generateDailyKlines(ctx context.Context, markets []string,
 		klines, err := j.dataProvider.GetKlines(ctx, market, "1h", startOfDay.UnixMilli(), endOfDay.UnixMilli())
 		if err != nil {
 			logger.Warn("failed to get hourly klines for daily aggregation",
-				zap.String("market", market),
-				zap.Error(err))
+				"market", market,
+				"error", err)
 			continue
 		}
 
@@ -203,8 +202,8 @@ func (j *KlineAggJob) generateDailyKlines(ctx context.Context, markets []string,
 		// 保存日K线
 		if err := j.dataProvider.SaveKline(ctx, aggregated); err != nil {
 			logger.Warn("failed to save daily kline",
-				zap.String("market", market),
-				zap.Error(err))
+				"market", market,
+				"error", err)
 			continue
 		}
 
@@ -246,19 +245,17 @@ func (j *KlineAggJob) aggregateKlines(klines []*Kline, market, interval string, 
 }
 
 // MockKlineDataProvider 模拟K线数据提供者 (用于测试)
+// 实际实现见 eidos-jobs/internal/client/market_client.go
 type MockKlineDataProvider struct{}
 
 func (p *MockKlineDataProvider) GetKlines(ctx context.Context, market, interval string, startTime, endTime int64) ([]*Kline, error) {
-	// TODO: 实际实现通过 gRPC 调用 market 服务
 	return nil, nil
 }
 
 func (p *MockKlineDataProvider) SaveKline(ctx context.Context, kline *Kline) error {
-	// TODO: 实际实现通过 gRPC 调用 market 服务
 	return nil
 }
 
 func (p *MockKlineDataProvider) GetMarkets(ctx context.Context) ([]string, error) {
-	// TODO: 实际实现通过 gRPC 调用 market/admin 服务
 	return nil, nil
 }

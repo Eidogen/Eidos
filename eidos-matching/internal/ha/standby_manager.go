@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 )
 
 // StandbyMode Standby 模式
@@ -151,9 +151,9 @@ func (sm *StandbyManager) Start(markets []string) error {
 	// 监听 Leader 变更
 	sm.leaderElection.config.OnLeaderChange = sm.handleLeaderChange
 
-	zap.L().Info("standby manager started",
-		zap.String("node_id", sm.config.NodeID),
-		zap.Int("markets", len(markets)))
+	slog.Info("standby manager started",
+		"node_id", sm.config.NodeID,
+		"markets", len(markets))
 
 	return nil
 }
@@ -163,8 +163,8 @@ func (sm *StandbyManager) Stop() {
 	sm.cancel()
 	sm.wg.Wait()
 
-	zap.L().Info("standby manager stopped",
-		zap.String("node_id", sm.config.NodeID))
+	slog.Info("standby manager stopped",
+		"node_id", sm.config.NodeID)
 }
 
 // handleLeaderChange 处理 Leader 变更
@@ -190,11 +190,11 @@ func (sm *StandbyManager) handleLeaderChange(isLeader bool, oldState, newState L
 
 		if newMode == ModeActive {
 			sm.failoverCount++
-			zap.L().Info("failover completed, now active",
-				zap.String("node_id", sm.config.NodeID))
+			slog.Info("failover completed, now active",
+				"node_id", sm.config.NodeID)
 		} else {
-			zap.L().Info("switched to standby mode",
-				zap.String("node_id", sm.config.NodeID))
+			slog.Info("switched to standby mode",
+				"node_id", sm.config.NodeID)
 		}
 	}
 }
@@ -226,7 +226,7 @@ func (sm *StandbyManager) sendHeartbeat() {
 
 	data, err := json.Marshal(state)
 	if err != nil {
-		zap.L().Warn("marshal node state failed", zap.Error(err))
+		slog.Warn("marshal node state failed", "error", err)
 		return
 	}
 
@@ -234,7 +234,7 @@ func (sm *StandbyManager) sendHeartbeat() {
 	expiration := sm.config.FailoverTimeout * 3
 
 	if err := sm.redis.Set(sm.ctx, key, data, expiration).Err(); err != nil {
-		zap.L().Warn("send heartbeat failed", zap.Error(err))
+		slog.Warn("send heartbeat failed", "error", err)
 		return
 	}
 
@@ -270,9 +270,9 @@ func (sm *StandbyManager) syncState() {
 		// 获取 Leader 的状态
 		leaderState, err := sm.getNodeState(leaderID)
 		if err != nil {
-			zap.L().Debug("get leader state failed",
-				zap.String("leader_id", leaderID),
-				zap.Error(err))
+			slog.Debug("get leader state failed",
+				"leader_id", leaderID,
+				"error", err)
 			return
 		}
 

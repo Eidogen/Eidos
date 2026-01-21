@@ -6,7 +6,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/app"
 	"github.com/eidos-exchange/eidos/eidos-market/internal/config"
-	"go.uber.org/zap"
 )
 
 const serviceName = "eidos-market"
@@ -23,11 +22,12 @@ func main() {
 		panic("failed to load config: " + err.Error())
 	}
 
-	// 初始化日志
+	// 初始化日志（使用配置中的日志级别和格式）
 	if err := logger.Init(&logger.Config{
 		Level:       cfg.Log.Level,
 		Format:      cfg.Log.Format,
 		ServiceName: serviceName,
+		Environment: cfg.Service.Env,
 	}); err != nil {
 		panic("failed to init logger: " + err.Error())
 	}
@@ -35,10 +35,10 @@ func main() {
 
 	log := logger.L()
 	log.Info("starting service",
-		zap.String("service", serviceName),
-		zap.String("config", *configPath),
-		zap.String("env", cfg.Service.Env),
-		zap.Bool("enhanced", *enhanced),
+		"service", serviceName,
+		"env", cfg.Service.Env,
+		"grpc_port", cfg.Service.GRPCPort,
+		"enhanced", *enhanced,
 	)
 
 	// 创建并运行应用
@@ -50,13 +50,15 @@ func main() {
 		// - 配置热更新
 		application := app.NewEnhancedApp(cfg, log)
 		if err := application.Run(); err != nil {
-			log.Fatal("application error", zap.Error(err))
+			log.Error("application error", "error", err)
+			panic(err)
 		}
 	} else {
 		// 基础模式：简单实现
 		application := app.New(cfg, log)
 		if err := application.Run(); err != nil {
-			log.Fatal("application error", zap.Error(err))
+			log.Error("application error", "error", err)
+			panic(err)
 		}
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 )
 
 const (
@@ -125,7 +124,7 @@ func (s *AlertService) ProcessAlert(ctx context.Context, alert *RiskAlertMessage
 	// Check if alert type is suppressed
 	if rule := s.getRule(alert.AlertType); rule != nil && rule.Suppress {
 		logger.Debug("alert suppressed",
-			zap.String("alert_type", alert.AlertType))
+			"alert_type", alert.AlertType)
 		return nil
 	}
 
@@ -133,21 +132,21 @@ func (s *AlertService) ProcessAlert(ctx context.Context, alert *RiskAlertMessage
 	dedupeKey := s.generateDedupeKey(alert)
 	isDuplicate, err := s.checkDuplicate(ctx, dedupeKey)
 	if err != nil {
-		logger.Error("failed to check duplicate", zap.Error(err))
+		logger.Error("failed to check duplicate", "error", err)
 	}
 
 	if isDuplicate {
 		// Increment count for aggregation
 		s.incrementAlertCount(ctx, alert)
 		logger.Debug("alert deduplicated",
-			zap.String("alert_type", alert.AlertType),
-			zap.String("wallet", alert.Wallet))
+			"alert_type", alert.AlertType,
+			"wallet", alert.Wallet)
 		return nil
 	}
 
 	// Mark as seen for deduplication
 	if err := s.markAsSeen(ctx, dedupeKey); err != nil {
-		logger.Error("failed to mark alert as seen", zap.Error(err))
+		logger.Error("failed to mark alert as seen", "error", err)
 	}
 
 	// Check if we should aggregate
@@ -316,7 +315,7 @@ func (s *AlertService) outputAlert(ctx context.Context, alert *AggregatedAlert) 
 	// Send to callback
 	if s.onAlert != nil {
 		if err := s.onAlert(ctx, alert); err != nil {
-			logger.Error("failed to send aggregated alert", zap.Error(err))
+			logger.Error("failed to send aggregated alert", "error", err)
 		}
 	}
 
@@ -325,13 +324,13 @@ func (s *AlertService) outputAlert(ctx context.Context, alert *AggregatedAlert) 
 	case s.alertChan <- alert:
 	default:
 		logger.Warn("alert channel full, dropping alert",
-			zap.String("alert_type", alert.AlertType))
+			"alert_type", alert.AlertType)
 	}
 
 	logger.Debug("alert output",
-		zap.String("alert_type", alert.AlertType),
-		zap.String("severity", string(alert.Severity)),
-		zap.Int("count", alert.Count))
+		"alert_type", alert.AlertType,
+		"severity", string(alert.Severity),
+		"count", alert.Count)
 }
 
 // getRule gets the rule for an alert type

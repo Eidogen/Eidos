@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
@@ -216,9 +215,9 @@ func NewClient(cfg *Config) (*Client, error) {
 	}
 
 	logger.Info("redis client initialized",
-		zap.String("mode", string(cfg.Mode)),
-		zap.Strings("addresses", cfg.Addresses),
-		zap.Int("pool_size", cfg.PoolSize),
+		"mode", string(cfg.Mode),
+		"addresses", cfg.Addresses,
+		"pool_size", cfg.PoolSize,
 	)
 
 	return c, nil
@@ -372,7 +371,7 @@ func (c *Client) doHealthCheck() {
 	c.metrics.IsHealthy = err == nil
 
 	if err != nil {
-		logger.Warn("redis health check failed", zap.Error(err))
+		logger.Warn("redis health check failed", "error", err)
 	}
 
 	// 更新连接池统计
@@ -456,7 +455,7 @@ func (c *Client) Close() error {
 
 	// 关闭底层客户端
 	if err := c.client.Close(); err != nil {
-		logger.Error("failed to close redis client", zap.Error(err))
+		logger.Error("failed to close redis client", "error", err)
 		return err
 	}
 

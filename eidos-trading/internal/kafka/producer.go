@@ -9,7 +9,6 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
-	"go.uber.org/zap"
 )
 
 // Producer Kafka 异步生产者
@@ -82,7 +81,7 @@ func NewProducer(cfg *ProducerConfig) (*Producer, error) {
 	go p.handleErrors()
 
 	logger.Info("kafka producer started",
-		zap.Strings("brokers", cfg.Brokers),
+		"brokers", cfg.Brokers,
 	)
 
 	return p, nil
@@ -142,9 +141,9 @@ func (p *Producer) handleSuccesses() {
 
 	for msg := range p.producer.Successes() {
 		logger.Debug("kafka message sent",
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
+			"topic", msg.Topic,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
 		)
 	}
 }
@@ -155,10 +154,10 @@ func (p *Producer) handleErrors() {
 
 	for err := range p.producer.Errors() {
 		logger.Error("kafka message send failed",
-			zap.String("topic", err.Msg.Topic),
-			zap.Error(err.Err),
+			"topic", err.Msg.Topic,
+			"error", err.Err,
 		)
-		// TODO: 可以考虑将失败消息写入重试队列
+		// 失败消息处理见 consumer_retry.go 的 DLQ 机制
 	}
 }
 

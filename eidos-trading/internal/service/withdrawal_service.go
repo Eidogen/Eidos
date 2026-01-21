@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
@@ -230,7 +229,9 @@ func (s *withdrawalService) CreateWithdrawal(ctx context.Context, req *CreateWit
 		})
 	})
 
-	// 9. TODO: 发送提现请求到风控服务
+	// 9. 发送提现请求到风控服务
+	// 风控审核通过 gRPC 调用 eidos-risk 服务
+	// 见 eidos-trading/internal/client/risk_client.go RiskClient.SubmitWithdrawalReview
 
 	return withdrawal, nil
 }
@@ -265,8 +266,8 @@ func (s *withdrawalService) ApproveWithdrawal(ctx context.Context, withdrawID st
 			// 发送失败不影响审批结果，记录日志后继续
 			// eidos-jobs 定时任务会扫描 Processing 状态的提现并重新发送
 			logger.Warn("publish withdrawal request failed, will be retried by jobs",
-				zap.String("withdrawal_id", withdrawID),
-				zap.Error(err))
+				"withdrawal_id", withdrawID,
+				"error", err)
 		}
 	}
 
@@ -338,9 +339,9 @@ func (s *withdrawalService) RejectWithdrawal(ctx context.Context, withdrawID, re
 		// Redis 解冻失败不影响业务，DB 已是最终状态，后续对账可修复
 		if !errors.Is(unfreezeErr, cache.ErrRedisBalanceNotFound) {
 			logger.Warn("redis unfreeze failed after db update, will be fixed by reconciliation",
-				zap.String("withdraw_id", withdrawID),
-				zap.String("wallet", withdrawal.Wallet),
-				zap.Error(unfreezeErr))
+				"withdraw_id", withdrawID,
+				"wallet", withdrawal.Wallet,
+				"error", unfreezeErr)
 		}
 	}
 
@@ -406,9 +407,9 @@ func (s *withdrawalService) ConfirmWithdrawal(ctx context.Context, withdrawID st
 	if debitErr := s.balanceCache.Debit(ctx, withdrawal.Wallet, withdrawal.Token, withdrawal.Amount, true); debitErr != nil {
 		if !errors.Is(debitErr, cache.ErrRedisBalanceNotFound) {
 			logger.Warn("redis debit failed after db update, will be fixed by reconciliation",
-				zap.String("withdraw_id", withdrawID),
-				zap.String("wallet", withdrawal.Wallet),
-				zap.Error(debitErr))
+				"withdraw_id", withdrawID,
+				"wallet", withdrawal.Wallet,
+				"error", debitErr)
 		}
 	}
 
@@ -482,9 +483,9 @@ func (s *withdrawalService) FailWithdrawal(ctx context.Context, withdrawID, reas
 	if unfreezeErr := s.balanceCache.Unfreeze(ctx, withdrawal.Wallet, withdrawal.Token, withdrawal.Amount, true); unfreezeErr != nil {
 		if !errors.Is(unfreezeErr, cache.ErrRedisBalanceNotFound) {
 			logger.Warn("redis unfreeze failed after db update, will be fixed by reconciliation",
-				zap.String("withdraw_id", withdrawID),
-				zap.String("wallet", withdrawal.Wallet),
-				zap.Error(unfreezeErr))
+				"withdraw_id", withdrawID,
+				"wallet", withdrawal.Wallet,
+				"error", unfreezeErr)
 		}
 	}
 
@@ -552,9 +553,9 @@ func (s *withdrawalService) CancelWithdrawal(ctx context.Context, wallet, withdr
 	if unfreezeErr := s.balanceCache.Unfreeze(ctx, wallet, withdrawal.Token, withdrawal.Amount, true); unfreezeErr != nil {
 		if !errors.Is(unfreezeErr, cache.ErrRedisBalanceNotFound) {
 			logger.Warn("redis unfreeze failed after db update, will be fixed by reconciliation",
-				zap.String("withdraw_id", withdrawID),
-				zap.String("wallet", wallet),
-				zap.Error(unfreezeErr))
+				"withdraw_id", withdrawID,
+				"wallet", wallet,
+				"error", unfreezeErr)
 		}
 	}
 

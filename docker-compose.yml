@@ -16,7 +16,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eidos"]
       interval: 10s
@@ -144,7 +143,7 @@ services:
   # Infrastructure - Service Registry
   # ========================================
   nacos:
-    image: nacos/nacos-server:v2.3.2
+    image: nacos/nacos-server:v2.3.2-slim
     container_name: eidos-nacos
     restart: unless-stopped
     environment:
@@ -239,7 +238,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: eidos
       POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos
+      POSTGRES_DATABASE: eidos_trading
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BROKERS: kafka:9092
@@ -274,8 +273,7 @@ services:
     ports:
       - "50052:50052"
     environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
@@ -354,7 +352,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: eidos
       POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos
+      POSTGRES_DATABASE: eidos_chain
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BROKERS: kafka:9092
@@ -396,7 +394,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: eidos
       POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos
+      POSTGRES_DATABASE: eidos_risk
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BROKERS: kafka:9092
@@ -436,7 +434,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: eidos
       POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos
+      POSTGRES_DATABASE: eidos_jobs
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BROKERS: kafka:9092
@@ -474,7 +472,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: eidos
       POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos
+      POSTGRES_DATABASE: eidos_admin
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NACOS_SERVER_ADDR: nacos:8848

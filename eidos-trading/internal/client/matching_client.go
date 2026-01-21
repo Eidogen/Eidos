@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -54,7 +53,7 @@ func NewMatchingClient(cfg *MatchingClientConfig) (*MatchingClient, error) {
 	}
 
 	logger.Info("connected to eidos-matching",
-		zap.String("addr", cfg.Addr),
+		"addr", cfg.Addr,
 	)
 
 	return &MatchingClient{
