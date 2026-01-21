@@ -1,19 +1,18 @@
 service:
   name: eidos-matching
-  node_id: ${NODE_ID:engine-1}
+  node_id: engine-1
   grpc_port: 50052
   http_port: 8083
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:true}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: eidos-dev
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
+  username: ""
+  password: ""
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
   timeout_ms: 5000
@@ -23,18 +22,13 @@ nacos:
 redis:
   addresses:
     - ${REDIS_ADDR:localhost:6379}
-  password: ${REDIS_PASSWORD:}
+  password: ""
   db: 0
   pool_size: 100
-  min_idle_conns: 20
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
-  tls_enabled: ${REDIS_TLS_ENABLED:false}
 
 # Kafka Configuration
 kafka:
-  enabled: ${KAFKA_ENABLED:true}
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:localhost:9092}
   consumer:
@@ -54,16 +48,16 @@ kafka:
     compression: lz4
     batch_size: 1000
     batch_timeout_ms: 10
-    required_acks: -1  # all
+    required_acks: -1
 
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    addr: localhost:50051
     timeout_ms: 5000
     max_retry: 3
   risk:
-    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    addr: localhost:50055
     timeout_ms: 100
     max_retry: 1
 
@@ -110,7 +104,7 @@ snapshot:
 
 # High Availability Configuration
 ha:
-  enabled: ${HA_ENABLED:false}
+  enabled: false
   heartbeat_interval: 100ms
   failover_timeout: 500ms
   leader_election:
@@ -122,15 +116,16 @@ index_price:
   enabled: true
   update_interval: 1s
   stale_threshold: 30s
-  aggregation_method: median  # median, weighted_avg, best_source
+  aggregation_method: median
   min_valid_sources: 1
-  deviation_threshold: "0.1"  # 10%
+  deviation_threshold: "0.1"
 
 # Risk Integration
 risk:
-  enabled: ${RISK_ENABLED:false}
-  addr: ${RISK_ADDR:localhost:50055}
+  enabled: false
+  addr: localhost:50055
   timeout_ms: 100
+  max_retry: 1
   fail_open: false
 
 # Performance Tuning
@@ -147,9 +142,8 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
+  level: info
+  format: color
 
 # Health Check
 health:

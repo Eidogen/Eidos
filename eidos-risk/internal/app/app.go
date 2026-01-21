@@ -216,7 +216,7 @@ func (a *App) initDB() error {
 
 	sqlDB.SetMaxOpenConns(a.cfg.Postgres.MaxConnections)
 	sqlDB.SetMaxIdleConns(a.cfg.Postgres.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetimeMinutes) * time.Minute)
+	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetime) * time.Second)
 
 	a.db = db
 	logger.Info("database connected",
@@ -235,7 +235,7 @@ func (a *App) initDB() error {
 // initRedis 初始化 Redis
 func (a *App) initRedis() error {
 	a.redisClient = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", a.cfg.Redis.Host, a.cfg.Redis.Port),
+		Addr:     a.cfg.Redis.Addresses[0],
 		Password: a.cfg.Redis.Password,
 		DB:       a.cfg.Redis.DB,
 		PoolSize: a.cfg.Redis.PoolSize,
@@ -249,7 +249,7 @@ func (a *App) initRedis() error {
 	}
 
 	logger.Info("redis connected",
-		"host", a.cfg.Redis.Host,
+		"addr", a.cfg.Redis.Addresses[0],
 		"db", a.cfg.Redis.DB)
 
 	return nil

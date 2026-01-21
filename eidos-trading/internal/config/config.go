@@ -4,40 +4,29 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 服务配置
 type Config struct {
-	Service     ServiceConfig     `yaml:"service" json:"service"`
-	Nacos       NacosConfig       `yaml:"nacos" json:"nacos"`
-	Database    DatabaseConfig    `yaml:"database" json:"database"`
-	Redis       RedisConfig       `yaml:"redis" json:"redis"`
-	Kafka       KafkaConfig       `yaml:"kafka" json:"kafka"`
-	Outbox      OutboxConfig      `yaml:"outbox" json:"outbox"`
-	Node        NodeConfig        `yaml:"node" json:"node"`
-	EIP712      EIP712Config      `yaml:"eip712" json:"eip712"`
-	Log         LogConfig         `yaml:"log" json:"log"`
-	Markets     []MarketConfig    `yaml:"markets" json:"markets"`
-	Tokens      []TokenConfig     `yaml:"tokens" json:"tokens"`
-	RiskControl RiskControlConfig `yaml:"risk_control" json:"risk_control"`
-	Worker      WorkerConfig      `yaml:"worker" json:"worker"`
-	Matching    MatchingConfig    `yaml:"matching" json:"matching"`
-	Risk        RiskConfig        `yaml:"risk" json:"risk"`
-}
-
-// MatchingConfig eidos-matching 服务配置
-type MatchingConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"` // gRPC 地址 (host:port)
-}
-
-// RiskConfig eidos-risk 服务配置
-type RiskConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"` // gRPC 地址 (host:port)
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres    commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	Outbox      OutboxConfig                   `yaml:"outbox" json:"outbox"`
+	Node        NodeConfig                     `yaml:"node" json:"node"`
+	EIP712      EIP712Config                   `yaml:"eip712" json:"eip712"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Markets     []MarketConfig                 `yaml:"markets" json:"markets"`
+	Tokens      []TokenConfig                  `yaml:"tokens" json:"tokens"`
+	RiskControl RiskControlConfig              `yaml:"risk_control" json:"risk_control"`
+	Worker      WorkerConfig                   `yaml:"worker" json:"worker"`
+	Matching    commonConfig.ClientConfig      `yaml:"matching" json:"matching"`
+	Risk        commonConfig.ClientConfig      `yaml:"risk" json:"risk"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
 // RiskControlConfig 风控配置
@@ -80,18 +69,6 @@ type ReconciliationConfig struct {
 	BatchSize        int  `yaml:"batch_size" json:"batch_size"`
 }
 
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-	Username   string `yaml:"username" json:"username"`
-	Password   string `yaml:"password" json:"password"`
-	LogDir     string `yaml:"log_dir" json:"log_dir"`
-	CacheDir   string `yaml:"cache_dir" json:"cache_dir"`
-}
-
 // ServiceConfig 服务配置
 type ServiceConfig struct {
 	Name     string `yaml:"name" json:"name"`
@@ -100,34 +77,12 @@ type ServiceConfig struct {
 	Env      string `yaml:"env" json:"env"`
 }
 
-// DatabaseConfig 数据库配置
-type DatabaseConfig struct {
-	Host                   string `yaml:"host" json:"host"`
-	Port                   int    `yaml:"port" json:"port"`
-	User                   string `yaml:"user" json:"user"`
-	Password               string `yaml:"password" json:"password"`
-	Database               string `yaml:"database" json:"database"`
-	MaxIdleConns           int    `yaml:"max_idle_conns" json:"max_idle_conns"`
-	MaxOpenConns           int    `yaml:"max_open_conns" json:"max_open_conns"`
-	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes" json:"conn_max_lifetime_minutes"`
-}
-
-// RedisConfig Redis 配置
-type RedisConfig struct {
-	Host     string `yaml:"host" json:"host"`
-	Port     int    `yaml:"port" json:"port"`
-	Password string `yaml:"password" json:"password"`
-	DB       int    `yaml:"db" json:"db"`
-	PoolSize int    `yaml:"pool_size" json:"pool_size"`
-}
-
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Enabled  bool           `yaml:"enabled" json:"enabled"`
-	Brokers  []string       `yaml:"brokers" json:"brokers"`
-	GroupID  string         `yaml:"group_id" json:"group_id"`
-	Producer ProducerConfig `yaml:"producer" json:"producer"`
-	Consumer ConsumerConfig `yaml:"consumer" json:"consumer"`
+// RedisAddr 返回第一个 Redis 地址
+func (c *Config) RedisAddr() string {
+	if len(c.Redis.Addresses) > 0 {
+		return c.Redis.Addresses[0]
+	}
+	return "localhost:6379"
 }
 
 // ProducerConfig Kafka 生产者配置
@@ -171,12 +126,6 @@ type EIP712Domain struct {
 	VerifyingContract string `yaml:"verifying_contract" json:"verifying_contract"`
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // MarketConfig 交易对配置
 type MarketConfig struct {
 	Market          string          `yaml:"market" json:"market"`
@@ -214,7 +163,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err == nil {
 		// 展开环境变量: ${VAR:DEFAULT}
-		expanded := config.ExpandEnv(string(data))
+		expanded := commonConfig.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(expanded), cfg); err != nil {
 			return nil, err
 		}
@@ -235,45 +184,30 @@ func defaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: NacosConfig{
-			Enabled:    false, // 默认不启用，开发时可以不需要 Nacos
+		Nacos: commonConfig.NacosConfig{
 			ServerAddr: "127.0.0.1:8848",
 			Namespace:  "public",
 			Group:      "EIDOS_GROUP",
-			LogDir:     "/tmp/nacos/log",
-			CacheDir:   "/tmp/nacos/cache",
 		},
-		Database: DatabaseConfig{
-			Host:                   "localhost",
-			Port:                   5432,
-			User:                   "postgres",
-			Password:               "postgres",
-			Database:               "eidos_trading",
-			MaxIdleConns:           10,
-			MaxOpenConns:           100,
-			ConnMaxLifetimeMinutes: 30,
+		Postgres: commonConfig.PostgresConfig{
+			Host:            "localhost",
+			Port:            5432,
+			User:            "postgres",
+			Password:        "postgres",
+			Database:        "eidos_trading",
+			MaxIdleConns:    10,
+			MaxConnections:  100,
+			ConnMaxLifetime: 1800, // 30 minutes
 		},
-		Redis: RedisConfig{
-			Host:     "localhost",
-			Port:     6379,
-			Password: "",
-			DB:       0,
-			PoolSize: 100,
+		Redis: commonConfig.RedisConfig{
+			Addresses: []string{"localhost:6379"},
+			Password:  "",
+			DB:        0,
+			PoolSize:  100,
 		},
-		Kafka: KafkaConfig{
-			Enabled: false, // 默认不启用 Kafka
+		Kafka: commonConfig.KafkaConfig{
 			Brokers: []string{"localhost:9092"},
 			GroupID: "eidos-trading",
-			Producer: ProducerConfig{
-				RequiredAcks:  -1, // WaitForAll
-				MaxRetry:      3,
-				FlushMessages: 100,
-				FlushBytes:    1024 * 1024, // 1MB
-				FlushFreqMs:   10,
-			},
-			Consumer: ConsumerConfig{
-				InitialOffset: "newest",
-			},
 		},
 		Outbox: OutboxConfig{
 			RelayIntervalMs:   100,
@@ -293,7 +227,7 @@ func defaultConfig() *Config {
 				VerifyingContract: "0x0000000000000000000000000000000000000000",
 			},
 		},
-		Log: LogConfig{
+		Log: commonConfig.LogConfig{
 			Level:  "info",
 			Format: "json",
 		},
@@ -315,13 +249,18 @@ func defaultConfig() *Config {
 			},
 			AsyncDBTimeoutSec: 30, // 异步 DB 写入超时 30 秒
 		},
-		Matching: MatchingConfig{
-			Enabled: false,             // 默认不启用，开发时可选
-			Addr:    "localhost:50052", // 默认撮合服务地址
+		Matching: commonConfig.ClientConfig{
+			Addr: "localhost:50052",
 		},
-		Risk: RiskConfig{
-			Enabled: false,             // 默认不启用，开发时可选
-			Addr:    "localhost:50055", // 默认风控服务地址
+		Risk: commonConfig.ClientConfig{
+			Addr: "localhost:50055",
+		},
+		GRPCClients: commonConfig.GRPCClientsConfig{
+			Trading:  commonConfig.ClientConfig{Addr: "localhost:50051", TimeoutMs: 5000, MaxRetry: 3},
+			Matching: commonConfig.ClientConfig{Addr: "localhost:50052", TimeoutMs: 5000, MaxRetry: 3},
+			Market:   commonConfig.ClientConfig{Addr: "localhost:50053", TimeoutMs: 5000, MaxRetry: 3},
+			Risk:     commonConfig.ClientConfig{Addr: "localhost:50055", TimeoutMs: 5000, MaxRetry: 3},
+			Chain:    commonConfig.ClientConfig{Addr: "localhost:50054", TimeoutMs: 5000, MaxRetry: 3},
 		},
 		Markets: []MarketConfig{
 			{
@@ -349,9 +288,7 @@ func defaultConfig() *Config {
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) {
 	// Nacos 配置
-	if enabled := os.Getenv("NACOS_ENABLED"); enabled == "true" {
-		cfg.Nacos.Enabled = true
-	}
+	// Nacos 配置
 	if addr := os.Getenv("NACOS_SERVER_ADDR"); addr != "" {
 		cfg.Nacos.ServerAddr = addr
 	}
@@ -364,30 +301,28 @@ func loadFromEnv(cfg *Config) {
 
 	// 数据库配置
 	if host := os.Getenv("DB_HOST"); host != "" {
-		cfg.Database.Host = host
+		cfg.Postgres.Host = host
 	}
 	if user := os.Getenv("DB_USER"); user != "" {
-		cfg.Database.User = user
+		cfg.Postgres.User = user
 	}
 	if password := os.Getenv("DB_PASSWORD"); password != "" {
-		cfg.Database.Password = password
+		cfg.Postgres.Password = password
 	}
 	if database := os.Getenv("DB_DATABASE"); database != "" {
-		cfg.Database.Database = database
+		cfg.Postgres.Database = database
 	}
 
 	// Redis 配置
-	if host := os.Getenv("REDIS_HOST"); host != "" {
-		cfg.Redis.Host = host
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		cfg.Redis.Addresses = []string{addr}
 	}
 	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
 		cfg.Redis.Password = password
 	}
 
 	// Kafka 配置
-	if enabled := os.Getenv("KAFKA_ENABLED"); enabled == "true" {
-		cfg.Kafka.Enabled = true
-	}
+	// Kafka 配置
 	if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
 		cfg.Kafka.Brokers = []string{brokers}
 	}

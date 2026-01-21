@@ -6,20 +6,38 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Service     ServiceConfig     `yaml:"service" json:"service"`
-	Nacos       NacosConfig       `yaml:"nacos" json:"nacos"`
-	Postgres    PostgresConfig    `yaml:"postgres" json:"postgres"`
-	Redis       RedisConfig       `yaml:"redis" json:"redis"`
-	Kafka       KafkaConfig       `yaml:"kafka" json:"kafka"`
-	GRPCClients GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
-	Jobs        JobsConfig        `yaml:"jobs" json:"jobs"`
-	Scheduler   SchedulerConfig   `yaml:"scheduler" json:"scheduler"`
-	Log         LogConfig         `yaml:"log" json:"log"`
+	Service         ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos           commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres        commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis           commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka           commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	GRPCClients     commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
+	HealthEndpoints HealthEndpointsConfig          `yaml:"health_endpoints" json:"health_endpoints"`
+	Jobs            JobsConfig                     `yaml:"jobs" json:"jobs"`
+	Scheduler       SchedulerConfig                `yaml:"scheduler" json:"scheduler"`
+	Log             commonConfig.LogConfig         `yaml:"log" json:"log"`
+}
+
+// HealthEndpointConfig 单个服务健康检查端点配置
+type HealthEndpointConfig struct {
+	URL        string `yaml:"url" json:"url"`                 // HTTP URL (用于 HTTP 检查)
+	GRPCAddr   string `yaml:"grpc_addr" json:"grpc_addr"`     // gRPC 地址 (用于 gRPC 检查)
+	CheckType  string `yaml:"check_type" json:"check_type"`   // 检查类型: http 或 grpc
+	TimeoutSec int    `yaml:"timeout_sec" json:"timeout_sec"` // 超时时间(秒)
+}
+
+// HealthEndpointsConfig 所有服务的健康检查端点配置
+type HealthEndpointsConfig struct {
+	Trading  HealthEndpointConfig `yaml:"trading" json:"trading"`
+	Matching HealthEndpointConfig `yaml:"matching" json:"matching"`
+	Market   HealthEndpointConfig `yaml:"market" json:"market"`
+	Chain    HealthEndpointConfig `yaml:"chain" json:"chain"`
+	Risk     HealthEndpointConfig `yaml:"risk" json:"risk"`
 }
 
 type ServiceConfig struct {
@@ -27,43 +45,6 @@ type ServiceConfig struct {
 	GRPCPort int    `yaml:"grpc_port" json:"grpc_port"`
 	HTTPPort int    `yaml:"http_port" json:"http_port"`
 	Env      string `yaml:"env" json:"env"`
-}
-
-type NacosConfig struct {
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-}
-
-type PostgresConfig struct {
-	Host                   string `yaml:"host" json:"host"`
-	Port                   int    `yaml:"port" json:"port"`
-	User                   string `yaml:"user" json:"user"`
-	Password               string `yaml:"password" json:"password"`
-	Database               string `yaml:"database" json:"database"`
-	MaxConnections         int    `yaml:"max_connections" json:"max_connections"`
-	MaxIdleConns           int    `yaml:"max_idle_conns" json:"max_idle_conns"`
-	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes" json:"conn_max_lifetime_minutes"`
-}
-
-type RedisConfig struct {
-	Host     string `yaml:"host" json:"host"`
-	Port     int    `yaml:"port" json:"port"`
-	Password string `yaml:"password" json:"password"`
-	DB       int    `yaml:"db" json:"db"`
-	PoolSize int    `yaml:"pool_size" json:"pool_size"`
-}
-
-type KafkaConfig struct {
-	Brokers []string `yaml:"brokers" json:"brokers"`
-	GroupID string   `yaml:"group_id" json:"group_id"`
-}
-
-type GRPCClientsConfig struct {
-	Trading  string `yaml:"trading" json:"trading"`
-	Chain    string `yaml:"chain" json:"chain"`
-	Market   string `yaml:"market" json:"market"`
-	Matching string `yaml:"matching" json:"matching"`
 }
 
 type JobsConfig struct {
@@ -111,11 +92,6 @@ type SchedulerConfig struct {
 	MaxConcurrentJobs int `yaml:"max_concurrent_jobs" json:"max_concurrent_jobs"`
 }
 
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // Load 加载配置
 func Load() (*Config, error) {
 	cfg := &Config{}
@@ -125,7 +101,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err == nil {
 		// 先解析为临时结构以支持环境变量替换
-		content := config.ExpandEnv(string(data))
+		content := commonConfig.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config: %w", err)
 		}
@@ -180,7 +156,7 @@ func applyDefaults(cfg *Config) {
 
 	// Postgres defaults
 	if cfg.Postgres.Host == "" {
-		cfg.Postgres.Host = "localhost"
+		cfg.Postgres.Host = "postgres"
 	}
 	if cfg.Postgres.Port == 0 {
 		cfg.Postgres.Port = 5432
@@ -192,21 +168,18 @@ func applyDefaults(cfg *Config) {
 		cfg.Postgres.Database = "eidos_jobs"
 	}
 	if cfg.Postgres.MaxConnections == 0 {
-		cfg.Postgres.MaxConnections = 10
+		cfg.Postgres.MaxConnections = 20
 	}
 	if cfg.Postgres.MaxIdleConns == 0 {
-		cfg.Postgres.MaxIdleConns = 5
+		cfg.Postgres.MaxIdleConns = 10
 	}
-	if cfg.Postgres.ConnMaxLifetimeMinutes == 0 {
-		cfg.Postgres.ConnMaxLifetimeMinutes = 30
+	if cfg.Postgres.ConnMaxLifetime == 0 {
+		cfg.Postgres.ConnMaxLifetime = 3600
 	}
 
 	// Redis defaults
-	if cfg.Redis.Host == "" {
-		cfg.Redis.Host = "localhost"
-	}
-	if cfg.Redis.Port == 0 {
-		cfg.Redis.Port = 6379
+	if len(cfg.Redis.Addresses) == 0 {
+		cfg.Redis.Addresses = []string{"redis:6379"}
 	}
 	if cfg.Redis.PoolSize == 0 {
 		cfg.Redis.PoolSize = 20
@@ -218,17 +191,71 @@ func applyDefaults(cfg *Config) {
 	}
 
 	// gRPC clients defaults
-	if cfg.GRPCClients.Trading == "" {
-		cfg.GRPCClients.Trading = "localhost:50051"
+	if cfg.GRPCClients.Trading.Addr == "" {
+		cfg.GRPCClients.Trading.Addr = "eidos-trading:50051"
 	}
-	if cfg.GRPCClients.Matching == "" {
-		cfg.GRPCClients.Matching = "localhost:50052"
+	if cfg.GRPCClients.Matching.Addr == "" {
+		cfg.GRPCClients.Matching.Addr = "eidos-matching:50052"
 	}
-	if cfg.GRPCClients.Market == "" {
-		cfg.GRPCClients.Market = "localhost:50053"
+	if cfg.GRPCClients.Market.Addr == "" {
+		cfg.GRPCClients.Market.Addr = "eidos-market:50053"
 	}
-	if cfg.GRPCClients.Chain == "" {
-		cfg.GRPCClients.Chain = "localhost:50054"
+	if cfg.GRPCClients.Chain.Addr == "" {
+		cfg.GRPCClients.Chain.Addr = "eidos-chain:50054"
+	}
+	if cfg.GRPCClients.Risk.Addr == "" {
+		cfg.GRPCClients.Risk.Addr = "eidos-risk:50055"
+	}
+
+	// Health endpoints defaults - 全部使用 gRPC 健康检查
+	if cfg.HealthEndpoints.Trading.CheckType == "" {
+		cfg.HealthEndpoints.Trading.CheckType = "grpc"
+	}
+	if cfg.HealthEndpoints.Trading.GRPCAddr == "" {
+		cfg.HealthEndpoints.Trading.GRPCAddr = "eidos-trading:50051"
+	}
+	if cfg.HealthEndpoints.Trading.TimeoutSec == 0 {
+		cfg.HealthEndpoints.Trading.TimeoutSec = 5
+	}
+
+	if cfg.HealthEndpoints.Matching.CheckType == "" {
+		cfg.HealthEndpoints.Matching.CheckType = "grpc"
+	}
+	if cfg.HealthEndpoints.Matching.GRPCAddr == "" {
+		cfg.HealthEndpoints.Matching.GRPCAddr = "eidos-matching:50052"
+	}
+	if cfg.HealthEndpoints.Matching.TimeoutSec == 0 {
+		cfg.HealthEndpoints.Matching.TimeoutSec = 5
+	}
+
+	if cfg.HealthEndpoints.Market.CheckType == "" {
+		cfg.HealthEndpoints.Market.CheckType = "grpc"
+	}
+	if cfg.HealthEndpoints.Market.GRPCAddr == "" {
+		cfg.HealthEndpoints.Market.GRPCAddr = "eidos-market:50053"
+	}
+	if cfg.HealthEndpoints.Market.TimeoutSec == 0 {
+		cfg.HealthEndpoints.Market.TimeoutSec = 5
+	}
+
+	if cfg.HealthEndpoints.Chain.CheckType == "" {
+		cfg.HealthEndpoints.Chain.CheckType = "grpc"
+	}
+	if cfg.HealthEndpoints.Chain.GRPCAddr == "" {
+		cfg.HealthEndpoints.Chain.GRPCAddr = "eidos-chain:50054"
+	}
+	if cfg.HealthEndpoints.Chain.TimeoutSec == 0 {
+		cfg.HealthEndpoints.Chain.TimeoutSec = 5
+	}
+
+	if cfg.HealthEndpoints.Risk.CheckType == "" {
+		cfg.HealthEndpoints.Risk.CheckType = "grpc"
+	}
+	if cfg.HealthEndpoints.Risk.GRPCAddr == "" {
+		cfg.HealthEndpoints.Risk.GRPCAddr = "eidos-risk:50055"
+	}
+	if cfg.HealthEndpoints.Risk.TimeoutSec == 0 {
+		cfg.HealthEndpoints.Risk.TimeoutSec = 5
 	}
 
 	// Log defaults
@@ -275,13 +302,8 @@ func applyEnvOverrides(cfg *Config) {
 	}
 
 	// Redis
-	if v := os.Getenv("REDIS_HOST"); v != "" {
-		cfg.Redis.Host = v
-	}
-	if v := os.Getenv("REDIS_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
-			cfg.Redis.Port = port
-		}
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+		cfg.Redis.Addresses = []string{v}
 	}
 	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
 		cfg.Redis.Password = v

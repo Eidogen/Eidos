@@ -41,10 +41,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"log/slog"
+
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
-	commonv1 "github.com/eidos-exchange/eidos/proto/common"
-	matchingv1 "github.com/eidos-exchange/eidos/proto/matching/v1"
-	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/engine"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/ha"
@@ -54,13 +53,17 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/price"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/snapshot"
-	"log/slog"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
+	matchingv1 "github.com/eidos-exchange/eidos/proto/matching/v1"
+	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // App 撮合引擎应用
@@ -247,21 +250,28 @@ func (a *App) initSnapshotManager() {
 // initKafka 初始化 Kafka
 func (a *App) initKafka() error {
 	// 创建消费者
+	// 创建消费者
 	a.consumer = kafka.NewConsumer(&kafka.ConsumerConfig{
 		Brokers:      a.cfg.Kafka.Brokers,
-		GroupID:      a.cfg.Kafka.Consumer.GroupID,
+		GroupID:      a.cfg.Kafka.GroupID,
 		OrdersTopic:  "orders",
 		CancelsTopic: "cancel-requests",
-		BatchSize:    a.cfg.Kafka.Consumer.BatchSize,
-		LingerMs:     a.cfg.Kafka.Consumer.LingerMs,
-		StartOffset:  -1, // latest
-		CommitMode:   "manual",
+		BatchSize: func() int {
+			if a.cfg.Kafka.Consumer.MaxPollRecords > 0 {
+				return a.cfg.Kafka.Consumer.MaxPollRecords
+			}
+			return 100
+		}(),
+		LingerMs:    5,  // Default or find in config
+		StartOffset: -1, // latest
+		CommitMode:  "manual",
 	})
 
 	// 设置处理函数
 	a.consumer.SetOrderHandler(a.handleOrder)
 	a.consumer.SetCancelHandler(a.handleCancel)
 
+	// 创建生产者
 	// 创建生产者
 	a.producer = kafka.NewProducer(&kafka.ProducerConfig{
 		Brokers:               a.cfg.Kafka.Brokers,
@@ -270,7 +280,7 @@ func (a *App) initKafka() error {
 		OrderbookUpdatesTopic: "orderbook-updates",
 		OrderUpdatesTopic:     "order-updates", // 订单状态更新 (用于风控拒绝等)
 		BatchSize:             a.cfg.Kafka.Producer.BatchSize,
-		BatchTimeout:          time.Duration(a.cfg.Kafka.Producer.BatchTimeout) * time.Millisecond,
+		BatchTimeout:          time.Duration(a.cfg.Kafka.Producer.LingerMs) * time.Millisecond,
 		Compression:           a.cfg.Kafka.Producer.Compression,
 		RequiredAcks:          a.cfg.Kafka.Producer.RequiredAcks,
 	})
@@ -286,6 +296,12 @@ func (a *App) initGRPC() error {
 	// 注册 MatchingService
 	matchingHandler := handler.NewMatchingHandler(a.engineManager)
 	matchingv1.RegisterMatchingServiceServer(a.grpcServer, matchingHandler)
+
+	// 注册 gRPC 健康检查服务
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(a.grpcServer, healthServer)
+	healthServer.SetServingStatus(a.cfg.Service.Name, grpc_health_v1.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING) // 默认服务状态
 
 	// 创建监听器
 	addr := fmt.Sprintf(":%d", a.cfg.Service.GRPCPort)
@@ -372,7 +388,7 @@ func (a *App) initRisk() error {
 
 	slog.Info("risk client initialized",
 		"addr", a.cfg.Risk.Addr,
-		"timeout_ms", a.cfg.Risk.Timeout)
+		"timeout_ms", a.cfg.Risk.TimeoutMs)
 
 	return nil
 }
@@ -776,7 +792,7 @@ func (a *App) serveGRPC() {
 // 返回: (是否通过, 拒绝原因, 错误)
 func (a *App) checkOrderRisk(ctx context.Context, order *model.Order) (bool, string, error) {
 	// 创建带超时的 context
-	timeout := time.Duration(a.cfg.Risk.Timeout) * time.Millisecond
+	timeout := time.Duration(a.cfg.Risk.TimeoutMs) * time.Millisecond
 	riskCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

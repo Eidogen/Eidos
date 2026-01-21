@@ -2,29 +2,21 @@ package config
 
 import (
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-var envRegex = regexp.MustCompile(`\$\{([^:]+)(?::([^}]*))?\}`)
-
-// ExpandEnv 展开环境变量，支持 ${VAR:DEFAULT} 格式
+// ExpandEnv 展开字符串中的环境变量，支持 ${VAR:default} 格式
 func ExpandEnv(s string) string {
-	return envRegex.ReplaceAllStringFunc(s, func(m string) string {
-		matches := envRegex.FindStringSubmatch(m)
-		if len(matches) < 2 {
-			return m
-		}
-		key := matches[1]
-		var defaultVal string
-		if len(matches) > 2 {
-			defaultVal = matches[2]
-		}
-		if val, ok := os.LookupEnv(key); ok {
+	return os.Expand(s, func(k string) string {
+		parts := strings.SplitN(k, ":", 2)
+		if val, ok := os.LookupEnv(parts[0]); ok {
 			return val
 		}
-		return defaultVal
+		if len(parts) > 1 {
+			return parts[1]
+		}
+		return ""
 	})
 }
 
@@ -113,17 +105,41 @@ type RedisConfig struct {
 
 // KafkaConfig Kafka 配置
 type KafkaConfig struct {
-	Brokers  []string `yaml:"brokers" json:"brokers"`
-	GroupID  string   `yaml:"group_id" json:"group_id"`
-	ClientID string   `yaml:"client_id" json:"client_id"`
+	Enabled  bool          `yaml:"enabled" json:"enabled"`
+	Brokers  []string      `yaml:"brokers" json:"brokers"`
+	GroupID  string        `yaml:"group_id" json:"group_id"`
+	ClientID string        `yaml:"client_id" json:"client_id"`
+	Consumer KafkaConsumer `yaml:"consumer" json:"consumer"`
+	Producer KafkaProducer `yaml:"producer" json:"producer"`
+}
+
+type KafkaConsumer struct {
+	Topics          []string `yaml:"topics" json:"topics"`
+	AutoOffsetReset string   `yaml:"auto_offset_reset" json:"auto_offset_reset"`
+	MaxPollRecords  int      `yaml:"max_poll_records" json:"max_poll_records"`
+}
+
+type KafkaProducer struct {
+	Topics       map[string]string `yaml:"topics" json:"topics"`
+	Compression  string            `yaml:"compression" json:"compression"`
+	BatchSize    int               `yaml:"batch_size" json:"batch_size"`
+	LingerMs     int               `yaml:"linger_ms" json:"linger_ms"`
+	RequiredAcks int               `yaml:"required_acks" json:"required_acks"`
 }
 
 // NacosConfig Nacos 配置
 type NacosConfig struct {
-	ServerAddr  string `yaml:"server_addr" json:"server_addr"`
-	Namespace   string `yaml:"namespace" json:"namespace"`
-	Group       string `yaml:"group" json:"group"`
-	ServiceName string `yaml:"service_name" json:"service_name"`
+	Enabled             bool   `yaml:"enabled" json:"enabled"`
+	ServerAddr          string `yaml:"server_addr" json:"server_addr"`
+	Namespace           string `yaml:"namespace" json:"namespace"`
+	Group               string `yaml:"group" json:"group"`
+	ServiceName         string `yaml:"service_name" json:"service_name"`
+	Username            string `yaml:"username" json:"username"`
+	Password            string `yaml:"password" json:"password"`
+	LogDir              string `yaml:"log_dir" json:"log_dir"`
+	CacheDir            string `yaml:"cache_dir" json:"cache_dir"`
+	TimeoutMs           uint64 `yaml:"timeout_ms" json:"timeout_ms"`
+	HeartbeatIntervalMs uint64 `yaml:"heartbeat_interval_ms" json:"heartbeat_interval_ms"`
 }
 
 // GRPCConfig gRPC 服务配置
@@ -148,6 +164,25 @@ type EIP712Config struct {
 type LogConfig struct {
 	Level  string `yaml:"level" json:"level"`   // debug, info, warn, error
 	Format string `yaml:"format" json:"format"` // json, console, color
+}
+
+// ClientConfig gRPC 客户端详细配置
+type ClientConfig struct {
+	Enabled   bool   `yaml:"enabled" json:"enabled"`
+	Addr      string `yaml:"addr" json:"addr"`
+	TimeoutMs int    `yaml:"timeout_ms" json:"timeout_ms"`
+	MaxRetry  int    `yaml:"max_retry" json:"max_retry"`
+	FailOpen  bool   `yaml:"fail_open" json:"fail_open"`
+}
+
+// GRPCClientsConfig 通用 gRPC 客户端配置
+type GRPCClientsConfig struct {
+	Trading  ClientConfig `yaml:"trading" json:"trading"`
+	Matching ClientConfig `yaml:"matching" json:"matching"`
+	Market   ClientConfig `yaml:"market" json:"market"`
+	Risk     ClientConfig `yaml:"risk" json:"risk"`
+	Chain    ClientConfig `yaml:"chain" json:"chain"`
+	Jobs     ClientConfig `yaml:"jobs" json:"jobs"`
 }
 
 // DefaultLogConfig 返回默认日志配置

@@ -1,120 +1,95 @@
 service:
   name: eidos-api
   http_port: 8080
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:false}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:public}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: public
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
-  log_dir: /tmp/nacos/log
-  cache_dir: /tmp/nacos/cache
+  username: ""
+  password: ""
   timeout_ms: 5000
-  heartbeat_interval_ms: 5000
 
 # Redis Configuration
 redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
+  addresses:
+    - ${REDIS_ADDR:localhost:6379}
+  password: ""
   db: 0
   pool_size: 100
-  min_idle_conns: 10
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
 
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    addr: localhost:50051
     timeout_ms: 5000
     max_retry: 3
   matching:
-    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
+    addr: localhost:50052
     timeout_ms: 5000
     max_retry: 3
   market:
-    addr: ${GRPC_MARKET_ADDR:localhost:50053}
+    addr: localhost:50053
     timeout_ms: 5000
     max_retry: 3
   risk:
-    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    addr: localhost:50055
     timeout_ms: 5000
     max_retry: 3
   chain:
-    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
+    addr: localhost:50054
     timeout_ms: 5000
     max_retry: 3
-
-# Kafka Configuration (for pub/sub)
-kafka:
-  enabled: ${KAFKA_ENABLED:true}
-  brokers:
-    - ${KAFKA_BROKERS:localhost:9092}
-  consumer:
-    group_id: eidos-api
-    topics:
-      - market-data
-      - trade-events
-      - order-updates
-    auto_offset_reset: latest
-  producer:
-    compression: lz4
-    batch_size: 1000
 
 # EIP-712 Signature Verification
 eip712:
   domain:
     name: EidosExchange
     version: "1"
-    chain_id: ${EIP712_CHAIN_ID:31337}
-    verifying_contract: ${EIP712_CONTRACT:0x0000000000000000000000000000000000000000}
-  mock_mode: ${EIP712_MOCK_MODE:true}
-  timestamp_tolerance_ms: 300000  # 5 minutes
+    chain_id: 31337
+    verifying_contract: "0x0000000000000000000000000000000000000000"
+  mock_mode: true
+  timestamp_tolerance_ms: 300000
 
 # Rate Limiting
 rate_limit:
-  enabled: ${RATE_LIMIT_ENABLED:true}
+  enabled: true
   per_wallet:
-    orders: 10        # Orders per second
-    queries: 100      # Queries per second
-    withdrawals: 1    # Withdrawals per second
-    cancels: 20       # Cancels per second
+    orders: 10
+    queries: 100
+    withdrawals: 1
+    cancels: 20
   per_ip:
-    total: 1000       # Total requests per minute
-    websocket: 5      # WebSocket connections per minute
-    public_api: 100   # Public API requests per second
+    total: 1000
+    websocket: 5
+    public_api: 100
   global:
-    orders: 10000     # Global orders per second
+    orders: 10000
 
 # WebSocket Configuration
 websocket:
   read_buffer_size: 1024
   write_buffer_size: 1024
-  ping_interval: 30           # Seconds
-  pong_timeout: 10            # Seconds
+  ping_interval: 30
+  pong_timeout: 10
   max_connections: 100000
   max_subscriptions: 50
-  write_wait: 10              # Seconds
+  write_wait: 10
   max_message_size: 4096
   allowed_origins:
     - "localhost"
     - "localhost:3000"
     - "localhost:8080"
-    - "*.eidos.exchange"
-  allow_all_origins: ${WS_ALLOW_ALL_ORIGINS:true}
-  auth_timeout: 30
-  enable_private_auth: ${WS_ENABLE_PRIVATE_AUTH:true}
+  allow_all_origins: true
+  auth_timeout_sec: 30
+  enable_private_auth: true
 
 # Risk Service Integration
 risk:
-  enabled: ${RISK_ENABLED:true}
+  enabled: true
   fail_open: false
 
 # Prometheus Metrics
@@ -125,19 +100,10 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
-  file:
-    enabled: false
-    path: /var/log/eidos/api.log
-    max_size_mb: 100
-    max_backups: 3
-    max_age_days: 7
+  level: info
+  format: color
 
 # Health Check
 health:
   enabled: true
   path: /health
-  liveness_path: /health/live
-  readiness_path: /health/ready

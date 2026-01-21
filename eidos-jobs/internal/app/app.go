@@ -232,7 +232,7 @@ func (a *App) initDB() error {
 
 	sqlDB.SetMaxOpenConns(a.cfg.Postgres.MaxConnections)
 	sqlDB.SetMaxIdleConns(a.cfg.Postgres.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetimeMinutes) * time.Minute)
+	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetime) * time.Second)
 
 	a.db = db
 	logger.Info("database connected",
@@ -249,9 +249,13 @@ func (a *App) initDB() error {
 }
 
 // initRedis 初始化 Redis
-func (a *App) initRedis() error {
+func (a *App) initRedis() error { // 初始化 Redis 客户端
+	redisAddr := "localhost:6379"
+	if len(a.cfg.Redis.Addresses) > 0 {
+		redisAddr = a.cfg.Redis.Addresses[0]
+	}
 	a.redisClient = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", a.cfg.Redis.Host, a.cfg.Redis.Port),
+		Addr:     redisAddr,
 		Password: a.cfg.Redis.Password,
 		DB:       a.cfg.Redis.DB,
 		PoolSize: a.cfg.Redis.PoolSize,
@@ -264,9 +268,7 @@ func (a *App) initRedis() error {
 		return err
 	}
 
-	logger.Info("redis connected",
-		"host", a.cfg.Redis.Host,
-		"db", a.cfg.Redis.DB)
+	logger.Info("redis client initialized", "address", redisAddr)
 
 	return nil
 }
@@ -284,45 +286,51 @@ func (a *App) initRepositories() {
 // initClients 初始化 gRPC 客户端
 // 客户端初始化失败不阻止服务启动，任务会使用 Mock 实现
 func (a *App) initClients() {
-	var err error
-
-	// Trading 客户端
-	if a.cfg.GRPCClients.Trading != "" {
-		a.tradingClient, err = client.NewTradingClient(a.cfg.GRPCClients.Trading)
+	// 1. Trading
+	if a.cfg.GRPCClients.Trading.Addr != "" {
+		tradingClient, err := client.NewTradingClient(a.cfg.GRPCClients.Trading.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to trading service, using mock",
-				"addr", a.cfg.GRPCClients.Trading,
+				"addr", a.cfg.GRPCClients.Trading.Addr,
 				"error", err)
+		} else {
+			a.tradingClient = tradingClient
 		}
 	}
 
-	// Matching 客户端
-	if a.cfg.GRPCClients.Matching != "" {
-		a.matchingClient, err = client.NewMatchingClient(a.cfg.GRPCClients.Matching, nil) // 可选: 传入 Kafka producer 用于发送过期订单
+	// 2. Matching
+	if a.cfg.GRPCClients.Matching.Addr != "" {
+		matchingClient, err := client.NewMatchingClient(a.cfg.GRPCClients.Matching.Addr, nil)
 		if err != nil {
 			logger.Warn("failed to connect to matching service, using mock",
-				"addr", a.cfg.GRPCClients.Matching,
+				"addr", a.cfg.GRPCClients.Matching.Addr,
 				"error", err)
+		} else {
+			a.matchingClient = matchingClient
 		}
 	}
 
-	// Market 客户端
-	if a.cfg.GRPCClients.Market != "" {
-		a.marketClient, err = client.NewMarketClient(a.cfg.GRPCClients.Market)
+	// 3. Market
+	if a.cfg.GRPCClients.Market.Addr != "" {
+		marketClient, err := client.NewMarketClient(a.cfg.GRPCClients.Market.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to market service, using mock",
-				"addr", a.cfg.GRPCClients.Market,
+				"addr", a.cfg.GRPCClients.Market.Addr,
 				"error", err)
+		} else {
+			a.marketClient = marketClient
 		}
 	}
 
-	// Chain 客户端
-	if a.cfg.GRPCClients.Chain != "" {
-		a.chainClient, err = client.NewChainClient(a.cfg.GRPCClients.Chain)
+	// 4. Chain
+	if a.cfg.GRPCClients.Chain.Addr != "" {
+		chainClient, err := client.NewChainClient(a.cfg.GRPCClients.Chain.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to chain service, using mock",
-				"addr", a.cfg.GRPCClients.Chain,
+				"addr", a.cfg.GRPCClients.Chain.Addr,
 				"error", err)
+		} else {
+			a.chainClient = chainClient
 		}
 	}
 
@@ -530,38 +538,31 @@ func (a *App) getJobCron(jobName string, configCron string) string {
 }
 
 // buildServiceEndpoints 构建服务端点列表
+// 使用配置的健康检查端点（支持 HTTP 和 gRPC）
 func (a *App) buildServiceEndpoints() []jobs.ServiceEndpoint {
 	endpoints := make([]jobs.ServiceEndpoint, 0)
 
+	// 辅助函数：从配置构建端点
+	addEndpoint := func(name string, cfg config.HealthEndpointConfig) {
+		checkType := jobs.CheckType(cfg.CheckType)
+		if checkType == "" {
+			checkType = jobs.CheckTypeGRPC // 默认使用 gRPC
+		}
+		endpoints = append(endpoints, jobs.ServiceEndpoint{
+			Name:      name,
+			URL:       cfg.URL,
+			GRPCAddr:  cfg.GRPCAddr,
+			CheckType: checkType,
+			Timeout:   time.Duration(cfg.TimeoutSec) * time.Second,
+		})
+	}
+
 	// 添加各服务的健康检查端点
-	if a.cfg.GRPCClients.Trading != "" {
-		endpoints = append(endpoints, jobs.ServiceEndpoint{
-			Name:    "eidos-trading",
-			URL:     fmt.Sprintf("http://%s/health", a.cfg.GRPCClients.Trading),
-			Timeout: 5 * time.Second,
-		})
-	}
-	if a.cfg.GRPCClients.Chain != "" {
-		endpoints = append(endpoints, jobs.ServiceEndpoint{
-			Name:    "eidos-chain",
-			URL:     fmt.Sprintf("http://%s/health", a.cfg.GRPCClients.Chain),
-			Timeout: 5 * time.Second,
-		})
-	}
-	if a.cfg.GRPCClients.Market != "" {
-		endpoints = append(endpoints, jobs.ServiceEndpoint{
-			Name:    "eidos-market",
-			URL:     fmt.Sprintf("http://%s/health", a.cfg.GRPCClients.Market),
-			Timeout: 5 * time.Second,
-		})
-	}
-	if a.cfg.GRPCClients.Matching != "" {
-		endpoints = append(endpoints, jobs.ServiceEndpoint{
-			Name:    "eidos-matching",
-			URL:     fmt.Sprintf("http://%s/health", a.cfg.GRPCClients.Matching),
-			Timeout: 5 * time.Second,
-		})
-	}
+	addEndpoint("eidos-trading", a.cfg.HealthEndpoints.Trading)
+	addEndpoint("eidos-matching", a.cfg.HealthEndpoints.Matching)
+	addEndpoint("eidos-market", a.cfg.HealthEndpoints.Market)
+	addEndpoint("eidos-chain", a.cfg.HealthEndpoints.Chain)
+	addEndpoint("eidos-risk", a.cfg.HealthEndpoints.Risk)
 
 	return endpoints
 }

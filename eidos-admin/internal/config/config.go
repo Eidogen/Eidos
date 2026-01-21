@@ -8,20 +8,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config 管理后台配置
 type Config struct {
-	Server      ServerConfig                `yaml:"server" json:"server"`
-	Service     ServiceConfig               `yaml:"service" json:"service"`
-	Nacos       commonConfig.NacosConfig    `yaml:"nacos" json:"nacos"`
-	Postgres    commonConfig.PostgresConfig `yaml:"postgres" json:"postgres"`
-	Redis       commonConfig.RedisConfig    `yaml:"redis" json:"redis"`
-	GRPCClients GRPCClientsConfig           `yaml:"grpc_clients" json:"grpc_clients"`
-	JWT         JWTConfig                   `yaml:"jwt" json:"jwt"`
-	Log         LogConfig                   `yaml:"log" json:"log"`
-}
-
-type ServerConfig struct {
-	Port int    `yaml:"port" json:"port"`
-	Mode string `yaml:"mode" json:"mode"` // debug, release
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres    commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
+	Auth        AuthConfig                     `yaml:"auth" json:"auth"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
 }
 
 type ServiceConfig struct {
@@ -30,23 +26,20 @@ type ServiceConfig struct {
 	Env      string `yaml:"env" json:"env"`
 }
 
-type GRPCClientsConfig struct {
-	Trading  string `yaml:"trading" json:"trading"`
-	Matching string `yaml:"matching" json:"matching"`
-	Market   string `yaml:"market" json:"market"`
-	Chain    string `yaml:"chain" json:"chain"`
-	Risk     string `yaml:"risk" json:"risk"`
-	Jobs     string `yaml:"jobs" json:"jobs"`
+type ServerConfig struct {
+	Port int    `yaml:"port" json:"port"`
+	Mode string `yaml:"mode" json:"mode"` // debug, release
 }
 
+// AuthConfig 认证配置
+type AuthConfig struct {
+	JWT JWTConfig `yaml:"jwt" json:"jwt"`
+}
+
+// JWTConfig JWT 配置
 type JWTConfig struct {
 	Secret      string `yaml:"secret" json:"secret"`
 	ExpireHours int    `yaml:"expire_hours" json:"expire_hours"`
-}
-
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
 }
 
 func Load(path string) (*Config, error) {
@@ -69,10 +62,6 @@ func Load(path string) (*Config, error) {
 
 func defaultConfig() *Config {
 	return &Config{
-		Server: ServerConfig{
-			Port: GetEnvInt("HTTP_PORT", 8088),
-			Mode: GetEnv("GIN_MODE", "debug"),
-		},
 		Service: ServiceConfig{
 			Name:     "eidos-admin",
 			HTTPPort: GetEnvInt("HTTP_PORT", 8088),
@@ -94,11 +83,13 @@ func defaultConfig() *Config {
 			DB:        GetEnvInt("REDIS_DB", 0),
 			PoolSize:  GetEnvInt("REDIS_POOL_SIZE", 20),
 		},
-		JWT: JWTConfig{
-			Secret:      GetEnv("JWT_SECRET", "your-jwt-secret-key-here"),
-			ExpireHours: GetEnvInt("JWT_EXPIRE_HOURS", 8),
+		Auth: AuthConfig{
+			JWT: JWTConfig{
+				Secret:      GetEnv("JWT_SECRET", "your-jwt-secret-key-here"),
+				ExpireHours: GetEnvInt("JWT_EXPIRE_HOURS", 8),
+			},
 		},
-		Log: LogConfig{
+		Log: commonConfig.LogConfig{
 			Level:  GetEnv("LOG_LEVEL", "info"),
 			Format: GetEnv("LOG_FORMAT", "json"),
 		},

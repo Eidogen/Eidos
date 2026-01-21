@@ -4,41 +4,22 @@ import (
 	"os"
 	"time"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 应用配置
 type Config struct {
-	Service    ServiceConfig         `yaml:"service" json:"service"`
-	Nacos      NacosConfig           `yaml:"nacos" json:"nacos"`
-	Matching   MatchingConfig        `yaml:"matching" json:"matching"`
-	Postgres   config.PostgresConfig `yaml:"postgres" json:"postgres"`
-	Redis      config.RedisConfig    `yaml:"redis" json:"redis"`
-	Kafka      config.KafkaConfig    `yaml:"kafka" json:"kafka"`
-	Kline      KlineConfig           `yaml:"kline" json:"kline"`
-	Aggregator AggregatorConfig      `yaml:"aggregator" json:"aggregator"`
-	Log        LogConfig             `yaml:"log" json:"log"`
-}
-
-// MatchingConfig 撮合服务连接配置
-type MatchingConfig struct {
-	Enabled        bool   `yaml:"enabled" json:"enabled"`                 // 是否启用（启用后才会连接 eidos-matching）
-	Addr           string `yaml:"addr" json:"addr"`                       // gRPC 地址 (host:port)
-	ConnectTimeout int    `yaml:"connect_timeout" json:"connect_timeout"` // 连接超时（秒）
-	RequestTimeout int    `yaml:"request_timeout" json:"request_timeout"` // 请求超时（秒）
-}
-
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-	Username   string `yaml:"username" json:"username"`
-	Password   string `yaml:"password" json:"password"`
-	LogDir     string `yaml:"log_dir" json:"log_dir"`
-	CacheDir   string `yaml:"cache_dir" json:"cache_dir"`
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Matching    commonConfig.ClientConfig      `yaml:"matching" json:"matching"`
+	Postgres    commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	Kline       KlineConfig                    `yaml:"kline" json:"kline"`
+	Aggregator  AggregatorConfig               `yaml:"aggregator" json:"aggregator"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
 // ServiceConfig 服务配置
@@ -62,12 +43,6 @@ type AggregatorConfig struct {
 	DepthMaxLevels        int `yaml:"depth_max_levels" json:"depth_max_levels"`               // 深度最大档位数
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
@@ -77,21 +52,15 @@ func DefaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: NacosConfig{
-			Enabled:    false,
+		Nacos: commonConfig.NacosConfig{
 			ServerAddr: "nacos:8848",
 			Namespace:  "eidos-dev",
 			Group:      "EIDOS_GROUP",
-			LogDir:     "/tmp/nacos/log",
-			CacheDir:   "/tmp/nacos/cache",
 		},
-		Matching: MatchingConfig{
-			Enabled:        false,
-			Addr:           "eidos-matching:50052",
-			ConnectTimeout: 5,
-			RequestTimeout: 3,
+		Matching: commonConfig.ClientConfig{
+			Addr: "eidos-matching:50052",
 		},
-		Postgres: config.PostgresConfig{
+		Postgres: commonConfig.PostgresConfig{
 			Host:            "postgres",
 			Port:            5432,
 			Database:        "eidos_market",
@@ -101,16 +70,15 @@ func DefaultConfig() *Config {
 			MaxIdleConns:    10,
 			ConnMaxLifetime: 3600,
 		},
-		Redis: config.RedisConfig{
+		Redis: commonConfig.RedisConfig{
 			Addresses: []string{"redis:6379"},
 			Password:  "",
 			DB:        0,
 			PoolSize:  100,
 		},
-		Kafka: config.KafkaConfig{
-			Brokers:  []string{"kafka:9092"},
-			GroupID:  "eidos-market",
-			ClientID: "eidos-market",
+		Kafka: commonConfig.KafkaConfig{
+			Brokers: []string{"kafka:9092"},
+			GroupID: "eidos-market",
 		},
 		Kline: KlineConfig{
 			Intervals: []string{"1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"},
@@ -121,7 +89,7 @@ func DefaultConfig() *Config {
 			DepthPublishInterval:  100,
 			DepthMaxLevels:        100,
 		},
-		Log: LogConfig{
+		Log: commonConfig.LogConfig{
 			Level:  "info",
 			Format: "json",
 		},
@@ -140,7 +108,7 @@ func Load(path string) (*Config, error) {
 		}
 
 		// 先展开环境变量
-		expandedData := config.ExpandEnv(string(data))
+		expandedData := commonConfig.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(expandedData), cfg); err != nil {
 			return nil, err
 		}
@@ -158,10 +126,10 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("SERVICE_NAME"); v != "" {
 		c.Service.Name = v
 	}
-	if v := config.GetEnvInt("GRPC_PORT", 0); v > 0 {
+	if v := commonConfig.GetEnvInt("GRPC_PORT", 0); v > 0 {
 		c.Service.GRPCPort = v
 	}
-	if v := config.GetEnvInt("HTTP_PORT", 0); v > 0 {
+	if v := commonConfig.GetEnvInt("HTTP_PORT", 0); v > 0 {
 		c.Service.HTTPPort = v
 	}
 	if v := os.Getenv("ENV"); v != "" {
@@ -169,7 +137,7 @@ func (c *Config) applyEnvOverrides() {
 	}
 
 	// Nacos
-	if v := config.GetEnvBool("NACOS_ENABLED", false); v {
+	if v := commonConfig.GetEnvBool("NACOS_ENABLED", false); v {
 		c.Nacos.Enabled = v
 	}
 	if v := os.Getenv("NACOS_SERVER_ADDR"); v != "" {
@@ -189,24 +157,21 @@ func (c *Config) applyEnvOverrides() {
 	}
 
 	// Matching
-	if v := config.GetEnvBool("MATCHING_ENABLED", false); v {
+	if v := commonConfig.GetEnvBool("MATCHING_ENABLED", false); v {
 		c.Matching.Enabled = v
 	}
 	if v := os.Getenv("MATCHING_ADDR"); v != "" {
 		c.Matching.Addr = v
 	}
-	if v := config.GetEnvInt("MATCHING_CONNECT_TIMEOUT", 0); v > 0 {
-		c.Matching.ConnectTimeout = v
-	}
-	if v := config.GetEnvInt("MATCHING_REQUEST_TIMEOUT", 0); v > 0 {
-		c.Matching.RequestTimeout = v
+	if v := commonConfig.GetEnvInt("MATCHING_TIMEOUT", 0); v > 0 {
+		c.Matching.TimeoutMs = v
 	}
 
 	// Postgres
 	if v := os.Getenv("POSTGRES_HOST"); v != "" {
 		c.Postgres.Host = v
 	}
-	if v := config.GetEnvInt("POSTGRES_PORT", 0); v > 0 {
+	if v := commonConfig.GetEnvInt("POSTGRES_PORT", 0); v > 0 {
 		c.Postgres.Port = v
 	}
 	if v := os.Getenv("POSTGRES_DATABASE"); v != "" {
@@ -229,7 +194,7 @@ func (c *Config) applyEnvOverrides() {
 
 	// Kafka
 	if v := os.Getenv("KAFKA_BROKERS"); v != "" {
-		c.Kafka.Brokers = config.GetEnvSlice("KAFKA_BROKERS", c.Kafka.Brokers)
+		c.Kafka.Brokers = commonConfig.GetEnvSlice("KAFKA_BROKERS", c.Kafka.Brokers)
 	}
 
 	// Log
@@ -265,10 +230,10 @@ func (c *Config) IsProd() bool {
 
 // GetMatchingConnectTimeout 获取 Matching 连接超时
 func (c *Config) GetMatchingConnectTimeout() time.Duration {
-	return time.Duration(c.Matching.ConnectTimeout) * time.Second
+	return time.Duration(c.Matching.TimeoutMs) * time.Millisecond
 }
 
 // GetMatchingRequestTimeout 获取 Matching 请求超时
 func (c *Config) GetMatchingRequestTimeout() time.Duration {
-	return time.Duration(c.Matching.RequestTimeout) * time.Second
+	return time.Duration(c.Matching.TimeoutMs) * time.Millisecond
 }

@@ -6,23 +6,24 @@ import (
 	"os"
 	"time"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 服务配置
 type Config struct {
-	Service    ServiceConfig    `yaml:"service" json:"service"`
-	Nacos      NacosConfig      `yaml:"nacos" json:"nacos"`
-	Redis      RedisConfig      `yaml:"redis" json:"redis"`
-	Kafka      KafkaConfig      `yaml:"kafka" json:"kafka"`
-	Risk       RiskConfig       `yaml:"risk" json:"risk"`
-	Markets    []MarketConfig   `yaml:"markets" json:"markets"`
-	Snapshot   SnapshotConfig   `yaml:"snapshot" json:"snapshot"`
-	HA         HAConfig         `yaml:"ha" json:"ha"`
-	IndexPrice IndexPriceConfig `yaml:"index_price" json:"index_price"`
-	Log        LogConfig        `yaml:"log" json:"log"`
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	Risk        commonConfig.ClientConfig      `yaml:"risk" json:"risk"`
+	Markets     []MarketConfig                 `yaml:"markets" json:"markets"`
+	Snapshot    SnapshotConfig                 `yaml:"snapshot" json:"snapshot"`
+	HA          HAConfig                       `yaml:"ha" json:"ha"`
+	IndexPrice  IndexPriceConfig               `yaml:"index_price" json:"index_price"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
 // ServiceConfig 服务配置
@@ -32,45 +33,6 @@ type ServiceConfig struct {
 	GRPCPort int    `yaml:"grpc_port" json:"grpc_port"`
 	HTTPPort int    `yaml:"http_port" json:"http_port"`
 	Env      string `yaml:"env" json:"env"`
-}
-
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-}
-
-// RedisConfig Redis 配置
-type RedisConfig struct {
-	Addresses  []string `yaml:"addresses" json:"addresses"`
-	Password   string   `yaml:"password" json:"password"`
-	DB         int      `yaml:"db" json:"db"`
-	PoolSize   int      `yaml:"pool_size" json:"pool_size"`
-	TLSEnabled bool     `yaml:"tls_enabled" json:"tls_enabled"`
-}
-
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Brokers  []string            `yaml:"brokers" json:"brokers"`
-	Consumer KafkaConsumerConfig `yaml:"consumer" json:"consumer"`
-	Producer KafkaProducerConfig `yaml:"producer" json:"producer"`
-}
-
-// KafkaConsumerConfig Kafka 消费者配置
-type KafkaConsumerConfig struct {
-	GroupID   string   `yaml:"group_id" json:"group_id"`
-	Topics    []string `yaml:"topics" json:"topics"`
-	BatchSize int      `yaml:"batch_size" json:"batch_size"`
-	LingerMs  int      `yaml:"linger_ms" json:"linger_ms"`
-}
-
-// KafkaProducerConfig Kafka 生产者配置
-type KafkaProducerConfig struct {
-	Compression  string `yaml:"compression" json:"compression"`
-	BatchSize    int    `yaml:"batch_size" json:"batch_size"`
-	BatchTimeout int    `yaml:"batch_timeout_ms" json:"batch_timeout_ms"`
-	RequiredAcks int    `yaml:"required_acks" json:"required_acks"`
 }
 
 // MarketConfig 市场配置
@@ -101,19 +63,6 @@ type HAConfig struct {
 	FailoverTimeout   time.Duration `yaml:"failover_timeout" json:"failover_timeout"`
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
-// RiskConfig 风控服务配置
-type RiskConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`       // 是否启用风控检查
-	Addr    string `yaml:"addr" json:"addr"`             // eidos-risk gRPC 地址 (如 localhost:50055)
-	Timeout int    `yaml:"timeout_ms" json:"timeout_ms"` // 超时时间 (毫秒)
-}
-
 // IndexPriceConfig 指数价格配置
 type IndexPriceConfig struct {
 	Enabled            bool          `yaml:"enabled" json:"enabled"`
@@ -132,7 +81,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	// 环境变量替换
-	data = []byte(config.ExpandEnv(string(data)))
+	data = []byte(commonConfig.ExpandEnv(string(data)))
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -161,11 +110,11 @@ func (c *Config) setDefaults() {
 		c.Service.NodeID = fmt.Sprintf("%s-%s", c.Service.Name, hostname)
 	}
 
-	if c.Kafka.Consumer.BatchSize == 0 {
-		c.Kafka.Consumer.BatchSize = 100
+	if c.Kafka.Consumer.MaxPollRecords == 0 {
+		c.Kafka.Consumer.MaxPollRecords = 100
 	}
-	if c.Kafka.Consumer.LingerMs == 0 {
-		c.Kafka.Consumer.LingerMs = 5
+	if c.Kafka.Producer.LingerMs == 0 {
+		c.Kafka.Producer.LingerMs = 5
 	}
 	if c.Kafka.Producer.BatchSize == 0 {
 		c.Kafka.Producer.BatchSize = 1000
@@ -174,7 +123,7 @@ func (c *Config) setDefaults() {
 		c.Kafka.Producer.Compression = "lz4"
 	}
 	if c.Kafka.Producer.RequiredAcks == 0 {
-		c.Kafka.Producer.RequiredAcks = -1 // all
+		// all
 	}
 
 	if c.Snapshot.Interval == 0 {
@@ -199,8 +148,8 @@ func (c *Config) setDefaults() {
 	}
 
 	// Risk 默认配置
-	if c.Risk.Timeout == 0 {
-		c.Risk.Timeout = 100 // 默认 100ms 超时，风控检查需要快速响应
+	if c.Risk.TimeoutMs == 0 {
+		c.Risk.TimeoutMs = 100 // 默认 100ms 超时，风控检查需要快速响应
 	}
 
 	// IndexPrice 默认配置

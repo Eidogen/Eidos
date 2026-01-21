@@ -46,7 +46,7 @@ func main() {
 
 	logger.Info("starting service",
 		"service", serviceName,
-		"port", cfg.Server.Port)
+		"port", cfg.Service.HTTPPort)
 
 	// 确保数据库存在
 	if err := app.EnsureDatabase(cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Database); err != nil {

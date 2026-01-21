@@ -2,17 +2,16 @@ service:
   name: eidos-chain
   grpc_port: 50054
   http_port: 8085
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:true}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: eidos-dev
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
+  username: ""
+  password: ""
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
   timeout_ms: 5000
@@ -20,32 +19,26 @@ nacos:
 
 # Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:localhost}
-  port: ${POSTGRES_PORT:5432}
-  database: ${POSTGRES_DATABASE:eidos_chain}
-  user: ${POSTGRES_USER:eidos}
-  password: ${POSTGRES_PASSWORD:eidos123}
+  host: ${DB_HOST:localhost}
+  port: 5432
+  database: eidos_chain
+  user: eidos
+  password: eidos123
   max_connections: 50
   max_idle_conns: 10
   conn_max_lifetime: 3600
-  ssl_mode: disable
-  timezone: UTC
 
 # Redis Configuration
 redis:
   addresses:
     - ${REDIS_ADDR:localhost:6379}
-  password: ${REDIS_PASSWORD:}
+  password: ""
   db: 0
   pool_size: 50
-  min_idle_conns: 10
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
 
 # Kafka Configuration
 kafka:
-  enabled: ${KAFKA_ENABLED:true}
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-chain
@@ -69,36 +62,33 @@ kafka:
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    addr: localhost:50051
     timeout_ms: 5000
     max_retry: 3
   risk:
-    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    addr: localhost:50055
     timeout_ms: 5000
     max_retry: 3
 
 # Blockchain Configuration
 blockchain:
-  rpc_url: ${RPC_URL:http://localhost:8545}
-  ws_url: ${WS_URL:ws://localhost:8546}
-  chain_id: ${CHAIN_ID:31337}
-  contract_address: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
-  private_key: ${PRIVATE_KEY:}
+  rpc_url: http://localhost:8545
+  ws_url: ws://localhost:8546
+  chain_id: 31337
+  contract_address: "0x0000000000000000000000000000000000000000"
+  private_key: ""
 
-  # Confirmation Requirements
   confirmations:
-    deposit: ${DEPOSIT_CONFIRMATIONS:0}
-    settlement: ${SETTLEMENT_CONFIRMATIONS:0}
-    withdrawal: ${WITHDRAWAL_CONFIRMATIONS:1}
+    deposit: 0
+    settlement: 0
+    withdrawal: 1
 
-  # Gas Configuration
   gas:
     price_multiplier: 1.2
     limit_multiplier: 1.5
     max_gas_price_gwei: 500
     min_gas_price_gwei: 1
 
-  # Retry Configuration
   retry:
     max_attempts: 5
     initial_backoff_ms: 1000
@@ -107,7 +97,7 @@ blockchain:
 # Block Scanner Configuration
 scanner:
   enabled: true
-  start_block: ${START_BLOCK:0}
+  start_block: 0
   batch_size: 100
   poll_interval_sec: 3
   reorg_depth: 20
@@ -116,9 +106,9 @@ scanner:
 settlement:
   enabled: true
   batch_size: 100
-  batch_interval: 10  # Seconds
+  batch_interval: 10
   max_retries: 3
-  retry_backoff: 30   # Seconds
+  retry_backoff: 30
   min_batch_amount: "0.01"
 
 # Withdrawal Configuration
@@ -135,11 +125,11 @@ tokens:
     decimals: 18
     is_native: true
   - symbol: USDT
-    address: ${USDT_ADDRESS:0x0000000000000000000000000000000000000001}
+    address: "0x0000000000000000000000000000000000000001"
     decimals: 6
     is_native: false
   - symbol: USDC
-    address: ${USDC_ADDRESS:0x0000000000000000000000000000000000000002}
+    address: "0x0000000000000000000000000000000000000002"
     decimals: 6
     is_native: false
 
@@ -151,9 +141,8 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
+  level: info
+  format: color
 
 # Health Check
 health:

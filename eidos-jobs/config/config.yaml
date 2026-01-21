@@ -2,17 +2,16 @@ service:
   name: eidos-jobs
   grpc_port: 50056
   http_port: 8086
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:true}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: eidos-dev
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
+  username: ""
+  password: ""
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
   timeout_ms: 5000
@@ -20,32 +19,26 @@ nacos:
 
 # Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:localhost}
-  port: ${POSTGRES_PORT:5432}
-  database: ${POSTGRES_DATABASE:eidos_jobs}
-  user: ${POSTGRES_USER:eidos}
-  password: ${POSTGRES_PASSWORD:eidos123}
+  host: ${DB_HOST:localhost}
+  port: 5432
+  database: eidos_jobs
+  user: eidos
+  password: eidos123
   max_connections: 10
   max_idle_conns: 5
-  conn_max_lifetime_minutes: 30
-  ssl_mode: disable
-  timezone: UTC
+  conn_max_lifetime: 1800
 
 # Redis Configuration
 redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
+  addresses:
+    - ${REDIS_ADDR:localhost:6379}
+  password: ""
   db: 0
   pool_size: 20
-  min_idle_conns: 5
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
 
 # Kafka Configuration
 kafka:
-  enabled: ${KAFKA_ENABLED:true}
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-jobs
@@ -66,25 +59,43 @@ kafka:
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${TRADING_ADDR:localhost:50051}
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
     timeout_ms: 30000
     max_retry: 3
   chain:
-    addr: ${CHAIN_ADDR:localhost:50054}
+    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
     timeout_ms: 30000
     max_retry: 3
   market:
-    addr: ${MARKET_ADDR:localhost:50053}
+    addr: ${GRPC_MARKET_ADDR:localhost:50053}
     timeout_ms: 30000
     max_retry: 3
   matching:
-    addr: ${MATCHING_ADDR:localhost:50052}
+    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
     timeout_ms: 30000
     max_retry: 3
   risk:
-    addr: ${RISK_ADDR:localhost:50055}
+    addr: ${GRPC_RISK_ADDR:localhost:50055}
     timeout_ms: 30000
     max_retry: 3
+
+# Health Check Endpoints (HTTP ports for service health monitoring)
+health_endpoints:
+  trading:
+    url: ${HEALTH_TRADING_URL:http://localhost:8081/health}
+    timeout_sec: 5
+  matching:
+    url: ${HEALTH_MATCHING_URL:http://localhost:8083/health}
+    timeout_sec: 5
+  market:
+    url: ${HEALTH_MARKET_URL:http://localhost:8082/health}
+    timeout_sec: 5
+  chain:
+    url: ${HEALTH_CHAIN_URL:http://localhost:8085/health}
+    timeout_sec: 5
+  risk:
+    url: ${HEALTH_RISK_URL:http://localhost:8084/health}
+    timeout_sec: 5
 
 # Scheduler Configuration
 scheduler:
@@ -96,51 +107,51 @@ scheduler:
 jobs:
   health_monitor:
     enabled: true
-    cron: "*/30 * * * * *"  # Every 30 seconds
+    cron: "*/30 * * * * *"
     timeout_sec: 25
 
   cleanup_orders:
     enabled: true
-    cron: "0 */2 * * * *"   # Every 2 minutes
+    cron: "0 */2 * * * *"
     timeout_sec: 60
     batch_size: 100
 
   stats_agg:
     enabled: true
-    cron: "0 5 * * * *"     # Every hour at :05
+    cron: "0 5 * * * *"
     timeout_sec: 300
 
   kline_agg:
     enabled: true
-    cron: "0 0 * * * *"     # Every hour at :00
+    cron: "0 0 * * * *"
     timeout_sec: 300
 
   reconciliation:
     enabled: true
-    cron: "0 10 * * * *"    # Every hour at :10
+    cron: "0 10 * * * *"
     timeout_sec: 600
     tolerance_percent: 0.01
 
   archive:
     enabled: true
-    cron: "0 0 3 * * *"     # Every day at 3:00 AM
+    cron: "0 0 3 * * *"
     timeout_sec: 3600
     retention_days: 90
 
   data_cleanup:
     enabled: true
-    cron: "0 0 4 * * *"     # Every day at 4:00 AM
+    cron: "0 0 4 * * *"
     timeout_sec: 3600
     retention_days: 365
 
   partition_mgmt:
     enabled: true
-    cron: "0 0 2 1 * *"     # Every month on 1st at 2:00 AM
+    cron: "0 0 2 1 * *"
     timeout_sec: 7200
 
   balance_scan:
     enabled: true
-    cron: "0 */5 * * * *"   # Every 5 minutes
+    cron: "0 */5 * * * *"
     batch_size: 100
     cancel_threshold_percent: 0.01
     max_concurrent_queries: 10
@@ -148,26 +159,26 @@ jobs:
 
   settlement_trigger:
     enabled: true
-    cron: "0 */1 * * * *"   # Every 1 minute
+    cron: "0 */1 * * * *"
     batch_size: 100
     min_batch_size: 10
-    max_wait_time_ms: 300000    # 5 minutes
-    retry_timeout_ms: 600000    # 10 minutes
+    max_wait_time_ms: 300000
+    retry_timeout_ms: 600000
     max_retries: 3
     concurrent_batches: 2
 
 # Notification Configuration
 notification:
-  enabled: ${NOTIFICATION_ENABLED:false}
+  enabled: false
   channels:
     slack:
       enabled: false
-      webhook_url: ${SLACK_WEBHOOK_URL:}
+      webhook_url: ""
     email:
       enabled: false
-      smtp_host: ${SMTP_HOST:}
-      smtp_port: ${SMTP_PORT:587}
-      from_address: ${SMTP_FROM:}
+      smtp_host: ""
+      smtp_port: 587
+      from_address: ""
 
 # Prometheus Metrics
 metrics:
@@ -177,9 +188,8 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
+  level: info
+  format: color
 
 # Health Check
 health:

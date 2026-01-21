@@ -191,7 +191,7 @@ func (a *App) initInfra() error {
 	}
 
 	// 确保数据库存在
-	if err := migrate.EnsureDatabase(a.cfg.Database.Host, a.cfg.Database.Port, a.cfg.Database.User, a.cfg.Database.Password, a.cfg.Database.Database); err != nil {
+	if err := migrate.EnsureDatabase(a.cfg.Postgres.Host, a.cfg.Postgres.Port, a.cfg.Postgres.User, a.cfg.Postgres.Password, a.cfg.Postgres.Database); err != nil {
 		return fmt.Errorf("ensure database: %w", err)
 	}
 
@@ -210,7 +210,7 @@ func (a *App) initInfra() error {
 
 	// 初始化 Redis
 	a.rdb = initRedis(a.cfg)
-	logger.Info("redis connected")
+	logger.Info("redis connected", "addr", a.cfg.RedisAddr())
 
 	// 初始化 ID 生成器
 	a.idGen, err = id.NewGenerator(a.cfg.Node.ID)
@@ -334,9 +334,7 @@ func (a *App) initKafka() error {
 	var err error
 
 	// 创建生产者
-	a.producer, err = kafka.NewProducer(&kafka.ProducerConfig{
-		Brokers: a.cfg.Kafka.Brokers,
-	})
+	a.producer, err = kafka.NewProducer(kafka.DefaultProducerConfig(a.cfg.Kafka.Brokers))
 	if err != nil {
 		return fmt.Errorf("create producer: %w", err)
 	}
@@ -392,10 +390,12 @@ func (a *App) initWorkers() {
 	// 3. Outbox Relay: 轮询数据库投递消息到 Kafka
 	a.outboxRelay = worker.NewOutboxRelay(
 		&worker.OutboxRelayConfig{
-			RelayInterval:   time.Duration(a.cfg.Outbox.RelayIntervalMs) * time.Millisecond,
-			BatchSize:       a.cfg.Outbox.BatchSize,
-			CleanupInterval: time.Duration(a.cfg.Outbox.CleanupIntervalMs) * time.Millisecond,
-			Retention:       time.Duration(a.cfg.Outbox.RetentionMs) * time.Millisecond,
+			RelayInterval:    time.Duration(a.cfg.Outbox.RelayIntervalMs) * time.Millisecond,
+			BatchSize:        a.cfg.Outbox.BatchSize,
+			CleanupInterval:  time.Duration(a.cfg.Outbox.CleanupIntervalMs) * time.Millisecond,
+			Retention:        time.Duration(a.cfg.Outbox.RetentionMs) * time.Millisecond,
+			RecoveryInterval: 5 * time.Minute,
+			StaleThreshold:   5 * time.Minute,
 		},
 		a.outboxRepo,
 		a.producer,
@@ -692,11 +692,11 @@ func (a *App) shutdown() {
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Database,
+		cfg.Postgres.Host,
+		cfg.Postgres.Port,
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Database,
 	)
 
 	gormConfig := &gorm.Config{
@@ -713,16 +713,16 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Database.ConnMaxLifetimeMinutes) * time.Minute)
+	sqlDB.SetMaxIdleConns(cfg.Postgres.MaxIdleConns)
+	sqlDB.SetMaxOpenConns(cfg.Postgres.MaxConnections)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Postgres.ConnMaxLifetime) * time.Second)
 
 	return db, nil
 }
 
 func initRedis(cfg *config.Config) *redis.Client {
 	return redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Addr:     cfg.RedisAddr(),
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 		PoolSize: cfg.Redis.PoolSize,

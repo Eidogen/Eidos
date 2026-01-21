@@ -2,50 +2,43 @@ service:
   name: eidos-market
   grpc_port: 50053
   http_port: 8082
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:true}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: eidos-dev
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
+  username: ""
+  password: ""
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
   timeout_ms: 5000
   heartbeat_interval_ms: 5000
 
-# Database Configuration
+# Database Configuration (TimescaleDB)
 postgres:
-  host: ${POSTGRES_HOST:localhost}
-  port: ${POSTGRES_PORT:5432}
-  database: ${POSTGRES_DATABASE:eidos_market}
-  user: ${POSTGRES_USER:eidos}
-  password: ${POSTGRES_PASSWORD:eidos123}
+  host: ${DB_HOST:localhost}
+  port: ${DB_PORT:5433}
+  database: ${DB_DATABASE:eidos_market}
+  user: ${DB_USER:eidos}
+  password: ${DB_PASSWORD:eidos123}
   max_connections: 50
   max_idle_conns: 10
   conn_max_lifetime: 3600
-  ssl_mode: disable
-  timezone: UTC
 
 # Redis Configuration
 redis:
   addresses:
     - ${REDIS_ADDR:localhost:6379}
-  password: ${REDIS_PASSWORD:}
+  password: ""
   db: 0
   pool_size: 100
-  min_idle_conns: 10
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
 
 # Kafka Configuration
 kafka:
-  enabled: ${KAFKA_ENABLED:true}
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-market-group
@@ -67,11 +60,11 @@ kafka:
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    addr: localhost:50051
     timeout_ms: 5000
     max_retry: 3
   matching:
-    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
+    addr: localhost:50052
     timeout_ms: 5000
     max_retry: 3
 
@@ -90,15 +83,15 @@ kline:
 
 # Aggregator Configuration
 aggregator:
-  kline_flush_interval: 10      # Seconds
-  ticker_publish_interval: 1000  # Milliseconds
-  depth_publish_interval: 100    # Milliseconds
+  kline_flush_interval: 10
+  ticker_publish_interval: 1000
+  depth_publish_interval: 100
   depth_max_levels: 100
 
 # Order Book Configuration
 orderbook:
   max_depth: 1000
-  snapshot_interval: 60         # Seconds
+  snapshot_interval: 60
   broadcast_throttle_ms: 100
 
 # Trade History Configuration
@@ -114,9 +107,8 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
+  level: info
+  format: color
 
 # Health Check
 health:

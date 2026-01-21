@@ -3,20 +3,21 @@ package config
 import (
 	"os"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 配置
 type Config struct {
-	Service    ServiceConfig    `yaml:"service" json:"service"`
-	Nacos      NacosConfig      `yaml:"nacos" json:"nacos"`
-	Postgres   PostgresConfig   `yaml:"postgres" json:"postgres"`
-	Redis      RedisConfig      `yaml:"redis" json:"redis"`
-	Kafka      KafkaConfig      `yaml:"kafka" json:"kafka"`
-	Blockchain BlockchainConfig `yaml:"blockchain" json:"blockchain"`
-	Settlement SettlementConfig `yaml:"settlement" json:"settlement"`
-	Log        LogConfig        `yaml:"log" json:"log"`
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres    commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	Blockchain  BlockchainConfig               `yaml:"blockchain" json:"blockchain"`
+	Settlement  SettlementConfig               `yaml:"settlement" json:"settlement"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
 // ServiceConfig 服务配置
@@ -25,40 +26,6 @@ type ServiceConfig struct {
 	GRPCPort int    `yaml:"grpc_port" json:"grpc_port"`
 	HTTPPort int    `yaml:"http_port" json:"http_port"`
 	Env      string `yaml:"env" json:"env"`
-}
-
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-}
-
-// PostgresConfig PostgreSQL 配置
-type PostgresConfig struct {
-	Host            string `yaml:"host" json:"host"`
-	Port            int    `yaml:"port" json:"port"`
-	Database        string `yaml:"database" json:"database"`
-	User            string `yaml:"user" json:"user"`
-	Password        string `yaml:"password" json:"password"`
-	MaxConnections  int    `yaml:"max_connections" json:"max_connections"`
-	MaxIdleConns    int    `yaml:"max_idle_conns" json:"max_idle_conns"`
-	ConnMaxLifetime int    `yaml:"conn_max_lifetime" json:"conn_max_lifetime"`
-}
-
-// RedisConfig Redis 配置
-type RedisConfig struct {
-	Addresses []string `yaml:"addresses" json:"addresses"`
-	Password  string   `yaml:"password" json:"password"`
-	DB        int      `yaml:"db" json:"db"`
-	PoolSize  int      `yaml:"pool_size" json:"pool_size"`
-}
-
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Brokers  []string `yaml:"brokers" json:"brokers"`
-	GroupID  string   `yaml:"group_id" json:"group_id"`
-	ClientID string   `yaml:"client_id" json:"client_id"`
 }
 
 // BlockchainConfig 区块链配置
@@ -85,12 +52,6 @@ type SettlementConfig struct {
 	RetryBackoff  int `yaml:"retry_backoff" json:"retry_backoff"`
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // Load 加载配置
 func Load(configPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
@@ -100,7 +61,7 @@ func Load(configPath string) (*Config, error) {
 
 	// 环境变量替换
 	content := string(data)
-	content = config.ExpandEnv(content)
+	content = commonConfig.ExpandEnv(content)
 
 	var cfg Config
 	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
@@ -161,8 +122,5 @@ func setDefaults(cfg *Config) {
 
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
-	}
-	if cfg.Log.Format == "" {
-		cfg.Log.Format = "json"
 	}
 }

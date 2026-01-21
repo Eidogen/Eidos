@@ -2,17 +2,16 @@ service:
   name: eidos-risk
   grpc_port: 50055
   http_port: 8084
-  env: ${ENV:dev}
-  version: 1.0.0
+  env: dev
 
 # Nacos Service Discovery
 nacos:
-  enabled: ${NACOS_ENABLED:true}
-  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
-  namespace: ${NACOS_NAMESPACE:eidos-dev}
+  enabled: false
+  server_addr: localhost:8848
+  namespace: eidos-dev
   group: EIDOS_GROUP
-  username: ${NACOS_USERNAME:}
-  password: ${NACOS_PASSWORD:}
+  username: ""
+  password: ""
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
   timeout_ms: 5000
@@ -20,32 +19,26 @@ nacos:
 
 # Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:localhost}
-  port: ${POSTGRES_PORT:5432}
-  database: ${POSTGRES_DATABASE:eidos_risk}
-  user: ${POSTGRES_USER:eidos}
-  password: ${POSTGRES_PASSWORD:eidos123}
+  host: ${DB_HOST:localhost}
+  port: 5432
+  database: eidos_risk
+  user: eidos
+  password: eidos123
   max_connections: 30
   max_idle_conns: 10
   conn_max_lifetime: 3600
-  ssl_mode: disable
-  timezone: UTC
 
 # Redis Configuration
 redis:
   addresses:
     - ${REDIS_ADDR:localhost:6379}
-  password: ${REDIS_PASSWORD:}
+  password: ""
   db: 0
   pool_size: 50
-  min_idle_conns: 10
-  dial_timeout_sec: 5
-  read_timeout_sec: 3
-  write_timeout_sec: 3
 
 # Kafka Configuration
 kafka:
-  enabled: ${KAFKA_ENABLED:true}
+  enabled: true
   brokers:
     - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-risk
@@ -68,44 +61,41 @@ kafka:
 # gRPC Client Configuration
 grpc_clients:
   trading:
-    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    addr: localhost:50051
     timeout_ms: 5000
     max_retry: 3
   chain:
-    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
+    addr: localhost:50054
     timeout_ms: 5000
     max_retry: 3
 
 # Risk Limits Configuration
 risk:
   limits:
-    daily_withdraw: "100000"        # Per user daily withdrawal limit
-    single_order: "50000"           # Single order limit
-    pending_settle: "10000"         # Per user pending settlement limit
-    system_pending_settle: "1000000" # System-wide pending settlement limit
-    max_position_value: "500000"    # Max position value per user
-    max_leverage: "10"              # Maximum leverage
+    daily_withdraw: "100000"
+    single_order: "50000"
+    pending_settle: "10000"
+    system_pending_settle: "1000000"
+    max_position_value: "500000"
+    max_leverage: "10"
 
-  # Rate Limits
   rate_limits:
     orders_per_minute: 100
     withdrawals_per_hour: 10
     api_calls_per_minute: 1000
 
-  # Alert Thresholds
   alerts:
     balance_deviation_percent: 1.0
     pending_settle_warning_percent: 80
     position_warning_percent: 90
 
-  # Blacklist/Whitelist
   blacklist:
     enabled: true
     check_interval_sec: 60
 
 # Fraud Detection
 fraud_detection:
-  enabled: ${FRAUD_DETECTION_ENABLED:true}
+  enabled: true
   rules:
     - name: rapid_withdrawals
       threshold: 5
@@ -130,9 +120,8 @@ metrics:
 
 # Logging Configuration
 log:
-  level: ${LOG_LEVEL:info}
-  format: json
-  output: stdout
+  level: info
+  format: color
 
 # Health Check
 health:

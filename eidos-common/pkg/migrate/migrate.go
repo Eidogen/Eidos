@@ -90,19 +90,21 @@ func (m *Migrator) AutoMigrate(migrationsFS embed.FS, migrationsPath string) err
 	if err != nil {
 		return fmt.Errorf("create migration source failed: %w", err)
 	}
+	defer source.Close()
 
 	// 创建 postgres 驱动
+	// 注意: 不能调用 driver.Close()，因为它会关闭我们传入的外部 *sql.DB
 	driver, err := postgres.WithInstance(m.db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("create postgres driver failed: %w", err)
 	}
 
 	// 创建迁移实例
+	// 注意: 不能调用 migrator.Close()，因为它会调用 driver.Close() 关闭数据库连接
 	migrator, err := migrate.NewWithInstance("iofs", source, "postgres", driver)
 	if err != nil {
 		return fmt.Errorf("create migrator failed: %w", err)
 	}
-	defer migrator.Close()
 
 	// 执行迁移
 	if err := migrator.Up(); err != nil {
@@ -138,6 +140,7 @@ func (m *Migrator) Rollback(migrationsFS embed.FS, migrationsPath string) error 
 	if err != nil {
 		return fmt.Errorf("create migration source failed: %w", err)
 	}
+	defer source.Close()
 
 	// 创建 postgres 驱动
 	driver, err := postgres.WithInstance(m.db, &postgres.Config{})
@@ -150,7 +153,6 @@ func (m *Migrator) Rollback(migrationsFS embed.FS, migrationsPath string) error 
 	if err != nil {
 		return fmt.Errorf("create migrator failed: %w", err)
 	}
-	defer migrator.Close()
 
 	// 回滚一步
 	if err := migrator.Steps(-1); err != nil {
@@ -186,6 +188,7 @@ func (m *Migrator) MigrateToVersion(migrationsFS embed.FS, migrationsPath string
 	if err != nil {
 		return fmt.Errorf("create migration source failed: %w", err)
 	}
+	defer source.Close()
 
 	// 创建 postgres 驱动
 	driver, err := postgres.WithInstance(m.db, &postgres.Config{})
@@ -198,7 +201,6 @@ func (m *Migrator) MigrateToVersion(migrationsFS embed.FS, migrationsPath string
 	if err != nil {
 		return fmt.Errorf("create migrator failed: %w", err)
 	}
-	defer migrator.Close()
 
 	// 迁移到指定版本
 	if err := migrator.Migrate(version); err != nil {
@@ -223,6 +225,7 @@ func (m *Migrator) GetVersion(migrationsFS embed.FS, migrationsPath string) (uin
 	if err != nil {
 		return 0, false, fmt.Errorf("create migration source failed: %w", err)
 	}
+	defer source.Close()
 
 	// 创建 postgres 驱动
 	driver, err := postgres.WithInstance(m.db, &postgres.Config{})
@@ -235,7 +238,6 @@ func (m *Migrator) GetVersion(migrationsFS embed.FS, migrationsPath string) (uin
 	if err != nil {
 		return 0, false, fmt.Errorf("create migrator failed: %w", err)
 	}
-	defer migrator.Close()
 
 	version, dirty, err := migrator.Version()
 	if err != nil {

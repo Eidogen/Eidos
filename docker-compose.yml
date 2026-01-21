@@ -178,6 +178,7 @@ services:
 
   # eidos-api - REST + WebSocket API Gateway
   eidos-api:
+    image: eidos/eidos-api:latest
     build:
       context: .
       dockerfile: eidos-api/Dockerfile
@@ -197,8 +198,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_ADDR: redis:6379
       GRPC_TRADING_ADDR: eidos-trading:50051
       GRPC_MATCHING_ADDR: eidos-matching:50052
       GRPC_MARKET_ADDR: eidos-market:50053
@@ -206,7 +206,7 @@ services:
       EIP712_MOCK_MODE: "true"
       LOG_LEVEL: info
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -217,6 +217,7 @@ services:
 
   # eidos-trading - Order Management, Clearing, Account Service
   eidos-trading:
+    image: eidos/eidos-trading:latest
     build:
       context: .
       dockerfile: eidos-trading/Dockerfile
@@ -234,13 +235,11 @@ services:
     ports:
       - "50051:50051"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: eidos
-      POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos_trading
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_trading
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
@@ -258,6 +257,7 @@ services:
 
   # eidos-matching - Matching Engine
   eidos-matching:
+    image: eidos/eidos-matching:latest
     build:
       context: .
       dockerfile: eidos-matching/Dockerfile
@@ -291,6 +291,7 @@ services:
 
   # eidos-market - Market Data Service
   eidos-market:
+    image: eidos/eidos-market:latest
     build:
       context: .
       dockerfile: eidos-market/Dockerfile
@@ -308,13 +309,12 @@ services:
     ports:
       - "50053:50053"
     environment:
-      TIMESCALEDB_HOST: timescaledb
-      TIMESCALEDB_PORT: 5432
-      TIMESCALEDB_USER: eidos
-      TIMESCALEDB_PASSWORD: eidos123
-      TIMESCALEDB_DATABASE: eidos_market
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_market
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
@@ -331,6 +331,7 @@ services:
 
   # eidos-chain - On-Chain Settlement & Indexer
   eidos-chain:
+    image: eidos/eidos-chain:latest
     build:
       context: .
       dockerfile: eidos-chain/Dockerfile
@@ -348,13 +349,12 @@ services:
     ports:
       - "50054:50054"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: eidos
-      POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos_chain
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_chain
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
@@ -373,6 +373,7 @@ services:
 
   # eidos-risk - Risk Control Service
   eidos-risk:
+    image: eidos/eidos-risk:latest
     build:
       context: .
       dockerfile: eidos-risk/Dockerfile
@@ -390,13 +391,12 @@ services:
     ports:
       - "50055:50055"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: eidos
-      POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos_risk
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_risk
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
@@ -413,6 +413,7 @@ services:
 
   # eidos-jobs - Scheduled Jobs Service
   eidos-jobs:
+    image: eidos/eidos-jobs:latest
     build:
       context: .
       dockerfile: eidos-jobs/Dockerfile
@@ -430,16 +431,20 @@ services:
     ports:
       - "50056:50056"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: eidos
-      POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos_jobs
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_jobs
+      REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
+      GRPC_TRADING_ADDR: eidos-trading:50051
+      GRPC_MATCHING_ADDR: eidos-matching:50052
+      GRPC_MARKET_ADDR: eidos-market:50053
+      GRPC_CHAIN_ADDR: eidos-chain:50054
+      GRPC_RISK_ADDR: eidos-risk:50055
       LOG_LEVEL: info
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "50056"]
@@ -453,6 +458,7 @@ services:
 
   # eidos-admin - Admin Backend
   eidos-admin:
+    image: eidos/eidos-admin:latest
     build:
       context: .
       dockerfile: eidos-admin/Dockerfile
@@ -468,15 +474,20 @@ services:
     ports:
       - "8088:8088"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: eidos
-      POSTGRES_PASSWORD: eidos123
-      POSTGRES_DATABASE: eidos_admin
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: eidos
+      DB_PASSWORD: eidos123
+      DB_DATABASE: eidos_admin
+      REDIS_ADDR: redis:6379
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_NAMESPACE: eidos-dev
+      GRPC_TRADING_ADDR: eidos-trading:50051
+      GRPC_MATCHING_ADDR: eidos-matching:50052
+      GRPC_MARKET_ADDR: eidos-market:50053
+      GRPC_CHAIN_ADDR: eidos-chain:50054
+      GRPC_RISK_ADDR: eidos-risk:50055
+      GRPC_JOBS_ADDR: eidos-jobs:50056
       LOG_LEVEL: info
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8088"]

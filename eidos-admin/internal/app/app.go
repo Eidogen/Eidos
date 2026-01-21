@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +32,7 @@ type App struct {
 	httpServer    *http.Server
 	engine        *gin.Engine
 	clientManager *client.ClientManager
+	repos         *repositories
 }
 
 // New 创建应用
@@ -43,9 +47,7 @@ func New(cfg *config.Config, db *gorm.DB, redisClient redis.UniversalClient) *Ap
 // Init 初始化应用
 func (a *App) Init() error {
 	// 设置 Gin 模式
-	if a.cfg.Server.Mode == "release" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	gin.SetMode(a.cfg.Service.Env)
 
 	// 创建 Gin 引擎
 	a.engine = gin.New()
@@ -63,14 +65,15 @@ func (a *App) Init() error {
 	}
 
 	// 连接 Jobs 服务（可选）
-	if a.cfg.GRPCClients.Jobs != "" {
-		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs); err != nil {
+	if a.cfg.GRPCClients.Jobs.Addr != "" { // Changed from a.cfg.GRPCClients.Jobs != ""
+		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs.Addr); err != nil { // Changed from a.cfg.GRPCClients.Jobs
 			logger.Warn("failed to connect to jobs service", "error", err)
 		}
 	}
 
 	// 初始化存储层
-	repos := a.initRepositories()
+	a.repos = a.initRepositories() // Store repos in App struct
+	repos := a.repos
 
 	// 初始化服务层
 	services := a.initServices(repos)
@@ -80,8 +83,6 @@ func (a *App) Init() error {
 
 	// 初始化认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(services.Auth)
-
-	// 设置路由
 	router.SetupRouter(a.engine, handlers, authMiddleware)
 
 	// 设置 Prometheus 指标端点
@@ -89,7 +90,7 @@ func (a *App) Init() error {
 
 	// 创建 HTTP 服务器
 	a.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", a.cfg.Server.Port),
+		Addr:         fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
 		Handler:      a.engine,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -97,8 +98,8 @@ func (a *App) Init() error {
 	}
 
 	logger.Info("app initialized",
-		"port", a.cfg.Server.Port,
-		"mode", a.cfg.Server.Mode)
+		"port", a.cfg.Service.HTTPPort,
+		"mode", a.cfg.Service.Env)
 
 	return nil
 }
@@ -144,8 +145,8 @@ func (a *App) initServices(repos *repositories) *services {
 
 	// 创建认证服务
 	authCfg := &service.AuthServiceConfig{
-		JWTSecret:      a.cfg.JWT.Secret,
-		JWTExpireHours: a.cfg.JWT.ExpireHours,
+		JWTSecret:      a.cfg.Auth.JWT.Secret,
+		JWTExpireHours: a.cfg.Auth.JWT.ExpireHours,
 		MaxAttempts:    5,
 		LockDuration:   30 * time.Minute,
 	}
@@ -222,8 +223,26 @@ func (a *App) initHandlers(svcs *services) *router.Handlers {
 
 // Run 运行应用
 func (a *App) Run() error {
-	logger.Info("starting HTTP server", "addr", a.httpServer.Addr)
-	return a.httpServer.ListenAndServe()
+	// 启动 HTTP 服务
+	errChan := make(chan error, 1)
+	go func() {
+		logger.Info("starting admin http server", "port", a.cfg.Service.HTTPPort)
+		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- fmt.Errorf("http server error: %w", err)
+		}
+	}()
+
+	// 监听系统信号
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case sig := <-sigChan:
+		logger.Info("received signal, shutting down", "signal", sig)
+		return nil
+	case err := <-errChan:
+		return fmt.Errorf("http server error: %w", err)
+	}
 }
 
 // Shutdown 关闭应用

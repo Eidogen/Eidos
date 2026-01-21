@@ -4,20 +4,21 @@ package config
 import (
 	"os"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 风控服务配置
 type Config struct {
-	Service  ServiceConfig  `yaml:"service" json:"service"`
-	Nacos    NacosConfig    `yaml:"nacos" json:"nacos"`
-	Postgres PostgresConfig `yaml:"postgres" json:"postgres"`
-	Redis    RedisConfig    `yaml:"redis" json:"redis"`
-	Kafka    KafkaConfig    `yaml:"kafka" json:"kafka"`
-	Risk     RiskConfig     `yaml:"risk" json:"risk"`
-	Log      LogConfig      `yaml:"log" json:"log"`
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Postgres    commonConfig.PostgresConfig    `yaml:"postgres" json:"postgres"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
+	Risk        RiskConfig                     `yaml:"risk" json:"risk"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
 // ServiceConfig 服务配置
@@ -26,47 +27,6 @@ type ServiceConfig struct {
 	GRPCPort int    `yaml:"grpc_port" json:"grpc_port"`
 	HTTPPort int    `yaml:"http_port" json:"http_port"`
 	Env      string `yaml:"env" json:"env"`
-}
-
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-	Username   string `yaml:"username" json:"username"`
-	Password   string `yaml:"password" json:"password"`
-	LogDir     string `yaml:"log_dir" json:"log_dir"`
-	CacheDir   string `yaml:"cache_dir" json:"cache_dir"`
-}
-
-// PostgresConfig PostgreSQL 配置
-type PostgresConfig struct {
-	Host                   string `yaml:"host" json:"host"`
-	Port                   int    `yaml:"port" json:"port"`
-	Database               string `yaml:"database" json:"database"`
-	User                   string `yaml:"user" json:"user"`
-	Password               string `yaml:"password" json:"password"`
-	MaxConnections         int    `yaml:"max_connections" json:"max_connections"`
-	MaxIdleConns           int    `yaml:"max_idle_conns" json:"max_idle_conns"`
-	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes" json:"conn_max_lifetime_minutes"`
-}
-
-// RedisConfig Redis 配置
-type RedisConfig struct {
-	Host     string `yaml:"host" json:"host"`
-	Port     int    `yaml:"port" json:"port"`
-	Password string `yaml:"password" json:"password"`
-	DB       int    `yaml:"db" json:"db"`
-	PoolSize int    `yaml:"pool_size" json:"pool_size"`
-}
-
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Enabled  bool     `yaml:"enabled" json:"enabled"`
-	Brokers  []string `yaml:"brokers" json:"brokers"`
-	GroupID  string   `yaml:"group_id" json:"group_id"`
-	ClientID string   `yaml:"client_id" json:"client_id"`
 }
 
 // RiskConfig 风控配置
@@ -78,12 +38,12 @@ type RiskConfig struct {
 
 // LimitsConfig 限额配置
 type LimitsConfig struct {
-	DailyWithdraw       string `yaml:"daily_withdraw" json:"daily_withdraw"`             // 单用户每日提现上限
-	SingleOrder         string `yaml:"single_order" json:"single_order"`                 // 单笔订单上限
-	PendingSettle       string `yaml:"pending_settle" json:"pending_settle"`             // 用户待结算余额上限
+	DailyWithdraw       string `yaml:"daily_withdraw" json:"daily_withdraw"`               // 单用户每日提现上限
+	SingleOrder         string `yaml:"single_order" json:"single_order"`                   // 单笔订单上限
+	PendingSettle       string `yaml:"pending_settle" json:"pending_settle"`               // 用户待结算余额上限
 	SystemPendingSettle string `yaml:"system_pending_settle" json:"system_pending_settle"` // 系统待结算上限
-	MaxOpenOrders       int    `yaml:"max_open_orders" json:"max_open_orders"`           // 单用户最大挂单数
-	MaxDailyTrades      int    `yaml:"max_daily_trades" json:"max_daily_trades"`         // 单用户每日成交笔数上限
+	MaxOpenOrders       int    `yaml:"max_open_orders" json:"max_open_orders"`             // 单用户最大挂单数
+	MaxDailyTrades      int    `yaml:"max_daily_trades" json:"max_daily_trades"`           // 单用户每日成交笔数上限
 }
 
 // RateLimitsConfig 频率限制配置
@@ -99,12 +59,6 @@ type MonitoringConfig struct {
 	AlertIntervalSec    int    `yaml:"alert_interval_sec" json:"alert_interval_sec"`       // 告警间隔(秒)
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // Load 加载配置
 func Load(configPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
@@ -114,7 +68,7 @@ func Load(configPath string) (*Config, error) {
 
 	// 环境变量替换
 	content := string(data)
-	content = config.ExpandEnv(content)
+	content = commonConfig.ExpandEnv(content)
 
 	var cfg Config
 	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
@@ -151,12 +105,12 @@ func setDefaults(cfg *Config) {
 	if cfg.Postgres.MaxIdleConns == 0 {
 		cfg.Postgres.MaxIdleConns = 10
 	}
-	if cfg.Postgres.ConnMaxLifetimeMinutes == 0 {
-		cfg.Postgres.ConnMaxLifetimeMinutes = 60
+	if cfg.Postgres.ConnMaxLifetime == 0 {
+		cfg.Postgres.ConnMaxLifetime = 3600 // 60 minutes in seconds
 	}
 
-	if cfg.Redis.Port == 0 {
-		cfg.Redis.Port = 6379
+	if len(cfg.Redis.Addresses) == 0 {
+		cfg.Redis.Addresses = []string{"localhost:6379"}
 	}
 	if cfg.Redis.PoolSize == 0 {
 		cfg.Redis.PoolSize = 50
@@ -203,9 +157,6 @@ func setDefaults(cfg *Config) {
 
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
-	}
-	if cfg.Log.Format == "" {
-		cfg.Log.Format = "json"
 	}
 }
 

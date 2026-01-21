@@ -8,21 +8,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 应用配置
 type Config struct {
-	Service     ServiceConfig     `yaml:"service" json:"service"`
-	Nacos       NacosConfig       `yaml:"nacos" json:"nacos"`
-	Redis       RedisConfig       `yaml:"redis" json:"redis"`
-	GRPCClients GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
-	EIP712      EIP712Config      `yaml:"eip712" json:"eip712"`
-	RateLimit   RateLimitConfig   `yaml:"rate_limit" json:"rate_limit"`
-	WebSocket   WebSocketConfig   `yaml:"websocket" json:"websocket"`
-	Risk        RiskConfig        `yaml:"risk" json:"risk"`
-	Log         LogConfig         `yaml:"log" json:"log"`
+	Service     ServiceConfig                  `yaml:"service" json:"service"`
+	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
+	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
+	EIP712      EIP712Config                   `yaml:"eip712" json:"eip712"`
+	RateLimit   RateLimitConfig                `yaml:"rate_limit" json:"rate_limit"`
+	WebSocket   WebSocketConfig                `yaml:"websocket" json:"websocket"`
+	Risk        RiskConfig                     `yaml:"risk" json:"risk"`
+	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
 }
 
 // ServiceConfig 服务配置
@@ -32,38 +32,12 @@ type ServiceConfig struct {
 	Env      string `yaml:"env" json:"env"`
 }
 
-// NacosConfig Nacos 配置
-type NacosConfig struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	ServerAddr string `yaml:"server_addr" json:"server_addr"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	Group      string `yaml:"group" json:"group"`
-	Username   string `yaml:"username" json:"username"`
-	Password   string `yaml:"password" json:"password"`
-	LogDir     string `yaml:"log_dir" json:"log_dir"`
-	CacheDir   string `yaml:"cache_dir" json:"cache_dir"`
-}
-
-// RedisConfig Redis 配置
-type RedisConfig struct {
-	Host     string `yaml:"host" json:"host"`
-	Port     int    `yaml:"port" json:"port"`
-	Password string `yaml:"password" json:"password"`
-	DB       int    `yaml:"db" json:"db"`
-	PoolSize int    `yaml:"pool_size" json:"pool_size"`
-}
-
-// Addr 返回 Redis 地址
-func (c *RedisConfig) Addr() string {
-	return fmt.Sprintf("%s:%d", c.Host, c.Port)
-}
-
-// GRPCClientsConfig gRPC 客户端配置
-type GRPCClientsConfig struct {
-	Trading  string `yaml:"trading" json:"trading"`
-	Matching string `yaml:"matching" json:"matching"`
-	Market   string `yaml:"market" json:"market"`
-	Risk     string `yaml:"risk" json:"risk"`
+// RedisAddr 返回第一个 Redis 地址
+func (c *Config) RedisAddr() string {
+	if len(c.Redis.Addresses) > 0 {
+		return c.Redis.Addresses[0]
+	}
+	return "localhost:6379"
 }
 
 // EIP712Config EIP-712 签名配置
@@ -131,12 +105,6 @@ type RiskConfig struct {
 	FailOpen bool `yaml:"fail_open" json:"fail_open"` // 风控服务不可用时是否放行
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Level  string `yaml:"level" json:"level"`
-	Format string `yaml:"format" json:"format"`
-}
-
 // PingInterval 返回心跳间隔
 func (c *WebSocketConfig) PingInterval() time.Duration {
 	return time.Duration(c.PingIntervalSec) * time.Second
@@ -171,7 +139,7 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("read config file: %w", err)
 		}
 		// 展开环境变量: ${VAR:DEFAULT}
-		expanded := config.ExpandEnv(string(data))
+		expanded := commonConfig.ExpandEnv(string(data))
 		if err := yaml.Unmarshal([]byte(expanded), cfg); err != nil {
 			return nil, fmt.Errorf("parse config file: %w", err)
 		}
@@ -191,20 +159,20 @@ func defaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: NacosConfig{
-			Enabled:   false,
+		Nacos: commonConfig.NacosConfig{
 			Namespace: "public",
 			Group:     "EIDOS_GROUP",
 		},
-		Redis: RedisConfig{
-			Host:     "localhost",
-			Port:     6379,
-			PoolSize: 100,
+		Redis: commonConfig.RedisConfig{
+			Addresses: []string{"localhost:6379"},
+			PoolSize:  100,
 		},
-		GRPCClients: GRPCClientsConfig{
-			Trading: "localhost:50051",
-			Market:  "localhost:50053",
-			Risk:    "localhost:50055",
+		GRPCClients: commonConfig.GRPCClientsConfig{
+			Trading:  commonConfig.ClientConfig{Addr: "localhost:50051", TimeoutMs: 5000, MaxRetry: 3},
+			Matching: commonConfig.ClientConfig{Addr: "localhost:50052", TimeoutMs: 5000, MaxRetry: 3},
+			Market:   commonConfig.ClientConfig{Addr: "localhost:50053", TimeoutMs: 5000, MaxRetry: 3},
+			Risk:     commonConfig.ClientConfig{Addr: "localhost:50055", TimeoutMs: 5000, MaxRetry: 3},
+			Chain:    commonConfig.ClientConfig{Addr: "localhost:50054", TimeoutMs: 5000, MaxRetry: 3},
 		},
 		EIP712: EIP712Config{
 			Domain: EIP712DomainConfig{
@@ -251,7 +219,7 @@ func defaultConfig() *Config {
 			Enabled:  true,
 			FailOpen: false,
 		},
-		Log: LogConfig{
+		Log: commonConfig.LogConfig{
 			Level:  "info",
 			Format: "json",
 		},
@@ -273,13 +241,8 @@ func overrideFromEnv(cfg *Config) {
 	}
 
 	// Redis
-	if v := os.Getenv("REDIS_HOST"); v != "" {
-		cfg.Redis.Host = v
-	}
-	if v := os.Getenv("REDIS_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
-			cfg.Redis.Port = port
-		}
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+		cfg.Redis.Addresses = []string{v}
 	}
 	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
 		cfg.Redis.Password = v
@@ -287,10 +250,10 @@ func overrideFromEnv(cfg *Config) {
 
 	// gRPC Clients
 	if v := os.Getenv("GRPC_TRADING_ADDR"); v != "" {
-		cfg.GRPCClients.Trading = v
+		cfg.GRPCClients.Trading.Addr = v
 	}
 	if v := os.Getenv("GRPC_MARKET_ADDR"); v != "" {
-		cfg.GRPCClients.Market = v
+		cfg.GRPCClients.Market.Addr = v
 	}
 
 	// Nacos

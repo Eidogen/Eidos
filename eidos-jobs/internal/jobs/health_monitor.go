@@ -7,16 +7,30 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
+
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/scheduler"
 	"gorm.io/gorm"
 )
 
+// CheckType 健康检查类型
+type CheckType string
+
+const (
+	CheckTypeHTTP CheckType = "http"
+	CheckTypeGRPC CheckType = "grpc"
+)
+
 // ServiceEndpoint 服务端点
 type ServiceEndpoint struct {
-	Name    string
-	URL     string
-	Timeout time.Duration
+	Name      string
+	URL       string        // HTTP URL (用于 HTTP 检查)
+	GRPCAddr  string        // gRPC 地址 (用于 gRPC 检查)
+	CheckType CheckType     // 检查类型: http 或 grpc
+	Timeout   time.Duration
 }
 
 // HealthMonitorJob 健康监控任务
@@ -199,6 +213,15 @@ func (j *HealthMonitorJob) checkRedis(ctx context.Context) *ComponentStatus {
 
 // checkEndpoint 检查服务端点
 func (j *HealthMonitorJob) checkEndpoint(ctx context.Context, endpoint ServiceEndpoint) *ComponentStatus {
+	// 根据检查类型选择不同的检查方法
+	if endpoint.CheckType == CheckTypeGRPC {
+		return j.checkGRPCEndpoint(ctx, endpoint)
+	}
+	return j.checkHTTPEndpoint(ctx, endpoint)
+}
+
+// checkHTTPEndpoint 检查 HTTP 服务端点
+func (j *HealthMonitorJob) checkHTTPEndpoint(ctx context.Context, endpoint ServiceEndpoint) *ComponentStatus {
 	start := time.Now()
 	status := &ComponentStatus{
 		Component: endpoint.Name,
@@ -243,6 +266,89 @@ func (j *HealthMonitorJob) checkEndpoint(ctx context.Context, endpoint ServiceEn
 			Severity:  "warning",
 			Message:   fmt.Sprintf("Service %s returned unhealthy status: %d", endpoint.Name, resp.StatusCode),
 			Details:   map[string]interface{}{"status_code": resp.StatusCode},
+			Timestamp: time.Now().UnixMilli(),
+		})
+		return status
+	}
+
+	status.Healthy = true
+
+	// 检查高延迟
+	if status.LatencyMs > 5000 {
+		j.sendAlert(ctx, &HealthAlert{
+			Service:   endpoint.Name,
+			AlertType: "high_latency",
+			Severity:  "warning",
+			Message:   fmt.Sprintf("Service %s latency is high: %dms", endpoint.Name, status.LatencyMs),
+			Details:   map[string]interface{}{"latency_ms": status.LatencyMs},
+			Timestamp: time.Now().UnixMilli(),
+		})
+	}
+
+	return status
+}
+
+// checkGRPCEndpoint 检查 gRPC 服务端点
+func (j *HealthMonitorJob) checkGRPCEndpoint(ctx context.Context, endpoint ServiceEndpoint) *ComponentStatus {
+	start := time.Now()
+	status := &ComponentStatus{
+		Component: endpoint.Name,
+		CheckedAt: time.Now().UnixMilli(),
+	}
+
+	timeout := endpoint.Timeout
+	if timeout == 0 {
+		timeout = 5 * time.Second
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// 建立 gRPC 连接
+	conn, err := grpc.DialContext(reqCtx, endpoint.GRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		status.Error = fmt.Sprintf("failed to connect: %s", err.Error())
+		j.sendAlert(ctx, &HealthAlert{
+			Service:   endpoint.Name,
+			AlertType: "service_down",
+			Severity:  "critical",
+			Message:   fmt.Sprintf("Service %s gRPC connection failed: %s", endpoint.Name, err.Error()),
+			Timestamp: time.Now().UnixMilli(),
+		})
+		return status
+	}
+	defer conn.Close()
+
+	// 调用健康检查
+	healthClient := grpc_health_v1.NewHealthClient(conn)
+	resp, err := healthClient.Check(reqCtx, &grpc_health_v1.HealthCheckRequest{
+		Service: "", // 空字符串检查整体服务状态
+	})
+	if err != nil {
+		status.Error = fmt.Sprintf("health check failed: %s", err.Error())
+		j.sendAlert(ctx, &HealthAlert{
+			Service:   endpoint.Name,
+			AlertType: "service_down",
+			Severity:  "critical",
+			Message:   fmt.Sprintf("Service %s health check failed: %s", endpoint.Name, err.Error()),
+			Timestamp: time.Now().UnixMilli(),
+		})
+		return status
+	}
+
+	status.LatencyMs = int(time.Since(start).Milliseconds())
+
+	if resp.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+		status.Error = fmt.Sprintf("unhealthy status: %s", resp.Status.String())
+		j.sendAlert(ctx, &HealthAlert{
+			Service:   endpoint.Name,
+			AlertType: "service_down",
+			Severity:  "warning",
+			Message:   fmt.Sprintf("Service %s is not serving: %s", endpoint.Name, resp.Status.String()),
+			Details:   map[string]interface{}{"grpc_status": resp.Status.String()},
 			Timestamp: time.Now().UnixMilli(),
 		})
 		return status

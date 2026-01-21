@@ -11,13 +11,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/eidos-exchange/eidos/eidos-admin/internal/config"
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
 // ClientManager manages all gRPC client connections
 type ClientManager struct {
-	cfg *config.GRPCClientsConfig
+	cfg *commonConfig.GRPCClientsConfig
 
 	mu          sync.RWMutex
 	connections map[string]*grpc.ClientConn
@@ -31,7 +31,7 @@ type ClientManager struct {
 }
 
 // NewClientManager creates a new ClientManager
-func NewClientManager(cfg *config.GRPCClientsConfig) *ClientManager {
+func NewClientManager(cfg *commonConfig.GRPCClientsConfig) *ClientManager {
 	return &ClientManager{
 		cfg:         cfg,
 		connections: make(map[string]*grpc.ClientConn),
@@ -42,41 +42,41 @@ func NewClientManager(cfg *config.GRPCClientsConfig) *ClientManager {
 func (m *ClientManager) Connect(ctx context.Context) error {
 	var err error
 
-	// Connect to trading service
-	if m.cfg.Trading != "" {
-		m.trading, err = NewTradingClient(ctx, m.cfg.Trading)
+	// Trading
+	if m.cfg.Trading.Addr != "" {
+		m.trading, err = NewTradingClient(ctx, m.cfg.Trading.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to trading service", "error", err)
 		}
 	}
 
-	// Connect to matching service
-	if m.cfg.Matching != "" {
-		m.matching, err = NewMatchingClient(ctx, m.cfg.Matching)
+	// Matching
+	if m.cfg.Matching.Addr != "" {
+		m.matching, err = NewMatchingClient(ctx, m.cfg.Matching.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to matching service", "error", err)
 		}
 	}
 
-	// Connect to market service
-	if m.cfg.Market != "" {
-		m.market, err = NewMarketClient(ctx, m.cfg.Market)
+	// Market
+	if m.cfg.Market.Addr != "" {
+		m.market, err = NewMarketClient(ctx, m.cfg.Market.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to market service", "error", err)
 		}
 	}
 
-	// Connect to chain service
-	if m.cfg.Chain != "" {
-		m.chain, err = NewChainClient(ctx, m.cfg.Chain)
+	// Chain
+	if m.cfg.Chain.Addr != "" {
+		m.chain, err = NewChainClient(ctx, m.cfg.Chain.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to chain service", "error", err)
 		}
 	}
 
-	// Connect to risk service
-	if m.cfg.Risk != "" {
-		m.risk, err = NewRiskClient(ctx, m.cfg.Risk)
+	// Risk
+	if m.cfg.Risk.Addr != "" {
+		m.risk, err = NewRiskClient(ctx, m.cfg.Risk.Addr)
 		if err != nil {
 			logger.Warn("failed to connect to risk service", "error", err)
 		}

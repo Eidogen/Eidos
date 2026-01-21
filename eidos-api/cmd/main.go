@@ -16,6 +16,8 @@ func main() {
 	configPath := flag.String("config", "config/config.yaml", "配置文件路径")
 	flag.Parse()
 
+	os.Stderr.WriteString("DEBUG: main starting, loading config from " + *configPath + "\n")
+
 	// 加载配置
 	cfg, err := config.Load(*configPath)
 	if err != nil {

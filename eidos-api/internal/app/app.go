@@ -37,9 +37,9 @@ type App struct {
 	engine     *gin.Engine
 
 	// Nacos 组件
-	nacosClient   *nacos.Client
-	nacosRegistry *nacos.Registry
-	nacosDiscovery *nacos.Discovery
+	nacosClient     *nacos.Client
+	nacosRegistry   *nacos.Registry
+	nacosDiscovery  *nacos.Discovery
 	serviceInstance *nacos.ServiceInstance
 
 	// 依赖组件
@@ -187,7 +187,7 @@ func (a *App) WaitForShutdown() {
 func (a *App) initDependencies(ctx context.Context) error {
 	// 初始化 Redis
 	a.redis = redis.NewClient(&redis.Options{
-		Addr:     a.cfg.Redis.Addr(),
+		Addr:     a.cfg.RedisAddr(),
 		Password: a.cfg.Redis.Password,
 		DB:       a.cfg.Redis.DB,
 		PoolSize: a.cfg.Redis.PoolSize,
@@ -195,7 +195,7 @@ func (a *App) initDependencies(ctx context.Context) error {
 	if err := a.redis.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis ping: %w", err)
 	}
-	a.logger.Info("redis connected", "addr", a.cfg.Redis.Addr())
+	a.logger.Info("redis connected", "addr", a.cfg.RedisAddr())
 
 	// 初始化 Nacos (如果启用)
 	var err error
@@ -206,12 +206,12 @@ func (a *App) initDependencies(ctx context.Context) error {
 	}
 
 	// 初始化 gRPC 连接
-	tradingAddr := a.cfg.GRPCClients.Trading
-	marketAddr := a.cfg.GRPCClients.Market
-	riskAddr := a.cfg.GRPCClients.Risk
+	tradingAddr := a.cfg.GRPCClients.Trading.Addr
+	marketAddr := a.cfg.GRPCClients.Market.Addr
+	riskAddr := a.cfg.GRPCClients.Risk.Addr
 
 	// 如果启用 Nacos，使用 Nacos 服务发现
-	if a.cfg.Nacos.Enabled && a.nacosDiscovery != nil {
+	if a.cfg.Nacos.Enabled {
 		tradingAddr = nacos.BuildTarget("eidos-trading")
 		marketAddr = nacos.BuildTarget("eidos-market")
 		riskAddr = nacos.BuildTarget("eidos-risk")
