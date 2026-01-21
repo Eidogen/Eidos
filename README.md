@@ -159,8 +159,8 @@ Eidos 由 8 个微服务组成，通过 gRPC（同步）和 Kafka（异步）通
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/your-org/eidos.git
-cd eidos
+git clone https://github.com/Eidogen/Eidos.git
+cd Eidos
 ```
 
 ### 2. 配置环境变量
