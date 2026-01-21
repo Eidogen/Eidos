@@ -15,7 +15,10 @@
 <p align="center">
   <a href="https://golang.org/"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go" alt="Go Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Status-开发中-yellow" alt="Status">
 </p>
+
+> **⚠️ 注意：本项目目前处于开发阶段，正在进行服务间对接测试，暂不可用于生产环境。**
 
 ---
 
