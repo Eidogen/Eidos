@@ -295,6 +295,11 @@ docs/
 | 跨服务事务一致性 | Outbox Pattern + 幂等处理 | [一致性与可靠性](docs/4-服务设计/00-设计补充-一致性与可靠性.md) |
 | 热钱包私钥安全 | AWS KMS / HashiCorp Vault | [运维部署](docs/7-运维部署/01-运维部署.md) |
 
+## 联系方式
+
+- 邮箱：shang990909@gmail.com
+- GitHub：[@Eidogen](https://github.com/Eidogen)
+
 ## 许可证
 
 本项目采用 Apache License 2.0 许可证 - 详见 [LICENSE](LICENSE) 文件。
