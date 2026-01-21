@@ -17,13 +17,13 @@ func TestNonceRepository_Errors(t *testing.T) {
 // TestWalletNonce_TableName 测试表名
 func TestWalletNonce_TableName(t *testing.T) {
 	nonce := &model.WalletNonce{}
-	assert.Equal(t, "eidos_chain_wallet_nonces", nonce.TableName())
+	assert.Equal(t, "chain_wallet_nonces", nonce.TableName())
 }
 
 // TestPendingTx_TableName 测试表名
 func TestPendingTx_TableName(t *testing.T) {
 	tx := &model.PendingTx{}
-	assert.Equal(t, "eidos_chain_pending_txs", tx.TableName())
+	assert.Equal(t, "chain_pending_txs", tx.TableName())
 }
 
 // TestWalletNonce_Fields 测试 WalletNonce 字段

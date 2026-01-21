@@ -4,265 +4,883 @@ package eidos.chain.v1;
 
 option go_package = "github.com/eidos-exchange/eidos/proto/chain/v1;chainv1";
 
-// ChainService 链上服务
+import "common/enums.proto";
+import "common/pagination.proto";
+
+// ============================================================================
+// ChainService - On-Chain Operations API
+// ============================================================================
+
+// ChainService provides on-chain related functionality including:
+// - Chain indexer status and management
+// - Deposit tracking
+// - Withdrawal execution
+// - Settlement batch management
+// - Reconciliation
+// - Hot wallet management
 service ChainService {
-    // Settlement 结算相关
-    rpc GetSettlementStatus(GetSettlementStatusRequest) returns (GetSettlementStatusResponse);
-    rpc RetrySettlement(RetrySettlementRequest) returns (RetrySettlementResponse);
-    rpc ListSettlementBatches(ListSettlementBatchesRequest) returns (ListSettlementBatchesResponse);
+    // ========== Indexer Operations ==========
 
-    // Deposit 充值相关
-    rpc GetDepositStatus(GetDepositStatusRequest) returns (GetDepositStatusResponse);
-    rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
-
-    // Withdrawal 提现相关
-    rpc GetWithdrawalStatus(GetWithdrawalStatusRequest) returns (GetWithdrawalStatusResponse);
-    rpc RetryWithdrawal(RetryWithdrawalRequest) returns (RetryWithdrawalResponse);
-    rpc ListPendingWithdrawals(ListPendingWithdrawalsRequest) returns (ListPendingWithdrawalsResponse);
-
-    // Indexer 索引器相关
+    // GetIndexerStatus retrieves the status of the chain indexer
     rpc GetIndexerStatus(GetIndexerStatusRequest) returns (GetIndexerStatusResponse);
+
+    // GetBlockHeight retrieves the current block height
     rpc GetBlockHeight(GetBlockHeightRequest) returns (GetBlockHeightResponse);
 
-    // Reconciliation 对账相关
+    // ========== Deposit Operations ==========
+
+    // GetDepositStatus retrieves status of a deposit
+    rpc GetDepositStatus(GetDepositStatusRequest) returns (GetDepositStatusResponse);
+
+    // ListDeposits retrieves deposits with filters
+    rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
+
+    // ========== Withdrawal Operations ==========
+
+    // GetWithdrawalStatus retrieves status of a withdrawal transaction
+    rpc GetWithdrawalStatus(GetWithdrawalStatusRequest) returns (GetWithdrawalStatusResponse);
+
+    // ListPendingWithdrawals retrieves pending withdrawal transactions
+    rpc ListPendingWithdrawals(ListPendingWithdrawalsRequest) returns (ListPendingWithdrawalsResponse);
+
+    // RetryWithdrawal retries a failed withdrawal
+    rpc RetryWithdrawal(RetryWithdrawalRequest) returns (RetryWithdrawalResponse);
+
+    // ========== Settlement Operations ==========
+
+    // GetSettlementStatus retrieves status of a settlement batch
+    rpc GetSettlementStatus(GetSettlementStatusRequest) returns (GetSettlementStatusResponse);
+
+    // ListSettlementBatches retrieves settlement batches with filters
+    rpc ListSettlementBatches(ListSettlementBatchesRequest) returns (ListSettlementBatchesResponse);
+
+    // RetrySettlement retries a failed settlement batch
+    rpc RetrySettlement(RetrySettlementRequest) returns (RetrySettlementResponse);
+
+    // ========== Reconciliation Operations ==========
+
+    // TriggerReconciliation triggers a reconciliation check
     rpc TriggerReconciliation(TriggerReconciliationRequest) returns (TriggerReconciliationResponse);
+
+    // GetReconciliationStatus retrieves status of a reconciliation task
     rpc GetReconciliationStatus(GetReconciliationStatusRequest) returns (GetReconciliationStatusResponse);
+
+    // ListReconciliationRecords retrieves reconciliation records
     rpc ListReconciliationRecords(ListReconciliationRecordsRequest) returns (ListReconciliationRecordsResponse);
 
-    // Wallet 热钱包相关
+    // GetReconciliationReport retrieves a reconciliation summary report
+    rpc GetReconciliationReport(GetReconciliationReportRequest) returns (GetReconciliationReportResponse);
+
+    // ========== Wallet Operations ==========
+
+    // GetWalletBalance retrieves the hot wallet balance
     rpc GetWalletBalance(GetWalletBalanceRequest) returns (GetWalletBalanceResponse);
+
+    // GetWalletNonce retrieves the current nonce for the hot wallet
     rpc GetWalletNonce(GetWalletNonceRequest) returns (GetWalletNonceResponse);
+
+    // ========== Chain Status ==========
+
+    // GetChainStatus retrieves overall chain service status
+    rpc GetChainStatus(GetChainStatusRequest) returns (GetChainStatusResponse);
 }
 
-// Settlement messages
-message GetSettlementStatusRequest {
-    string batch_id = 1;
+// ============================================================================
+// Indexer Messages
+// ============================================================================
+
+// GetIndexerStatusRequest is the request to get indexer status
+message GetIndexerStatusRequest {
+    // Chain ID (optional, empty = default chain)
+    int64 chain_id = 1;
 }
 
-message GetSettlementStatusResponse {
-    SettlementBatch batch = 1;
+// GetIndexerStatusResponse contains indexer status
+message GetIndexerStatusResponse {
+    // Chain ID
+    int64 chain_id = 1;
+
+    // Whether indexer is running
+    bool running = 2;
+
+    // Current indexed block number
+    uint64 current_block = 3;
+
+    // Latest block on chain
+    uint64 latest_block = 4;
+
+    // Lag in blocks
+    int64 lag_blocks = 5;
+
+    // Last checkpoint block
+    int64 checkpoint_block = 6;
+
+    // Indexer start time (Unix milliseconds)
+    int64 started_at = 7;
+
+    // Last block processed time (Unix milliseconds)
+    int64 last_processed_at = 8;
+
+    // Processing rate (blocks per second)
+    double blocks_per_second = 9;
 }
 
-message RetrySettlementRequest {
-    string batch_id = 1;
-    bool split_if_failed = 2;  // 失败时是否拆分批次
+// GetBlockHeightRequest is the request to get block height
+message GetBlockHeightRequest {
+    // Chain ID
+    int64 chain_id = 1;
 }
 
-message RetrySettlementResponse {
-    bool success = 1;
-    string message = 2;
-    repeated string new_batch_ids = 3;  // 拆分后的新批次 ID
+// GetBlockHeightResponse contains block height
+message GetBlockHeightResponse {
+    // Current block height
+    uint64 block_height = 1;
+
+    // Block timestamp (Unix seconds)
+    int64 timestamp = 2;
+
+    // Block hash
+    string block_hash = 3;
 }
 
-message ListSettlementBatchesRequest {
-    int32 status = 1;  // 可选，按状态过滤
-    int32 page = 2;
-    int32 page_size = 3;
-}
+// ============================================================================
+// Deposit Messages
+// ============================================================================
 
-message ListSettlementBatchesResponse {
-    repeated SettlementBatch batches = 1;
-    int64 total = 2;
-}
-
-message SettlementBatch {
-    string batch_id = 1;
-    int32 trade_count = 2;
-    repeated string trade_ids = 3;
-    int64 chain_id = 4;
-    string tx_hash = 5;
-    int64 block_number = 6;
-    int64 gas_used = 7;
-    string gas_price = 8;
-    int32 status = 9;  // 0=pending, 1=submitted, 2=confirmed, 3=failed
-    string error_message = 10;
-    int32 retry_count = 11;
-    int64 submitted_at = 12;
-    int64 confirmed_at = 13;
-    int64 created_at = 14;
-}
-
-// Deposit messages
+// GetDepositStatusRequest is the request to get deposit status
 message GetDepositStatusRequest {
+    // Deposit ID
     string deposit_id = 1;
 }
 
+// GetDepositStatusResponse contains deposit status
 message GetDepositStatusResponse {
+    // Deposit record
     DepositRecord deposit = 1;
 }
 
+// ListDepositsRequest is the request to list deposits
 message ListDepositsRequest {
+    // Filter by wallet address (optional)
     string wallet_address = 1;
-    int32 status = 2;  // 可选
-    int32 page = 3;
-    int32 page_size = 4;
+
+    // Filter by token (optional)
+    string token = 2;
+
+    // Filter by status (optional)
+    eidos.common.v1.DepositStatus status = 3;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 4;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 5;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 6;
 }
 
+// ListDepositsResponse contains deposits
 message ListDepositsResponse {
+    // Deposit records
     repeated DepositRecord deposits = 1;
-    int64 total = 2;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
 }
 
+// DepositRecord represents a deposit transaction
 message DepositRecord {
+    // Unique deposit identifier
     string deposit_id = 1;
+
+    // User wallet address
     string wallet_address = 2;
+
+    // Token symbol
     string token = 3;
+
+    // Token contract address
     string token_address = 4;
+
+    // Deposit amount (decimal string)
     string amount = 5;
+
+    // Chain ID
     int64 chain_id = 6;
+
+    // Transaction hash
     string tx_hash = 7;
+
+    // Block number
     int64 block_number = 8;
+
+    // Log index within transaction
     int32 log_index = 9;
+
+    // Current confirmations
     int32 confirmations = 10;
+
+    // Required confirmations
     int32 required_confirmations = 11;
-    int32 status = 12;  // 0=pending, 1=confirmed, 2=credited
+
+    // Deposit status
+    eidos.common.v1.DepositStatus status = 12;
+
+    // When balance was credited (Unix milliseconds)
     int64 credited_at = 13;
+
+    // Record creation time (Unix milliseconds)
     int64 created_at = 14;
 }
 
-// Withdrawal messages
+// ============================================================================
+// Withdrawal Messages
+// ============================================================================
+
+// GetWithdrawalStatusRequest is the request to get withdrawal status
 message GetWithdrawalStatusRequest {
+    // Withdrawal ID
     string withdraw_id = 1;
 }
 
+// GetWithdrawalStatusResponse contains withdrawal status
 message GetWithdrawalStatusResponse {
+    // Withdrawal transaction
     WithdrawalTx withdrawal = 1;
 }
 
-message RetryWithdrawalRequest {
-    string withdraw_id = 1;
-}
-
-message RetryWithdrawalResponse {
-    bool success = 1;
-    string message = 2;
-}
-
+// ListPendingWithdrawalsRequest is the request to list pending withdrawals
 message ListPendingWithdrawalsRequest {
+    // Filter by wallet address (optional)
     string wallet_address = 1;
-    int32 page = 2;
-    int32 page_size = 3;
+
+    // Filter by token (optional)
+    string token = 2;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 3;
 }
 
+// ListPendingWithdrawalsResponse contains pending withdrawals
 message ListPendingWithdrawalsResponse {
+    // Withdrawal transactions
     repeated WithdrawalTx withdrawals = 1;
-    int64 total = 2;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
 }
 
-message WithdrawalTx {
+// RetryWithdrawalRequest is the request to retry a withdrawal
+message RetryWithdrawalRequest {
+    // Withdrawal ID to retry
     string withdraw_id = 1;
-    string wallet_address = 2;
-    string to_address = 3;
-    string token = 4;
-    string token_address = 5;
-    string amount = 6;
-    int64 chain_id = 7;
-    string tx_hash = 8;
-    int64 block_number = 9;
-    int64 gas_used = 10;
-    int32 status = 11;  // 0=pending, 1=submitted, 2=confirmed, 3=failed
-    string error_message = 12;
-    int32 retry_count = 13;
-    int64 submitted_at = 14;
-    int64 confirmed_at = 15;
-    int64 created_at = 16;
+
+    // Gas bump percentage (optional)
+    int32 gas_bump_percent = 2;
 }
 
-// Indexer messages
-message GetIndexerStatusRequest {
-    int64 chain_id = 1;
-}
-
-message GetIndexerStatusResponse {
-    int64 chain_id = 1;
-    bool running = 2;
-    uint64 current_block = 3;
-    uint64 latest_block = 4;
-    int64 lag_blocks = 5;
-    int64 checkpoint_block = 6;
-}
-
-message GetBlockHeightRequest {
-    int64 chain_id = 1;
-}
-
-message GetBlockHeightResponse {
-    uint64 block_height = 1;
-    int64 timestamp = 2;
-}
-
-// Reconciliation messages
-message TriggerReconciliationRequest {
-    string wallet_address = 1;  // 可选，为空则全量
-    string token = 2;  // 可选
-}
-
-message TriggerReconciliationResponse {
+// RetryWithdrawalResponse is the response after retry
+message RetryWithdrawalResponse {
+    // Whether retry was accepted
     bool success = 1;
-    string task_id = 2;
+
+    // New transaction hash
+    string new_tx_hash = 2;
+
+    // Message
     string message = 3;
 }
 
-message GetReconciliationStatusRequest {
-    string task_id = 1;
-}
+// WithdrawalTx represents a withdrawal transaction
+message WithdrawalTx {
+    // Withdrawal identifier
+    string withdraw_id = 1;
 
-message GetReconciliationStatusResponse {
-    string task_id = 1;
-    string status = 2;  // running/completed/failed
-    int64 total_checked = 3;
-    int64 discrepancies = 4;
-    int64 started_at = 5;
-    int64 completed_at = 6;
-}
-
-message ListReconciliationRecordsRequest {
-    string wallet_address = 1;  // 可选
-    string status = 2;  // 可选: OK/DISCREPANCY/RESOLVED/IGNORED
-    int32 page = 3;
-    int32 page_size = 4;
-}
-
-message ListReconciliationRecordsResponse {
-    repeated ReconciliationRecord records = 1;
-    int64 total = 2;
-}
-
-message ReconciliationRecord {
-    int64 id = 1;
+    // User wallet address
     string wallet_address = 2;
+
+    // Destination address
+    string to_address = 3;
+
+    // Token symbol
+    string token = 4;
+
+    // Token contract address
+    string token_address = 5;
+
+    // Withdrawal amount (decimal string)
+    string amount = 6;
+
+    // Chain ID
+    int64 chain_id = 7;
+
+    // Transaction hash
+    string tx_hash = 8;
+
+    // Block number (if confirmed)
+    int64 block_number = 9;
+
+    // Gas used
+    int64 gas_used = 10;
+
+    // Gas price (wei string)
+    string gas_price = 11;
+
+    // Withdrawal status
+    eidos.common.v1.WithdrawStatus status = 12;
+
+    // Error message (if failed)
+    string error_message = 13;
+
+    // Retry count
+    int32 retry_count = 14;
+
+    // When submitted to chain (Unix milliseconds)
+    int64 submitted_at = 15;
+
+    // When confirmed on chain (Unix milliseconds)
+    int64 confirmed_at = 16;
+
+    // Record creation time (Unix milliseconds)
+    int64 created_at = 17;
+}
+
+// ============================================================================
+// Settlement Messages
+// ============================================================================
+
+// GetSettlementStatusRequest is the request to get settlement status
+message GetSettlementStatusRequest {
+    // Batch ID
+    string batch_id = 1;
+}
+
+// GetSettlementStatusResponse contains settlement status
+message GetSettlementStatusResponse {
+    // Settlement batch
+    SettlementBatch batch = 1;
+}
+
+// ListSettlementBatchesRequest is the request to list settlement batches
+message ListSettlementBatchesRequest {
+    // Filter by status (optional)
+    eidos.common.v1.BatchStatus status = 1;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 2;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 3;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 4;
+}
+
+// ListSettlementBatchesResponse contains settlement batches
+message ListSettlementBatchesResponse {
+    // Settlement batches
+    repeated SettlementBatch batches = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+// RetrySettlementRequest is the request to retry a settlement
+message RetrySettlementRequest {
+    // Batch ID to retry
+    string batch_id = 1;
+
+    // Whether to split batch if it failed
+    bool split_if_failed = 2;
+
+    // Gas bump percentage (optional)
+    int32 gas_bump_percent = 3;
+}
+
+// RetrySettlementResponse is the response after retry
+message RetrySettlementResponse {
+    // Whether retry was accepted
+    bool success = 1;
+
+    // New batch IDs (if split)
+    repeated string new_batch_ids = 2;
+
+    // Message
+    string message = 3;
+}
+
+// SettlementBatch represents a settlement batch
+message SettlementBatch {
+    // Batch identifier
+    string batch_id = 1;
+
+    // Number of trades in batch
+    int32 trade_count = 2;
+
+    // Trade IDs in this batch
+    repeated string trade_ids = 3;
+
+    // Chain ID
+    int64 chain_id = 4;
+
+    // Transaction hash
+    string tx_hash = 5;
+
+    // Block number (if confirmed)
+    int64 block_number = 6;
+
+    // Gas used
+    int64 gas_used = 7;
+
+    // Gas price (wei string)
+    string gas_price = 8;
+
+    // Batch status
+    eidos.common.v1.BatchStatus status = 9;
+
+    // Error message (if failed)
+    string error_message = 10;
+
+    // Retry count
+    int32 retry_count = 11;
+
+    // When submitted to chain (Unix milliseconds)
+    int64 submitted_at = 12;
+
+    // When confirmed on chain (Unix milliseconds)
+    int64 confirmed_at = 13;
+
+    // Record creation time (Unix milliseconds)
+    int64 created_at = 14;
+}
+
+// ============================================================================
+// Reconciliation Messages
+// ============================================================================
+
+// TriggerReconciliationRequest is the request to trigger reconciliation
+message TriggerReconciliationRequest {
+    // Wallet address to reconcile (optional, empty = all)
+    string wallet_address = 1;
+
+    // Token to reconcile (optional, empty = all)
+    string token = 2;
+
+    // Reconciliation type
+    eidos.common.v1.ReconciliationType type = 3;
+}
+
+// TriggerReconciliationResponse is the response after triggering
+message TriggerReconciliationResponse {
+    // Whether trigger was accepted
+    bool success = 1;
+
+    // Task ID for tracking
+    string task_id = 2;
+
+    // Message
+    string message = 3;
+}
+
+// GetReconciliationStatusRequest is the request to get reconciliation status
+message GetReconciliationStatusRequest {
+    // Task ID
+    string task_id = 1;
+}
+
+// GetReconciliationStatusResponse contains reconciliation status
+message GetReconciliationStatusResponse {
+    // Task ID
+    string task_id = 1;
+
+    // Task status (running, completed, failed)
+    string status = 2;
+
+    // Total records checked
+    int64 total_checked = 3;
+
+    // Discrepancies found
+    int64 discrepancies = 4;
+
+    // When started (Unix milliseconds)
+    int64 started_at = 5;
+
+    // When completed (Unix milliseconds)
+    int64 completed_at = 6;
+
+    // Error message (if failed)
+    string error_message = 7;
+}
+
+// ListReconciliationRecordsRequest is the request to list reconciliation records
+message ListReconciliationRecordsRequest {
+    // Filter by wallet address (optional)
+    string wallet_address = 1;
+
+    // Filter by token (optional)
+    string token = 2;
+
+    // Filter by status (optional)
+    eidos.common.v1.ReconciliationStatus status = 3;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 4;
+}
+
+// ListReconciliationRecordsResponse contains reconciliation records
+message ListReconciliationRecordsResponse {
+    // Reconciliation records
+    repeated ReconciliationRecord records = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+// GetReconciliationReportRequest is the request to get reconciliation report
+message GetReconciliationReportRequest {
+    // Start time (Unix milliseconds)
+    int64 start_time = 1;
+
+    // End time (Unix milliseconds)
+    int64 end_time = 2;
+}
+
+// GetReconciliationReportResponse contains the reconciliation report
+message GetReconciliationReportResponse {
+    // Report time (Unix milliseconds)
+    int64 report_time = 1;
+
+    // Per-token reconciliation summary
+    repeated TokenReconciliation tokens = 2;
+
+    // Discrepancies found
+    repeated Discrepancy discrepancies = 3;
+}
+
+// ReconciliationRecord represents a reconciliation check result
+message ReconciliationRecord {
+    // Record ID
+    int64 id = 1;
+
+    // Wallet address
+    string wallet_address = 2;
+
+    // Token symbol
     string token = 3;
+
+    // On-chain balance (decimal string)
     string on_chain_balance = 4;
+
+    // Off-chain settled balance (decimal string)
     string off_chain_settled = 5;
+
+    // Off-chain available balance (decimal string)
     string off_chain_available = 6;
+
+    // Off-chain frozen balance (decimal string)
     string off_chain_frozen = 7;
+
+    // Pending settlement amount (decimal string)
     string pending_settle = 8;
+
+    // Difference amount (decimal string)
     string difference = 9;
-    string status = 10;
+
+    // Reconciliation status
+    eidos.common.v1.ReconciliationStatus status = 10;
+
+    // Resolution notes
     string resolution = 11;
+
+    // Resolved by (operator ID)
     string resolved_by = 12;
+
+    // When resolved (Unix milliseconds)
     int64 resolved_at = 13;
+
+    // When checked (Unix milliseconds)
     int64 checked_at = 14;
 }
 
-// Wallet messages
+// TokenReconciliation contains per-token reconciliation summary
+message TokenReconciliation {
+    // Token symbol
+    string token = 1;
+
+    // Total on-chain balance (decimal string)
+    string onchain_total = 2;
+
+    // Total off-chain balance (decimal string)
+    string offchain_total = 3;
+
+    // Difference (decimal string)
+    string difference = 4;
+
+    // Whether balances match
+    bool is_matched = 5;
+
+    // Number of wallets checked
+    int64 wallets_checked = 6;
+
+    // Number of discrepancies
+    int64 discrepancy_count = 7;
+}
+
+// Discrepancy represents a balance discrepancy
+message Discrepancy {
+    // Token symbol
+    string token = 1;
+
+    // Wallet address
+    string wallet = 2;
+
+    // On-chain balance (decimal string)
+    string onchain_balance = 3;
+
+    // Off-chain balance (decimal string)
+    string offchain_balance = 4;
+
+    // Difference (decimal string)
+    string difference = 5;
+
+    // Possible reason
+    string reason = 6;
+}
+
+// ============================================================================
+// Wallet Messages
+// ============================================================================
+
+// GetWalletBalanceRequest is the request to get hot wallet balance
 message GetWalletBalanceRequest {
+    // Chain ID
     int64 chain_id = 1;
-    string token_address = 2;  // 空表示 ETH
+
+    // Token address (empty = native token like ETH)
+    string token_address = 2;
 }
 
+// GetWalletBalanceResponse contains wallet balance
 message GetWalletBalanceResponse {
+    // Wallet address
     string wallet_address = 1;
-    string balance = 2;
-    string token = 3;
+
+    // Token symbol
+    string token = 2;
+
+    // Balance (decimal string)
+    string balance = 3;
+
+    // Balance in USD (decimal string, approximate)
+    string balance_usd = 4;
 }
 
+// GetWalletNonceRequest is the request to get wallet nonce
 message GetWalletNonceRequest {
+    // Chain ID
     int64 chain_id = 1;
 }
 
+// GetWalletNonceResponse contains wallet nonce
 message GetWalletNonceResponse {
+    // Wallet address
     string wallet_address = 1;
+
+    // Current nonce on chain
     uint64 current_nonce = 2;
+
+    // Number of pending transactions
     int32 pending_count = 3;
+
+    // Next available nonce
+    uint64 next_nonce = 4;
+}
+
+// ============================================================================
+// Chain Status Messages
+// ============================================================================
+
+// GetChainStatusRequest is the request to get chain status
+message GetChainStatusRequest {}
+
+// GetChainStatusResponse contains chain service status
+message GetChainStatusResponse {
+    // Current block number
+    int64 current_block = 1;
+
+    // Indexed block number
+    int64 indexed_block = 2;
+
+    // Lag in blocks
+    int64 lag_blocks = 3;
+
+    // Whether syncing
+    bool is_syncing = 4;
+
+    // RPC endpoint being used
+    string rpc_endpoint = 5;
+
+    // Last health check time (Unix milliseconds)
+    int64 last_check_time = 6;
+
+    // Per-chain status (for multi-chain support)
+    repeated ChainHealth chains = 7;
+}
+
+// ChainHealth contains health status for a chain
+message ChainHealth {
+    // Chain ID
+    int64 chain_id = 1;
+
+    // Chain name
+    string chain_name = 2;
+
+    // Whether chain is healthy
+    bool healthy = 3;
+
+    // Current block
+    int64 current_block = 4;
+
+    // Indexed block
+    int64 indexed_block = 5;
+
+    // RPC latency in milliseconds
+    int32 rpc_latency_ms = 6;
+
+    // Last error (if any)
+    string last_error = 7;
+}
+
+// ============================================================================
+// Kafka Messages for Chain Service
+// ============================================================================
+
+// DepositDetectedMessage is published when deposit is detected (Kafka: deposits)
+message DepositDetectedMessage {
+    // Transaction hash
+    string tx_hash = 1;
+
+    // Log index
+    uint32 log_index = 2;
+
+    // Wallet address
+    string wallet = 3;
+
+    // Token symbol
+    string token = 4;
+
+    // Token address
+    string token_address = 5;
+
+    // Amount (decimal string)
+    string amount = 6;
+
+    // Block number
+    int64 block_number = 7;
+
+    // Chain ID
+    int64 chain_id = 8;
+
+    // Detection time (Unix milliseconds)
+    int64 detected_at = 9;
+}
+
+// DepositConfirmedMessage is published when deposit is confirmed (Kafka: deposit-confirmed)
+message DepositConfirmedMessage {
+    // Deposit ID
+    string deposit_id = 1;
+
+    // Wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Amount (decimal string)
+    string amount = 4;
+
+    // Transaction hash
+    string tx_hash = 5;
+
+    // Block number
+    int64 block_number = 6;
+
+    // Confirmation time (Unix milliseconds)
+    int64 confirmed_at = 7;
+}
+
+// WithdrawalSubmittedMessage is published when withdrawal is submitted (Kafka: withdrawal-submitted)
+message WithdrawalSubmittedMessage {
+    // Withdrawal ID
+    string withdraw_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Nonce used
+    uint64 nonce = 3;
+
+    // Gas price (wei string)
+    string gas_price = 4;
+
+    // Submission time (Unix milliseconds)
+    int64 submitted_at = 5;
+}
+
+// WithdrawalConfirmedMessage is published when withdrawal is confirmed (Kafka: withdrawal-confirmed)
+message WithdrawalConfirmedMessage {
+    // Withdrawal ID
+    string withdraw_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Block number
+    int64 block_number = 3;
+
+    // Gas used
+    int64 gas_used = 4;
+
+    // Confirmation time (Unix milliseconds)
+    int64 confirmed_at = 5;
+}
+
+// SettlementSubmittedMessage is published when settlement is submitted (Kafka: settlement-submitted)
+message SettlementSubmittedMessage {
+    // Batch ID
+    string batch_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Trade IDs in batch
+    repeated string trade_ids = 3;
+
+    // Submission time (Unix milliseconds)
+    int64 submitted_at = 4;
+}
+
+// SettlementConfirmedMessage is published when settlement is confirmed (Kafka: settlement-confirmed)
+message SettlementConfirmedMessage {
+    // Batch ID
+    string batch_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Block number
+    int64 block_number = 3;
+
+    // Trade IDs
+    repeated string trade_ids = 4;
+
+    // Gas used
+    int64 gas_used = 5;
+
+    // Gas price (wei string)
+    string gas_price = 6;
+
+    // Confirmation time (Unix milliseconds)
+    int64 confirmed_at = 7;
 }

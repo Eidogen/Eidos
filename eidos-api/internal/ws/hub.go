@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -158,7 +159,7 @@ func (h *Hub) Unsubscribe(client *Client, channel Channel, market string) {
 	)
 }
 
-// Broadcast 广播消息
+// Broadcast 广播消息到订阅频道
 func (h *Hub) Broadcast(channel Channel, market string, msg *ServerMessage) {
 	select {
 	case h.broadcast <- &BroadcastMessage{
@@ -172,6 +173,25 @@ func (h *Hub) Broadcast(channel Channel, market string, msg *ServerMessage) {
 			zap.String("channel", string(channel)),
 			zap.String("market", market),
 		)
+	}
+}
+
+// BroadcastPrivate 广播私有消息（用于订单、余额等私有频道）
+// 私有频道使用钱包地址作为 market 参数
+func (h *Hub) BroadcastPrivate(channel Channel, wallet string, msg *ServerMessage) {
+	// 私有频道使用小写钱包地址作为 key
+	normalizedWallet := strings.ToLower(wallet)
+	h.Broadcast(channel, normalizedWallet, msg)
+}
+
+// BroadcastToWallet 广播消息到特定钱包的所有私有频道
+func (h *Hub) BroadcastToWallet(wallet string, msg *ServerMessage) {
+	normalizedWallet := strings.ToLower(wallet)
+
+	// 广播到所有私有频道
+	privateChannels := []Channel{ChannelOrders, ChannelBalances, ChannelPositions}
+	for _, ch := range privateChannels {
+		h.Broadcast(ch, normalizedWallet, msg)
 	}
 }
 

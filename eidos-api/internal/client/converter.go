@@ -5,117 +5,118 @@ import (
 	"strings"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/dto"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
 // ========== 订单相关转换 ==========
 
-func convertOrderSide(side string) pb.OrderSide {
+func convertOrderSide(side string) commonv1.OrderSide {
 	switch strings.ToLower(side) {
 	case "buy":
-		return pb.OrderSide_ORDER_SIDE_BUY
+		return commonv1.OrderSide_ORDER_SIDE_BUY
 	case "sell":
-		return pb.OrderSide_ORDER_SIDE_SELL
+		return commonv1.OrderSide_ORDER_SIDE_SELL
 	default:
-		return pb.OrderSide_ORDER_SIDE_UNSPECIFIED
+		return commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED
 	}
 }
 
-func convertOrderSideToString(side pb.OrderSide) string {
+func convertOrderSideToString(side commonv1.OrderSide) string {
 	switch side {
-	case pb.OrderSide_ORDER_SIDE_BUY:
+	case commonv1.OrderSide_ORDER_SIDE_BUY:
 		return "buy"
-	case pb.OrderSide_ORDER_SIDE_SELL:
+	case commonv1.OrderSide_ORDER_SIDE_SELL:
 		return "sell"
 	default:
 		return "unknown"
 	}
 }
 
-func convertOrderType(orderType string) pb.OrderType {
+func convertOrderType(orderType string) commonv1.OrderType {
 	switch strings.ToLower(orderType) {
 	case "limit":
-		return pb.OrderType_ORDER_TYPE_LIMIT
+		return commonv1.OrderType_ORDER_TYPE_LIMIT
 	case "market":
-		return pb.OrderType_ORDER_TYPE_MARKET
+		return commonv1.OrderType_ORDER_TYPE_MARKET
 	default:
-		return pb.OrderType_ORDER_TYPE_UNSPECIFIED
+		return commonv1.OrderType_ORDER_TYPE_UNSPECIFIED
 	}
 }
 
-func convertOrderTypeToString(orderType pb.OrderType) string {
+func convertOrderTypeToString(orderType commonv1.OrderType) string {
 	switch orderType {
-	case pb.OrderType_ORDER_TYPE_LIMIT:
+	case commonv1.OrderType_ORDER_TYPE_LIMIT:
 		return "limit"
-	case pb.OrderType_ORDER_TYPE_MARKET:
+	case commonv1.OrderType_ORDER_TYPE_MARKET:
 		return "market"
 	default:
 		return "unknown"
 	}
 }
 
-func convertTimeInForce(tif string) pb.TimeInForce {
+func convertTimeInForce(tif string) commonv1.TimeInForce {
 	switch strings.ToUpper(tif) {
 	case "GTC", "":
-		return pb.TimeInForce_TIME_IN_FORCE_GTC
+		return commonv1.TimeInForce_TIME_IN_FORCE_GTC
 	case "IOC":
-		return pb.TimeInForce_TIME_IN_FORCE_IOC
+		return commonv1.TimeInForce_TIME_IN_FORCE_IOC
 	case "FOK":
-		return pb.TimeInForce_TIME_IN_FORCE_FOK
+		return commonv1.TimeInForce_TIME_IN_FORCE_FOK
 	default:
-		return pb.TimeInForce_TIME_IN_FORCE_GTC
+		return commonv1.TimeInForce_TIME_IN_FORCE_GTC
 	}
 }
 
-func convertTimeInForceToString(tif pb.TimeInForce) string {
+func convertTimeInForceToString(tif commonv1.TimeInForce) string {
 	switch tif {
-	case pb.TimeInForce_TIME_IN_FORCE_GTC:
+	case commonv1.TimeInForce_TIME_IN_FORCE_GTC:
 		return "GTC"
-	case pb.TimeInForce_TIME_IN_FORCE_IOC:
+	case commonv1.TimeInForce_TIME_IN_FORCE_IOC:
 		return "IOC"
-	case pb.TimeInForce_TIME_IN_FORCE_FOK:
+	case commonv1.TimeInForce_TIME_IN_FORCE_FOK:
 		return "FOK"
 	default:
 		return "GTC"
 	}
 }
 
-func convertOrderStatus(status string) pb.OrderStatus {
+func convertOrderStatus(status string) commonv1.OrderStatus {
 	switch strings.ToLower(status) {
 	case "pending":
-		return pb.OrderStatus_ORDER_STATUS_PENDING
+		return commonv1.OrderStatus_ORDER_STATUS_PENDING
 	case "open":
-		return pb.OrderStatus_ORDER_STATUS_OPEN
+		return commonv1.OrderStatus_ORDER_STATUS_OPEN
 	case "partial":
-		return pb.OrderStatus_ORDER_STATUS_PARTIAL
+		return commonv1.OrderStatus_ORDER_STATUS_PARTIAL
 	case "filled":
-		return pb.OrderStatus_ORDER_STATUS_FILLED
+		return commonv1.OrderStatus_ORDER_STATUS_FILLED
 	case "cancelled":
-		return pb.OrderStatus_ORDER_STATUS_CANCELLED
+		return commonv1.OrderStatus_ORDER_STATUS_CANCELLED
 	case "expired":
-		return pb.OrderStatus_ORDER_STATUS_EXPIRED
+		return commonv1.OrderStatus_ORDER_STATUS_EXPIRED
 	case "rejected":
-		return pb.OrderStatus_ORDER_STATUS_REJECTED
+		return commonv1.OrderStatus_ORDER_STATUS_REJECTED
 	default:
-		return pb.OrderStatus_ORDER_STATUS_UNSPECIFIED
+		return commonv1.OrderStatus_ORDER_STATUS_UNSPECIFIED
 	}
 }
 
-func convertOrderStatusToString(status pb.OrderStatus) string {
+func convertOrderStatusToString(status commonv1.OrderStatus) string {
 	switch status {
-	case pb.OrderStatus_ORDER_STATUS_PENDING:
+	case commonv1.OrderStatus_ORDER_STATUS_PENDING:
 		return "pending"
-	case pb.OrderStatus_ORDER_STATUS_OPEN:
+	case commonv1.OrderStatus_ORDER_STATUS_OPEN:
 		return "open"
-	case pb.OrderStatus_ORDER_STATUS_PARTIAL:
+	case commonv1.OrderStatus_ORDER_STATUS_PARTIAL:
 		return "partial"
-	case pb.OrderStatus_ORDER_STATUS_FILLED:
+	case commonv1.OrderStatus_ORDER_STATUS_FILLED:
 		return "filled"
-	case pb.OrderStatus_ORDER_STATUS_CANCELLED:
+	case commonv1.OrderStatus_ORDER_STATUS_CANCELLED:
 		return "cancelled"
-	case pb.OrderStatus_ORDER_STATUS_EXPIRED:
+	case commonv1.OrderStatus_ORDER_STATUS_EXPIRED:
 		return "expired"
-	case pb.OrderStatus_ORDER_STATUS_REJECTED:
+	case commonv1.OrderStatus_ORDER_STATUS_REJECTED:
 		return "rejected"
 	default:
 		return "unknown"
@@ -169,50 +170,54 @@ func convertProtoBalance(balance *pb.Balance) *dto.BalanceResponse {
 	}
 }
 
-func convertBalanceLogType(logType string) pb.BalanceLogType {
+func convertBalanceChangeType(logType string) commonv1.BalanceChangeType {
 	switch strings.ToLower(logType) {
 	case "deposit":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_DEPOSIT
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_DEPOSIT
 	case "withdraw":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW
 	case "freeze":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_FREEZE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FREEZE
 	case "unfreeze":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_UNFREEZE
-	case "trade":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_TRADE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNFREEZE
+	case "trade_debit":
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_DEBIT
+	case "trade_credit":
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_CREDIT
 	case "fee":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_FEE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FEE
 	case "settlement":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_SETTLEMENT
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_SETTLEMENT
 	case "rollback":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_ROLLBACK
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_ROLLBACK
 	case "withdraw_refund":
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW_REFUND
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW_REFUND
 	default:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_UNSPECIFIED
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNSPECIFIED
 	}
 }
 
-func convertBalanceLogTypeToString(logType pb.BalanceLogType) string {
+func convertBalanceChangeTypeToString(logType commonv1.BalanceChangeType) string {
 	switch logType {
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_DEPOSIT:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_DEPOSIT:
 		return "deposit"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW:
 		return "withdraw"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_FREEZE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FREEZE:
 		return "freeze"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_UNFREEZE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNFREEZE:
 		return "unfreeze"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_TRADE:
-		return "trade"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_FEE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_DEBIT:
+		return "trade_debit"
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_CREDIT:
+		return "trade_credit"
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FEE:
 		return "fee"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_SETTLEMENT:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_SETTLEMENT:
 		return "settlement"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_ROLLBACK:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_ROLLBACK:
 		return "rollback"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW_REFUND:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW_REFUND:
 		return "withdraw_refund"
 	default:
 		return "unknown"
@@ -227,16 +232,20 @@ func convertProtoBalanceLog(log *pb.BalanceLog) *dto.TransactionResponse {
 	// 根据类型确定 RefID 和 RefType
 	var refID, refType string
 	switch log.Type {
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_TRADE, pb.BalanceLogType_BALANCE_LOG_TYPE_FEE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_DEBIT,
+		commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_CREDIT,
+		commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FEE:
 		refID = log.TradeId
 		refType = "trade"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_FREEZE, pb.BalanceLogType_BALANCE_LOG_TYPE_UNFREEZE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FREEZE,
+		commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNFREEZE:
 		refID = log.OrderId
 		refType = "order"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_DEPOSIT:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_DEPOSIT:
 		refID = log.TxHash
 		refType = "deposit"
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW, pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW_REFUND:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW,
+		commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW_REFUND:
 		refID = log.TxHash
 		refType = "withdraw"
 	}
@@ -245,7 +254,7 @@ func convertProtoBalanceLog(log *pb.BalanceLog) *dto.TransactionResponse {
 		ID:        strconv.FormatInt(log.Id, 10),
 		Wallet:    log.Wallet,
 		Token:     log.Token,
-		Type:      convertBalanceLogTypeToString(log.Type),
+		Type:      convertBalanceChangeTypeToString(log.Type),
 		Amount:    log.Amount,
 		Balance:   log.BalanceAfter,
 		RefID:     refID,
@@ -256,19 +265,19 @@ func convertProtoBalanceLog(log *pb.BalanceLog) *dto.TransactionResponse {
 
 // ========== 成交相关转换 ==========
 
-func convertSettlementStatusToString(status pb.SettlementStatus) string {
+func convertSettlementStatusToString(status commonv1.SettlementStatus) string {
 	switch status {
-	case pb.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN:
 		return "matched_offchain"
-	case pb.SettlementStatus_SETTLEMENT_STATUS_PENDING:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_PENDING:
 		return "pending"
-	case pb.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED:
 		return "submitted"
-	case pb.SettlementStatus_SETTLEMENT_STATUS_SETTLED_ONCHAIN:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_SETTLED:
 		return "settled_onchain"
-	case pb.SettlementStatus_SETTLEMENT_STATUS_FAILED:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_FAILED:
 		return "failed"
-	case pb.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK:
 		return "rolled_back"
 	default:
 		return "unknown"
@@ -301,26 +310,26 @@ func convertProtoTrade(trade *pb.Trade) *dto.TradeResponse {
 
 // ========== 充值相关转换 ==========
 
-func convertDepositStatus(status string) pb.DepositStatus {
+func convertDepositStatus(status string) commonv1.DepositStatus {
 	switch strings.ToLower(status) {
 	case "pending":
-		return pb.DepositStatus_DEPOSIT_STATUS_PENDING
+		return commonv1.DepositStatus_DEPOSIT_STATUS_PENDING
 	case "confirmed":
-		return pb.DepositStatus_DEPOSIT_STATUS_CONFIRMED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_CONFIRMED
 	case "credited":
-		return pb.DepositStatus_DEPOSIT_STATUS_CREDITED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_CREDITED
 	default:
-		return pb.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED
 	}
 }
 
-func convertDepositStatusToString(status pb.DepositStatus) string {
+func convertDepositStatusToString(status commonv1.DepositStatus) string {
 	switch status {
-	case pb.DepositStatus_DEPOSIT_STATUS_PENDING:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_PENDING:
 		return "pending"
-	case pb.DepositStatus_DEPOSIT_STATUS_CONFIRMED:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_CONFIRMED:
 		return "confirmed"
-	case pb.DepositStatus_DEPOSIT_STATUS_CREDITED:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_CREDITED:
 		return "credited"
 	default:
 		return "unknown"
@@ -349,42 +358,42 @@ func convertProtoDeposit(deposit *pb.Deposit) *dto.DepositResponse {
 
 // ========== 提现相关转换 ==========
 
-func convertWithdrawStatus(status string) pb.WithdrawStatus {
+func convertWithdrawStatus(status string) commonv1.WithdrawStatus {
 	switch strings.ToLower(status) {
 	case "pending":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_PENDING
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_PENDING
 	case "processing":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_PROCESSING
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_PROCESSING
 	case "submitted":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED
 	case "confirmed":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED
 	case "failed":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_FAILED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_FAILED
 	case "cancelled":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_CANCELLED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_CANCELLED
 	case "rejected":
-		return pb.WithdrawStatus_WITHDRAW_STATUS_REJECTED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_REJECTED
 	default:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED
 	}
 }
 
-func convertWithdrawStatusToString(status pb.WithdrawStatus) string {
+func convertWithdrawStatusToString(status commonv1.WithdrawStatus) string {
 	switch status {
-	case pb.WithdrawStatus_WITHDRAW_STATUS_PENDING:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_PENDING:
 		return "pending"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_PROCESSING:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_PROCESSING:
 		return "processing"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED:
 		return "submitted"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED:
 		return "confirmed"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_FAILED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_FAILED:
 		return "failed"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_CANCELLED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_CANCELLED:
 		return "cancelled"
-	case pb.WithdrawStatus_WITHDRAW_STATUS_REJECTED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_REJECTED:
 		return "rejected"
 	default:
 		return "unknown"

@@ -112,16 +112,17 @@ func TestHandler_Upgrader_CheckOrigin(t *testing.T) {
 	hub := NewHub(logger)
 
 	cfg := config.WebSocketConfig{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
+		ReadBufferSize:   1024,
+		WriteBufferSize:  1024,
+		AllowAllOrigins:  true, // 启用允许所有 origin
 	}
 
 	handler := NewHandler(hub, logger, cfg)
 
-	// 测试 CheckOrigin 回调（当前实现总是返回 true）
+	// 测试 CheckOrigin 回调（AllowAllOrigins=true 时应返回 true）
 	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 	req.Header.Set("Origin", "https://example.com")
 
 	result := handler.upgrader.CheckOrigin(req)
-	assert.True(t, result, "CheckOrigin should return true for any origin in current implementation")
+	assert.True(t, result, "CheckOrigin should return true when AllowAllOrigins is enabled")
 }

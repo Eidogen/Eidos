@@ -1,0 +1,711 @@
+syntax = "proto3";
+
+package eidos.settlement.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/settlement/v1;settlementv1";
+
+import "common/enums.proto";
+import "common/pagination.proto";
+
+// ============================================================================
+// SettlementService - On-chain Settlement Management
+// ============================================================================
+
+// SettlementService manages the settlement of off-chain trades to on-chain.
+// It handles batching, submission, confirmation, and rollback of settlements.
+service SettlementService {
+    // ========== Batch Management ==========
+
+    // GetBatch retrieves details of a settlement batch
+    rpc GetBatch(GetBatchRequest) returns (GetBatchResponse);
+
+    // ListBatches retrieves settlement batches with filters
+    rpc ListBatches(ListBatchesRequest) returns (ListBatchesResponse);
+
+    // ListTradesInBatch retrieves trades in a specific batch
+    rpc ListTradesInBatch(ListTradesInBatchRequest) returns (ListTradesInBatchResponse);
+
+    // ========== Settlement Operations ==========
+
+    // TriggerSettlement manually triggers settlement for pending trades
+    // Used for immediate settlement needs or recovery scenarios
+    rpc TriggerSettlement(TriggerSettlementRequest) returns (TriggerSettlementResponse);
+
+    // RetryBatch retries a failed settlement batch
+    rpc RetryBatch(RetryBatchRequest) returns (RetryBatchResponse);
+
+    // SplitBatch splits a failed batch into smaller batches for retry
+    rpc SplitBatch(SplitBatchRequest) returns (SplitBatchResponse);
+
+    // RollbackBatch marks a batch as rolled back and reverts trade states
+    rpc RollbackBatch(RollbackBatchRequest) returns (RollbackBatchResponse);
+
+    // ========== Trade Settlement Status ==========
+
+    // GetTradeSettlement retrieves settlement status for a trade
+    rpc GetTradeSettlement(GetTradeSettlementRequest) returns (GetTradeSettlementResponse);
+
+    // ListPendingTrades retrieves trades pending settlement
+    rpc ListPendingTrades(ListPendingTradesRequest) returns (ListPendingTradesResponse);
+
+    // ========== Settlement Statistics ==========
+
+    // GetSettlementStats retrieves settlement statistics
+    rpc GetSettlementStats(GetSettlementStatsRequest) returns (GetSettlementStatsResponse);
+
+    // GetBatcherStatus retrieves status of the settlement batcher
+    rpc GetBatcherStatus(GetBatcherStatusRequest) returns (GetBatcherStatusResponse);
+
+    // ========== Internal APIs ==========
+
+    // OnTradeMatched is called when a trade is matched (internal)
+    rpc OnTradeMatched(OnTradeMatchedRequest) returns (OnTradeMatchedResponse);
+
+    // OnBatchSubmitted is called when a batch is submitted to chain (internal)
+    rpc OnBatchSubmitted(OnBatchSubmittedRequest) returns (OnBatchSubmittedResponse);
+
+    // OnBatchConfirmed is called when a batch is confirmed on chain (internal)
+    rpc OnBatchConfirmed(OnBatchConfirmedRequest) returns (OnBatchConfirmedResponse);
+
+    // OnBatchFailed is called when a batch submission fails (internal)
+    rpc OnBatchFailed(OnBatchFailedRequest) returns (OnBatchFailedResponse);
+}
+
+// ============================================================================
+// Batch Messages
+// ============================================================================
+
+// SettlementBatch represents a batch of trades to be settled
+message SettlementBatch {
+    // Unique batch identifier
+    string batch_id = 1;
+
+    // Number of trades in the batch
+    int32 trade_count = 2;
+
+    // Trade IDs in this batch
+    repeated string trade_ids = 3;
+
+    // Current batch status
+    eidos.common.v1.BatchStatus status = 4;
+
+    // Chain ID for settlement
+    int64 chain_id = 5;
+
+    // Contract address for settlement
+    string contract_address = 6;
+
+    // Transaction hash (set when submitted)
+    string tx_hash = 7;
+
+    // Block number (set when confirmed)
+    int64 block_number = 8;
+
+    // Gas used (set when confirmed)
+    int64 gas_used = 9;
+
+    // Gas price in wei (set when submitted)
+    string gas_price = 10;
+
+    // Effective gas price in wei (set when confirmed)
+    string effective_gas_price = 11;
+
+    // Transaction nonce
+    uint64 nonce = 12;
+
+    // Retry count
+    int32 retry_count = 13;
+
+    // Maximum retries allowed
+    int32 max_retries = 14;
+
+    // Last error message
+    string error_message = 15;
+
+    // Last error code
+    string error_code = 16;
+
+    // Total base volume in batch (decimal string)
+    string total_base_volume = 17;
+
+    // Total quote volume in batch (decimal string)
+    string total_quote_volume = 18;
+
+    // Batch creation timestamp (Unix milliseconds)
+    int64 created_at = 19;
+
+    // Batch submission timestamp (Unix milliseconds)
+    int64 submitted_at = 20;
+
+    // Batch confirmation timestamp (Unix milliseconds)
+    int64 confirmed_at = 21;
+
+    // Last update timestamp (Unix milliseconds)
+    int64 updated_at = 22;
+}
+
+// GetBatchRequest is the request to get batch details
+message GetBatchRequest {
+    // Batch ID to retrieve
+    string batch_id = 1;
+}
+
+// GetBatchResponse contains batch details
+message GetBatchResponse {
+    // Settlement batch
+    SettlementBatch batch = 1;
+}
+
+// ListBatchesRequest is the request to list batches
+message ListBatchesRequest {
+    // Filter by batch status (optional)
+    eidos.common.v1.BatchStatus status = 1;
+
+    // Filter by chain ID (optional)
+    int64 chain_id = 2;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 3;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 4;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 5;
+}
+
+// ListBatchesResponse contains list of batches
+message ListBatchesResponse {
+    // Settlement batches
+    repeated SettlementBatch batches = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+// ListTradesInBatchRequest is the request to list trades in a batch
+message ListTradesInBatchRequest {
+    // Batch ID
+    string batch_id = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 2;
+}
+
+// ListTradesInBatchResponse contains trades in batch
+message ListTradesInBatchResponse {
+    // Trades in the batch
+    repeated SettlementTrade trades = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+// SettlementTrade represents a trade in settlement context
+message SettlementTrade {
+    // Trade ID
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker wallet address
+    string maker_wallet = 3;
+
+    // Taker wallet address
+    string taker_wallet = 4;
+
+    // Base token symbol
+    string base_token = 5;
+
+    // Quote token symbol
+    string quote_token = 6;
+
+    // Base token contract address
+    string base_token_address = 7;
+
+    // Quote token contract address
+    string quote_token_address = 8;
+
+    // Trade price (decimal string)
+    string price = 9;
+
+    // Base amount (decimal string)
+    string base_amount = 10;
+
+    // Quote amount (decimal string)
+    string quote_amount = 11;
+
+    // Taker side
+    eidos.common.v1.OrderSide taker_side = 12;
+
+    // Maker fee (decimal string)
+    string maker_fee = 13;
+
+    // Taker fee (decimal string)
+    string taker_fee = 14;
+
+    // Current settlement status
+    eidos.common.v1.SettlementStatus settlement_status = 15;
+
+    // Batch ID (if assigned)
+    string batch_id = 16;
+
+    // Trade timestamp (Unix milliseconds)
+    int64 matched_at = 17;
+
+    // Settlement timestamp (Unix milliseconds)
+    int64 settled_at = 18;
+}
+
+// ============================================================================
+// Settlement Operations Messages
+// ============================================================================
+
+// TriggerSettlementRequest is the request to trigger settlement
+message TriggerSettlementRequest {
+    // Trading pair filter (optional, empty = all markets)
+    string market = 1;
+
+    // Maximum trades to include (optional, default 100)
+    int32 max_trades = 2;
+
+    // Priority level (0 = normal, 1 = high)
+    int32 priority = 3;
+
+    // Force immediate submission (skip batching delay)
+    bool force_immediate = 4;
+}
+
+// TriggerSettlementResponse is the response after triggering settlement
+message TriggerSettlementResponse {
+    // Whether trigger was accepted
+    bool accepted = 1;
+
+    // Created batch ID (if immediate)
+    string batch_id = 2;
+
+    // Number of trades to be settled
+    int32 trade_count = 3;
+
+    // Message
+    string message = 4;
+}
+
+// RetryBatchRequest is the request to retry a failed batch
+message RetryBatchRequest {
+    // Batch ID to retry
+    string batch_id = 1;
+
+    // Increase gas price percentage (0-100)
+    int32 gas_bump_percent = 2;
+}
+
+// RetryBatchResponse is the response after retry
+message RetryBatchResponse {
+    // Whether retry was accepted
+    bool accepted = 1;
+
+    // New transaction hash
+    string new_tx_hash = 2;
+
+    // Message
+    string message = 3;
+}
+
+// SplitBatchRequest is the request to split a failed batch
+message SplitBatchRequest {
+    // Batch ID to split
+    string batch_id = 1;
+
+    // Number of new batches (default 2)
+    int32 split_count = 2;
+}
+
+// SplitBatchResponse is the response after split
+message SplitBatchResponse {
+    // Whether split was successful
+    bool success = 1;
+
+    // New batch IDs created
+    repeated string new_batch_ids = 2;
+
+    // Message
+    string message = 3;
+}
+
+// RollbackBatchRequest is the request to rollback a batch
+message RollbackBatchRequest {
+    // Batch ID to rollback
+    string batch_id = 1;
+
+    // Rollback reason
+    string reason = 2;
+
+    // Operator ID (for audit)
+    string operator_id = 3;
+}
+
+// RollbackBatchResponse is the response after rollback
+message RollbackBatchResponse {
+    // Whether rollback was successful
+    bool success = 1;
+
+    // Number of trades rolled back
+    int32 trades_rolled_back = 2;
+
+    // Message
+    string message = 3;
+}
+
+// ============================================================================
+// Trade Settlement Status Messages
+// ============================================================================
+
+// GetTradeSettlementRequest is the request to get trade settlement status
+message GetTradeSettlementRequest {
+    // Trade ID
+    string trade_id = 1;
+}
+
+// GetTradeSettlementResponse contains trade settlement details
+message GetTradeSettlementResponse {
+    // Trade settlement info
+    SettlementTrade trade = 1;
+
+    // Batch info (if assigned)
+    SettlementBatch batch = 2;
+}
+
+// ListPendingTradesRequest is the request to list pending trades
+message ListPendingTradesRequest {
+    // Filter by market (optional)
+    string market = 1;
+
+    // Filter by wallet (optional)
+    string wallet = 2;
+
+    // Minimum age in seconds (optional)
+    int64 min_age_seconds = 3;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 4;
+}
+
+// ListPendingTradesResponse contains pending trades
+message ListPendingTradesResponse {
+    // Pending trades
+    repeated SettlementTrade trades = 1;
+
+    // Total pending volume (quote, decimal string)
+    string total_pending_volume = 2;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 3;
+}
+
+// ============================================================================
+// Statistics Messages
+// ============================================================================
+
+// GetSettlementStatsRequest is the request to get settlement stats
+message GetSettlementStatsRequest {
+    // Time period in hours (default 24)
+    int32 period_hours = 1;
+
+    // Filter by market (optional)
+    string market = 2;
+}
+
+// GetSettlementStatsResponse contains settlement statistics
+message GetSettlementStatsResponse {
+    // Time period start (Unix milliseconds)
+    int64 period_start = 1;
+
+    // Time period end (Unix milliseconds)
+    int64 period_end = 2;
+
+    // Total trades matched
+    int64 trades_matched = 3;
+
+    // Total trades settled
+    int64 trades_settled = 4;
+
+    // Total trades pending
+    int64 trades_pending = 5;
+
+    // Total trades failed
+    int64 trades_failed = 6;
+
+    // Total batches created
+    int64 batches_created = 7;
+
+    // Total batches confirmed
+    int64 batches_confirmed = 8;
+
+    // Total batches failed
+    int64 batches_failed = 9;
+
+    // Average batch size
+    double avg_batch_size = 10;
+
+    // Average settlement time (seconds)
+    double avg_settlement_time_seconds = 11;
+
+    // P99 settlement time (seconds)
+    double p99_settlement_time_seconds = 12;
+
+    // Total gas spent (wei, decimal string)
+    string total_gas_spent = 13;
+
+    // Average gas per trade (wei, decimal string)
+    string avg_gas_per_trade = 14;
+
+    // Total volume settled (quote, decimal string)
+    string total_volume_settled = 15;
+
+    // Per-market statistics
+    repeated MarketSettlementStats market_stats = 16;
+}
+
+// MarketSettlementStats contains per-market statistics
+message MarketSettlementStats {
+    // Trading pair symbol
+    string market = 1;
+
+    // Trades settled
+    int64 trades_settled = 2;
+
+    // Trades pending
+    int64 trades_pending = 3;
+
+    // Volume settled (quote, decimal string)
+    string volume_settled = 4;
+
+    // Average settlement time (seconds)
+    double avg_settlement_time_seconds = 5;
+}
+
+// GetBatcherStatusRequest is the request to get batcher status
+message GetBatcherStatusRequest {}
+
+// GetBatcherStatusResponse contains batcher status
+message GetBatcherStatusResponse {
+    // Whether batcher is running
+    bool is_running = 1;
+
+    // Whether batcher is paused
+    bool is_paused = 2;
+
+    // Current pending trade count
+    int64 pending_trade_count = 3;
+
+    // Current pending batch count
+    int64 pending_batch_count = 4;
+
+    // Current in-flight batch count
+    int64 inflight_batch_count = 5;
+
+    // Last batch created timestamp (Unix milliseconds)
+    int64 last_batch_created_at = 6;
+
+    // Last batch confirmed timestamp (Unix milliseconds)
+    int64 last_batch_confirmed_at = 7;
+
+    // Batcher configuration
+    BatcherConfig config = 8;
+
+    // Per-chain status
+    repeated ChainBatcherStatus chain_status = 9;
+}
+
+// BatcherConfig contains batcher configuration
+message BatcherConfig {
+    // Maximum trades per batch
+    int32 max_batch_size = 1;
+
+    // Batch interval in seconds
+    int32 batch_interval_seconds = 2;
+
+    // Maximum concurrent batches
+    int32 max_concurrent_batches = 3;
+
+    // Confirmation blocks required
+    int32 confirmation_blocks = 4;
+
+    // Gas price strategy (auto, fixed, aggressive)
+    string gas_strategy = 5;
+
+    // Maximum gas price (wei, decimal string)
+    string max_gas_price = 6;
+}
+
+// ChainBatcherStatus contains per-chain batcher status
+message ChainBatcherStatus {
+    // Chain ID
+    int64 chain_id = 1;
+
+    // Current block number
+    int64 current_block = 2;
+
+    // Hot wallet address
+    string wallet_address = 3;
+
+    // Hot wallet balance (ETH, decimal string)
+    string wallet_balance = 4;
+
+    // Current nonce
+    uint64 current_nonce = 5;
+
+    // Pending transaction count
+    int32 pending_tx_count = 6;
+
+    // Current gas price (wei, decimal string)
+    string current_gas_price = 7;
+
+    // Is healthy
+    bool is_healthy = 8;
+
+    // Last error (if any)
+    string last_error = 9;
+}
+
+// ============================================================================
+// Internal API Messages
+// ============================================================================
+
+// OnTradeMatchedRequest is sent when a trade is matched
+message OnTradeMatchedRequest {
+    // Trade details
+    SettlementTrade trade = 1;
+}
+
+// OnTradeMatchedResponse is the response
+message OnTradeMatchedResponse {
+    // Whether trade was queued for settlement
+    bool queued = 1;
+}
+
+// OnBatchSubmittedRequest is sent when a batch is submitted
+message OnBatchSubmittedRequest {
+    // Batch ID
+    string batch_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Nonce used
+    uint64 nonce = 3;
+
+    // Gas price (wei, decimal string)
+    string gas_price = 4;
+
+    // Submission timestamp (Unix milliseconds)
+    int64 submitted_at = 5;
+}
+
+// OnBatchSubmittedResponse is the response
+message OnBatchSubmittedResponse {
+    // Whether update was successful
+    bool success = 1;
+}
+
+// OnBatchConfirmedRequest is sent when a batch is confirmed
+message OnBatchConfirmedRequest {
+    // Batch ID
+    string batch_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Block number
+    int64 block_number = 3;
+
+    // Gas used
+    int64 gas_used = 4;
+
+    // Effective gas price (wei, decimal string)
+    string effective_gas_price = 5;
+
+    // Confirmation timestamp (Unix milliseconds)
+    int64 confirmed_at = 6;
+}
+
+// OnBatchConfirmedResponse is the response
+message OnBatchConfirmedResponse {
+    // Whether update was successful
+    bool success = 1;
+
+    // Number of trades confirmed
+    int32 trades_confirmed = 2;
+}
+
+// OnBatchFailedRequest is sent when a batch fails
+message OnBatchFailedRequest {
+    // Batch ID
+    string batch_id = 1;
+
+    // Error code
+    string error_code = 2;
+
+    // Error message
+    string error_message = 3;
+
+    // Whether batch can be retried
+    bool can_retry = 4;
+
+    // Failure timestamp (Unix milliseconds)
+    int64 failed_at = 5;
+}
+
+// OnBatchFailedResponse is the response
+message OnBatchFailedResponse {
+    // Whether update was successful
+    bool success = 1;
+
+    // Action taken (retry, split, rollback)
+    string action = 2;
+}
+
+// ============================================================================
+// Kafka Message Types for Settlement
+// ============================================================================
+
+// SettlementRequestMessage is published to request settlement (Kafka: settlement-requests)
+message SettlementRequestMessage {
+    // Trade to settle
+    SettlementTrade trade = 1;
+
+    // Priority level
+    int32 priority = 2;
+
+    // Request timestamp (Unix milliseconds)
+    int64 requested_at = 3;
+}
+
+// BatchCreatedMessage is published when batch is created (Kafka: settlement-batches)
+message BatchCreatedMessage {
+    // Batch details
+    SettlementBatch batch = 1;
+}
+
+// BatchStatusMessage is published on batch status change (Kafka: settlement-status)
+message BatchStatusMessage {
+    // Batch ID
+    string batch_id = 1;
+
+    // New status
+    eidos.common.v1.BatchStatus status = 2;
+
+    // Previous status
+    eidos.common.v1.BatchStatus previous_status = 3;
+
+    // Transaction hash (if applicable)
+    string tx_hash = 4;
+
+    // Error message (if failed)
+    string error_message = 5;
+
+    // Status change timestamp (Unix milliseconds)
+    int64 updated_at = 6;
+}

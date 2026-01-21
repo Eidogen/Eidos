@@ -81,8 +81,12 @@ type RiskAlertMessage struct {
 	Wallet      string            `json:"wallet"`
 	AlertType   string            `json:"alert_type"`
 	Severity    string            `json:"severity"` // info, warning, critical
+	RuleID      string            `json:"rule_id,omitempty"`
 	Description string            `json:"description"`
+	ActionTaken string            `json:"action_taken,omitempty"`
 	Context     map[string]string `json:"context"`
+	OrderID     string            `json:"order_id,omitempty"`
+	WithdrawID  string            `json:"withdraw_id,omitempty"`
 	CreatedAt   int64             `json:"created_at"`
 }
 
@@ -357,6 +361,7 @@ type CheckWithdrawResponse struct {
 	RejectReason        string
 	RejectCode          string
 	RequireManualReview bool
+	ReviewReason        string
 	RiskScore           int
 }
 

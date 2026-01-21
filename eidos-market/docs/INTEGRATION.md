@@ -129,48 +129,57 @@ eidos-market 是行情数据服务，负责：
 
 ---
 
-### 2.3 eidos-matching - gRPC: GetOrderBookSnapshot
+### 2.3 eidos-matching - gRPC: GetOrderbook
 
-**状态**: 🔴 待实现
+**状态**: ✅ 已实现
 
 **说明**: 当 eidos-market 检测到 sequence 缺口或服务重启时，需要从 eidos-matching 获取订单簿全量快照。
 
-**Proto 定义** (建议添加到 eidos-matching):
+**Proto 定义** (proto/matching/v1/matching.proto):
 ```protobuf
 service MatchingService {
-  // 获取订单簿全量快照
-  rpc GetOrderBookSnapshot(GetOrderBookSnapshotRequest) returns (GetOrderBookSnapshotResponse);
+  // 获取订单簿快照
+  rpc GetOrderbook(GetOrderbookRequest) returns (GetOrderbookResponse);
 }
 
-message GetOrderBookSnapshotRequest {
+message GetOrderbookRequest {
   string market = 1;
-  int32 limit = 2;  // 可选，默认 100
+  int32 limit = 2;  // 每边数量限制，默认 100
 }
 
-message GetOrderBookSnapshotResponse {
+message GetOrderbookResponse {
   string market = 1;
   repeated PriceLevel bids = 2;
   repeated PriceLevel asks = 3;
-  uint64 sequence = 4;
-  int64 timestamp = 5;
+  int64 timestamp = 4;
+  uint64 sequence = 5;
 }
 
 message PriceLevel {
   string price = 1;
   string amount = 2;
+  int32 order_count = 3;
 }
 ```
 
-**eidos-matching 实现要点**:
-1. 返回当前订单簿的完整快照
-2. 包含当前 sequence（用于后续增量同步）
-3. 支持 limit 参数限制返回档位数
-4. 响应时间 < 10ms
+**eidos-matching 实现**: `eidos-matching/internal/handler/grpc_handler.go:GetOrderbook`
+
+**eidos-market 客户端**: `eidos-market/internal/client/matching_client.go`
+- 实现 `aggregator.DepthSnapshotProvider` 接口
+- 通过 `GetSnapshot()` 方法调用 eidos-matching 的 `GetOrderbook` gRPC 接口
+
+**配置** (config.yaml 或环境变量):
+```yaml
+matching:
+  enabled: true           # MATCHING_ENABLED
+  addr: "eidos-matching:50052"  # MATCHING_ADDR
+  connect_timeout: 5      # MATCHING_CONNECT_TIMEOUT (秒)
+  request_timeout: 3      # MATCHING_REQUEST_TIMEOUT (秒)
+```
 
 **eidos-market 调用时机**:
-1. 服务启动时
-2. 检测到 sequence 缺口时
-3. 定期校验（可选，每小时）
+1. 检测到 sequence 缺口时（自动触发）
+2. 可用于服务启动时的初始化同步
 
 ---
 
@@ -383,7 +392,7 @@ service MarketService {
 
 - [ ] 实现 Kafka producer 发送 `trade-results`
 - [ ] 实现 Kafka producer 发送 `orderbook-updates`
-- [ ] 实现 `GetOrderBookSnapshot` gRPC 接口
+- [x] 实现 `GetOrderbook` gRPC 接口（已实现，包含 sequence）
 - [ ] 保证 sequence 严格递增
 - [ ] 使用 market 作为 partition key
 
@@ -566,13 +575,15 @@ instance:
 // 参见 INTEGRATION.md 第二节
 ```
 
-### 10.2 深度快照同步 (internal/aggregator/depth_manager.go)
+### 10.2 深度快照同步 (internal/client/matching_client.go)
+
+**状态**: ✅ 已实现
 
 ```go
-// TODO: 实现 DepthSnapshotProvider 接口
-// - 调用 eidos-matching 的 GetOrderBookSnapshot gRPC 接口
-// - 在 sequence 缺口或服务启动时调用
-// 参见 INTEGRATION.md 2.3 节
+// MatchingClient 实现了 aggregator.DepthSnapshotProvider 接口
+// - GetSnapshot() 调用 eidos-matching 的 GetOrderbook gRPC 接口
+// - 在检测到 sequence 缺口时自动触发
+// - 配置: matching.enabled=true, matching.addr="eidos-matching:50052"
 ```
 
 ### 10.3 Redis Pub/Sub (internal/cache/pubsub.go)

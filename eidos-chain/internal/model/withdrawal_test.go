@@ -45,5 +45,5 @@ func TestWithdrawalTxStatus_IsTerminal(t *testing.T) {
 
 func TestWithdrawalTx_TableName(t *testing.T) {
 	tx := WithdrawalTx{}
-	assert.Equal(t, "eidos_chain_withdrawal_txs", tx.TableName())
+	assert.Equal(t, "chain_withdrawal_txs", tx.TableName())
 }

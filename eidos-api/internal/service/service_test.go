@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/eidos-exchange/eidos/eidos-api/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/dto"
 )
 
@@ -84,6 +85,14 @@ func (m *MockMarketClient) GetRecentTrades(ctx context.Context, market string, l
 func (m *MockTradingClient) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
+}
+
+func (m *MockTradingClient) PrepareOrder(ctx context.Context, req *client.PrepareOrderRequest) (*client.PrepareOrderResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.PrepareOrderResponse), args.Error(1)
 }
 
 func (m *MockTradingClient) CreateOrder(ctx context.Context, req *dto.CreateOrderRequest, wallet string) (*dto.CreateOrderResponse, error) {
@@ -232,14 +241,42 @@ func TestNewOrderService(t *testing.T) {
 	assert.NotNil(t, svc)
 }
 
-func TestOrderService_PrepareOrder(t *testing.T) {
+func TestOrderService_PrepareOrder_Unauthorized(t *testing.T) {
 	mockClient := new(MockTradingClient)
 	svc := NewOrderService(mockClient)
 	c, _ := createTestContext()
+	// No wallet in context, should return unauthorized
 
 	resp, err := svc.PrepareOrder(c, &dto.PrepareOrderRequest{})
 	assert.Nil(t, resp)
-	assert.Equal(t, dto.ErrNotImplemented, err)
+	assert.Equal(t, dto.ErrUnauthorized, err)
+}
+
+func TestOrderService_PrepareOrder_Success(t *testing.T) {
+	mockClient := new(MockTradingClient)
+	svc := NewOrderService(mockClient)
+	c, _ := createTestContext()
+	c.Set("wallet", "0x1234")
+
+	mockClient.On("PrepareOrder", mock.Anything, mock.MatchedBy(func(req *client.PrepareOrderRequest) bool {
+		return req.Wallet == "0x1234" && req.Market == "BTC-USDC"
+	})).Return(&client.PrepareOrderResponse{
+		OrderID:   "order-123",
+		Nonce:     12345,
+		ExpiresAt: 1704067200000,
+	}, nil)
+
+	resp, err := svc.PrepareOrder(c, &dto.PrepareOrderRequest{
+		Market: "BTC-USDC",
+		Side:   "buy",
+		Type:   "limit",
+		Price:  "42000",
+		Amount: "0.1",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "order-123", resp.OrderID)
+	mockClient.AssertExpectations(t)
 }
 
 func TestOrderService_CreateOrder_Success(t *testing.T) {

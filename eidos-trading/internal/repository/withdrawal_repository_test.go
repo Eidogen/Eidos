@@ -38,7 +38,7 @@ func TestWithdrawalRepository_Create_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "withdrawals"`).
+	mock.ExpectQuery(`INSERT INTO "trading_withdrawals"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -64,7 +64,7 @@ func TestWithdrawalRepository_GetByWithdrawID_Success(t *testing.T) {
 		nil, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE withdraw_id = \$1 ORDER BY "withdrawals"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE withdraw_id = \$1 ORDER BY "trading_withdrawals"\."id" LIMIT \$2`).
 		WithArgs(withdrawID, 1).
 		WillReturnRows(rows)
 
@@ -84,7 +84,7 @@ func TestWithdrawalRepository_GetByWithdrawID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	withdrawID := "W999999999"
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE withdraw_id = \$1 ORDER BY "withdrawals"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE withdraw_id = \$1 ORDER BY "trading_withdrawals"\."id" LIMIT \$2`).
 		WithArgs(withdrawID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -112,7 +112,7 @@ func TestWithdrawalRepository_GetByWalletNonce_Success(t *testing.T) {
 		nil, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE wallet = \$1 AND nonce = \$2 ORDER BY "withdrawals"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE wallet = \$1 AND nonce = \$2 ORDER BY "trading_withdrawals"\."id" LIMIT \$3`).
 		WithArgs(wallet, nonce, 1).
 		WillReturnRows(rows)
 
@@ -139,7 +139,7 @@ func TestWithdrawalRepository_ListPending_Success(t *testing.T) {
 		nil, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE status = \$1 ORDER BY created_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE status = \$1 ORDER BY created_at ASC LIMIT \$2`).
 		WithArgs(model.WithdrawStatusPending, 100).
 		WillReturnRows(rows)
 
@@ -165,7 +165,7 @@ func TestWithdrawalRepository_ListProcessing_Success(t *testing.T) {
 		nil, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE status = \$1 ORDER BY created_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE status = \$1 ORDER BY created_at ASC LIMIT \$2`).
 		WithArgs(model.WithdrawStatusProcessing, 100).
 		WillReturnRows(rows)
 
@@ -191,7 +191,7 @@ func TestWithdrawalRepository_ListSubmitted_Success(t *testing.T) {
 		now, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "withdrawals" WHERE status = \$1 ORDER BY submitted_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_withdrawals" WHERE status = \$1 ORDER BY submitted_at ASC LIMIT \$2`).
 		WithArgs(model.WithdrawStatusSubmitted, 100).
 		WillReturnRows(rows)
 
@@ -211,7 +211,7 @@ func TestWithdrawalRepository_MarkProcessing_Success(t *testing.T) {
 	withdrawID := "W123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -231,7 +231,7 @@ func TestWithdrawalRepository_MarkSubmitted_Success(t *testing.T) {
 	txHash := "0xabcdef1234567890"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -250,7 +250,7 @@ func TestWithdrawalRepository_MarkConfirmed_Success(t *testing.T) {
 	withdrawID := "W123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -270,7 +270,7 @@ func TestWithdrawalRepository_MarkFailed_Success(t *testing.T) {
 	reason := "Insufficient gas"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -290,7 +290,7 @@ func TestWithdrawalRepository_MarkRejected_Success(t *testing.T) {
 	reason := "Amount too large"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -309,7 +309,7 @@ func TestWithdrawalRepository_MarkCancelled_Success(t *testing.T) {
 	withdrawID := "W123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -327,7 +327,7 @@ func TestWithdrawalRepository_CountByWallet_Success(t *testing.T) {
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "withdrawals" WHERE wallet = \$1`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_withdrawals" WHERE wallet = \$1`).
 		WithArgs(wallet).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
 
@@ -346,7 +346,7 @@ func TestWithdrawalRepository_CountPendingByWallet_Success(t *testing.T) {
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "withdrawals" WHERE wallet = \$1 AND status IN \(\$2,\$3,\$4\)`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_withdrawals" WHERE wallet = \$1 AND status IN \(\$2,\$3,\$4\)`).
 		WithArgs(wallet,
 			model.WithdrawStatusPending,
 			model.WithdrawStatusProcessing,
@@ -369,7 +369,7 @@ func TestWithdrawalRepository_UpdateStatus_OptimisticLock(t *testing.T) {
 	withdrawID := "W999999999"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "withdrawals" SET`).
+	mock.ExpectExec(`UPDATE "trading_withdrawals" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 

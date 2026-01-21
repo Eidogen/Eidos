@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/eidos-exchange/eidos/eidos-admin/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/middleware"
@@ -22,11 +24,12 @@ import (
 
 // App 应用
 type App struct {
-	cfg         *config.Config
-	db          *gorm.DB
-	redisClient redis.UniversalClient
-	httpServer  *http.Server
-	engine      *gin.Engine
+	cfg           *config.Config
+	db            *gorm.DB
+	redisClient   redis.UniversalClient
+	httpServer    *http.Server
+	engine        *gin.Engine
+	clientManager *client.ClientManager
 }
 
 // New 创建应用
@@ -52,6 +55,20 @@ func (a *App) Init() error {
 	a.engine.Use(gin.Recovery())
 	a.engine.Use(middleware.Logger())
 	a.engine.Use(middleware.CORS())
+	a.engine.Use(middleware.MetricsMiddleware())
+
+	// 初始化 gRPC 客户端管理器
+	a.clientManager = client.NewClientManager(&a.cfg.GRPCClients)
+	if err := a.clientManager.Connect(context.Background()); err != nil {
+		logger.Warn("failed to connect to some gRPC services", zap.Error(err))
+	}
+
+	// 连接 Jobs 服务（可选）
+	if a.cfg.GRPCClients.Jobs != "" {
+		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs); err != nil {
+			logger.Warn("failed to connect to jobs service", zap.Error(err))
+		}
+	}
 
 	// 初始化存储层
 	repos := a.initRepositories()
@@ -67,6 +84,9 @@ func (a *App) Init() error {
 
 	// 设置路由
 	router.SetupRouter(a.engine, handlers, authMiddleware)
+
+	// 设置 Prometheus 指标端点
+	a.engine.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// 创建 HTTP 服务器
 	a.httpServer = &http.Server{
@@ -106,12 +126,16 @@ func (a *App) initRepositories() *repositories {
 
 // services 服务层
 type services struct {
-	Auth   *service.AuthService
-	Admin  *service.AdminService
-	Market *service.MarketService
-	Config *service.ConfigService
-	Stats  *service.StatsService
-	Audit  *service.AuditService
+	Auth       *service.AuthService
+	Admin      *service.AdminService
+	Market     *service.MarketService
+	Config     *service.ConfigService
+	Stats      *service.StatsService
+	Audit      *service.AuditService
+	User       *service.UserService
+	Order      *service.OrderService
+	Withdrawal *service.WithdrawalService
+	Risk       *service.RiskService
 }
 
 // initServices 初始化服务层
@@ -140,25 +164,60 @@ func (a *App) initServices(repos *repositories) *services {
 	// 创建统计服务
 	statsSvc := service.NewStatsService(repos.Stats, repos.Admin, repos.MarketConfig)
 
+	// 创建用户管理服务
+	userSvc := service.NewUserService(
+		a.clientManager.Trading(),
+		a.clientManager.Risk(),
+		repos.AuditLog,
+	)
+
+	// 创建订单管理服务
+	orderSvc := service.NewOrderService(
+		a.clientManager.Trading(),
+		a.clientManager.Matching(),
+		repos.AuditLog,
+	)
+
+	// 创建提现管理服务
+	withdrawalSvc := service.NewWithdrawalService(
+		a.clientManager.Trading(),
+		a.clientManager.Chain(),
+		repos.AuditLog,
+	)
+
+	// 创建风控管理服务
+	riskSvc := service.NewRiskService(
+		a.clientManager.Risk(),
+		repos.AuditLog,
+	)
+
 	return &services{
-		Auth:   authSvc,
-		Admin:  adminSvc,
-		Market: marketSvc,
-		Config: configSvc,
-		Stats:  statsSvc,
-		Audit:  auditSvc,
+		Auth:       authSvc,
+		Admin:      adminSvc,
+		Market:     marketSvc,
+		Config:     configSvc,
+		Stats:      statsSvc,
+		Audit:      auditSvc,
+		User:       userSvc,
+		Order:      orderSvc,
+		Withdrawal: withdrawalSvc,
+		Risk:       riskSvc,
 	}
 }
 
 // initHandlers 初始化处理器
 func (a *App) initHandlers(svcs *services) *router.Handlers {
 	return &router.Handlers{
-		Auth:   handler.NewAuthHandler(svcs.Auth),
-		Admin:  handler.NewAdminHandler(svcs.Admin),
-		Market: handler.NewMarketHandler(svcs.Market),
-		Stats:  handler.NewStatsHandler(svcs.Stats),
-		Config: handler.NewConfigHandler(svcs.Config),
-		Audit:  handler.NewAuditHandler(svcs.Audit),
+		Auth:       handler.NewAuthHandler(svcs.Auth),
+		Admin:      handler.NewAdminHandler(svcs.Admin),
+		Market:     handler.NewMarketHandler(svcs.Market),
+		Stats:      handler.NewStatsHandler(svcs.Stats),
+		Config:     handler.NewConfigHandler(svcs.Config),
+		Audit:      handler.NewAuditHandler(svcs.Audit),
+		User:       handler.NewUserHandler(svcs.User),
+		Order:      handler.NewOrderHandler(svcs.Order),
+		Withdrawal: handler.NewWithdrawalHandler(svcs.Withdrawal),
+		Risk:       handler.NewRiskHandler(svcs.Risk),
 	}
 }
 
@@ -171,6 +230,14 @@ func (a *App) Run() error {
 // Shutdown 关闭应用
 func (a *App) Shutdown(ctx context.Context) error {
 	logger.Info("shutting down HTTP server")
+
+	// Close gRPC connections
+	if a.clientManager != nil {
+		if err := a.clientManager.Close(); err != nil {
+			logger.Warn("failed to close gRPC connections", zap.Error(err))
+		}
+	}
+
 	return a.httpServer.Shutdown(ctx)
 }
 

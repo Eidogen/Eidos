@@ -5,9 +5,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-matching/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/orderbook"
+	"github.com/shopspring/decimal"
+	"go.uber.org/zap"
 )
 
 // EngineManager 引擎管理器
@@ -213,6 +217,11 @@ func (m *EngineManager) CollectTrades(ctx context.Context, handler func(*model.T
 		wg.Add(1)
 		go func(e *Engine) {
 			defer wg.Done()
+			market := e.market
+			retryCount := 0
+			maxRetries := 3
+			retryBackoff := 100 * time.Millisecond
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -221,8 +230,33 @@ func (m *EngineManager) CollectTrades(ctx context.Context, handler func(*model.T
 					if !ok {
 						return
 					}
-					if err := handler(trade); err != nil {
-						// TODO: 错误处理
+					// 带重试的错误处理
+					for attempt := 0; attempt <= maxRetries; attempt++ {
+						if err := handler(trade); err != nil {
+							retryCount++
+							metrics.RecordKafkaError("trade-results", "send")
+							zap.L().Warn("send trade result failed",
+								zap.String("market", market),
+								zap.String("trade_id", trade.TradeID),
+								zap.Int("attempt", attempt+1),
+								zap.Error(err))
+
+							if attempt < maxRetries {
+								select {
+								case <-ctx.Done():
+									return
+								case <-time.After(retryBackoff * time.Duration(attempt+1)):
+									continue
+								}
+							}
+							// 达到最大重试次数，记录并继续
+							zap.L().Error("send trade result max retries exceeded",
+								zap.String("market", market),
+								zap.String("trade_id", trade.TradeID),
+								zap.Int("total_retries", retryCount))
+						} else {
+							break // 成功
+						}
 					}
 				}
 			}
@@ -245,6 +279,11 @@ func (m *EngineManager) CollectUpdates(ctx context.Context, handler func(*model.
 		wg.Add(1)
 		go func(e *Engine) {
 			defer wg.Done()
+			market := e.market
+			retryCount := 0
+			maxRetries := 2 // 订单簿更新容忍度更高，重试次数较少
+			retryBackoff := 50 * time.Millisecond
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -253,8 +292,32 @@ func (m *EngineManager) CollectUpdates(ctx context.Context, handler func(*model.
 					if !ok {
 						return
 					}
-					if err := handler(update); err != nil {
-						// TODO: 错误处理
+					// 带重试的错误处理
+					for attempt := 0; attempt <= maxRetries; attempt++ {
+						if err := handler(update); err != nil {
+							retryCount++
+							metrics.RecordKafkaError("orderbook-updates", "send")
+							zap.L().Debug("send orderbook update failed",
+								zap.String("market", market),
+								zap.String("update_type", update.UpdateType),
+								zap.Int("attempt", attempt+1),
+								zap.Error(err))
+
+							if attempt < maxRetries {
+								select {
+								case <-ctx.Done():
+									return
+								case <-time.After(retryBackoff * time.Duration(attempt+1)):
+									continue
+								}
+							}
+							// 订单簿更新丢失可接受（客户端可以重新订阅），记录日志即可
+							zap.L().Warn("send orderbook update dropped",
+								zap.String("market", market),
+								zap.String("price", update.Price.String()))
+						} else {
+							break // 成功
+						}
 					}
 				}
 			}
@@ -277,6 +340,11 @@ func (m *EngineManager) CollectCancels(ctx context.Context, handler func(*model.
 		wg.Add(1)
 		go func(e *Engine) {
 			defer wg.Done()
+			market := e.market
+			retryCount := 0
+			maxRetries := 3
+			retryBackoff := 100 * time.Millisecond
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -285,12 +353,81 @@ func (m *EngineManager) CollectCancels(ctx context.Context, handler func(*model.
 					if !ok {
 						return
 					}
-					if err := handler(cancel); err != nil {
-						// TODO: 错误处理
+					// 带重试的错误处理
+					for attempt := 0; attempt <= maxRetries; attempt++ {
+						if err := handler(cancel); err != nil {
+							retryCount++
+							metrics.RecordKafkaError("order-cancelled", "send")
+							zap.L().Warn("send cancel result failed",
+								zap.String("market", market),
+								zap.String("order_id", cancel.OrderID),
+								zap.Int("attempt", attempt+1),
+								zap.Error(err))
+
+							if attempt < maxRetries {
+								select {
+								case <-ctx.Done():
+									return
+								case <-time.After(retryBackoff * time.Duration(attempt+1)):
+									continue
+								}
+							}
+							// 达到最大重试次数
+							zap.L().Error("send cancel result max retries exceeded",
+								zap.String("market", market),
+								zap.String("order_id", cancel.OrderID),
+								zap.Int("total_retries", retryCount))
+						} else {
+							break // 成功
+						}
 					}
 				}
 			}
 		}(engine)
 	}
 	wg.Wait()
+}
+
+// UpdateMarket 更新市场配置 (热更新)
+func (m *EngineManager) UpdateMarket(cfg *MarketConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	engine, exists := m.engines[cfg.Symbol]
+	if !exists {
+		return fmt.Errorf("market not found: %s", cfg.Symbol)
+	}
+
+	// 更新配置 (费率等可以热更新)
+	m.configs[cfg.Symbol] = cfg
+	engine.UpdateConfig(cfg)
+
+	zap.L().Info("market config updated",
+		zap.String("market", cfg.Symbol),
+		zap.String("maker_fee", cfg.MakerFeeRate.String()),
+		zap.String("taker_fee", cfg.TakerFeeRate.String()))
+
+	return nil
+}
+
+// UpdateIndexPrice 更新外部指数价格
+func (m *EngineManager) UpdateIndexPrice(market string, price decimal.Decimal) error {
+	engine, err := m.GetEngine(market)
+	if err != nil {
+		return err
+	}
+	engine.UpdateIndexPrice(price)
+	return nil
+}
+
+// GetAllEngines 获取所有引擎 (用于快照等)
+func (m *EngineManager) GetAllEngines() map[string]*Engine {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string]*Engine, len(m.engines))
+	for k, v := range m.engines {
+		result[k] = v
+	}
+	return result
 }

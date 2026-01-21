@@ -52,7 +52,7 @@ func TestClearingService_ProcessTradeResult_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -121,7 +121,7 @@ func TestClearingService_ProcessTradeResult_Idempotent(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -160,7 +160,7 @@ func TestClearingService_ProcessTradeResult_InvalidPrice(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -180,7 +180,7 @@ func TestClearingService_ProcessTradeResult_InvalidSize(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -201,7 +201,7 @@ func TestClearingService_ProcessTradeResult_MarketNotFound(t *testing.T) {
 	defer cleanup()
 
 	marketProvider := new(MockMarketConfigProvider)
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -229,7 +229,7 @@ func TestClearingService_ProcessTradeResult_RedisClearFailed(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -274,7 +274,7 @@ func TestClearingService_ProcessTradeResult_DBPersistFailedWithRollback(t *testi
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, tradeRepo, orderRepo, balanceRepo, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -343,7 +343,7 @@ func TestClearingService_HandleSettlementConfirm_Success(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.SettlementConfirmedMessage{
@@ -402,7 +402,7 @@ func TestClearingService_HandleSettlementConfirm_Failed_Rollback(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.SettlementConfirmedMessage{
@@ -462,7 +462,7 @@ func TestClearingService_HandleSettlementConfirm_Rollback_PartialFailure(t *test
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.SettlementConfirmedMessage{
@@ -524,7 +524,7 @@ func TestClearingService_SettleBalances_MakerBuy(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.SettlementConfirmedMessage{
@@ -588,7 +588,7 @@ func TestClearingService_SettleBalances_MakerSell(t *testing.T) {
 	balanceCache := new(MockBalanceRedisRepository)
 	marketProvider := new(MockMarketConfigProvider)
 
-	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, balanceCache, marketProvider, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.SettlementConfirmedMessage{
@@ -651,7 +651,7 @@ func TestClearingService_ProcessTradeResult_InvalidQuoteAmount(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -672,7 +672,7 @@ func TestClearingService_ProcessTradeResult_InvalidMakerFee(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -694,7 +694,7 @@ func TestClearingService_ProcessTradeResult_InvalidTakerFee(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	msg := &worker.TradeResultMessage{
@@ -717,7 +717,7 @@ func TestClearingService_Shutdown(t *testing.T) {
 	gormDB, _, cleanup := setupMockDB(t)
 	defer cleanup()
 
-	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewClearingService(gormDB, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	err := svc.Shutdown(ctx)

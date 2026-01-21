@@ -19,39 +19,84 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RiskService_CheckOrder_FullMethodName          = "/eidos.risk.v1.RiskService/CheckOrder"
-	RiskService_CheckWithdraw_FullMethodName       = "/eidos.risk.v1.RiskService/CheckWithdraw"
-	RiskService_AddToBlacklist_FullMethodName      = "/eidos.risk.v1.RiskService/AddToBlacklist"
-	RiskService_RemoveFromBlacklist_FullMethodName = "/eidos.risk.v1.RiskService/RemoveFromBlacklist"
-	RiskService_CheckBlacklist_FullMethodName      = "/eidos.risk.v1.RiskService/CheckBlacklist"
-	RiskService_ListBlacklist_FullMethodName       = "/eidos.risk.v1.RiskService/ListBlacklist"
-	RiskService_ListRiskRules_FullMethodName       = "/eidos.risk.v1.RiskService/ListRiskRules"
-	RiskService_UpdateRiskRule_FullMethodName      = "/eidos.risk.v1.RiskService/UpdateRiskRule"
-	RiskService_ListRiskEvents_FullMethodName      = "/eidos.risk.v1.RiskService/ListRiskEvents"
-	RiskService_GetUserLimits_FullMethodName       = "/eidos.risk.v1.RiskService/GetUserLimits"
+	RiskService_CheckOrder_FullMethodName           = "/eidos.risk.v1.RiskService/CheckOrder"
+	RiskService_CheckWithdrawal_FullMethodName      = "/eidos.risk.v1.RiskService/CheckWithdrawal"
+	RiskService_CheckTransaction_FullMethodName     = "/eidos.risk.v1.RiskService/CheckTransaction"
+	RiskService_AddToBlacklist_FullMethodName       = "/eidos.risk.v1.RiskService/AddToBlacklist"
+	RiskService_RemoveFromBlacklist_FullMethodName  = "/eidos.risk.v1.RiskService/RemoveFromBlacklist"
+	RiskService_CheckBlacklist_FullMethodName       = "/eidos.risk.v1.RiskService/CheckBlacklist"
+	RiskService_ListBlacklist_FullMethodName        = "/eidos.risk.v1.RiskService/ListBlacklist"
+	RiskService_ListRiskRules_FullMethodName        = "/eidos.risk.v1.RiskService/ListRiskRules"
+	RiskService_GetRiskRule_FullMethodName          = "/eidos.risk.v1.RiskService/GetRiskRule"
+	RiskService_UpdateRiskRule_FullMethodName       = "/eidos.risk.v1.RiskService/UpdateRiskRule"
+	RiskService_GetRateLimitStatus_FullMethodName   = "/eidos.risk.v1.RiskService/GetRateLimitStatus"
+	RiskService_ResetRateLimit_FullMethodName       = "/eidos.risk.v1.RiskService/ResetRateLimit"
+	RiskService_ListRiskEvents_FullMethodName       = "/eidos.risk.v1.RiskService/ListRiskEvents"
+	RiskService_GetRiskEvent_FullMethodName         = "/eidos.risk.v1.RiskService/GetRiskEvent"
+	RiskService_AcknowledgeRiskEvent_FullMethodName = "/eidos.risk.v1.RiskService/AcknowledgeRiskEvent"
+	RiskService_GetUserLimits_FullMethodName        = "/eidos.risk.v1.RiskService/GetUserLimits"
+	RiskService_SetUserLimits_FullMethodName        = "/eidos.risk.v1.RiskService/SetUserLimits"
+	RiskService_FreezeAccount_FullMethodName        = "/eidos.risk.v1.RiskService/FreezeAccount"
+	RiskService_UnfreezeAccount_FullMethodName      = "/eidos.risk.v1.RiskService/UnfreezeAccount"
+	RiskService_GetAccountStatus_FullMethodName     = "/eidos.risk.v1.RiskService/GetAccountStatus"
+	RiskService_GetRiskStats_FullMethodName         = "/eidos.risk.v1.RiskService/GetRiskStats"
 )
 
 // RiskServiceClient is the client API for RiskService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// 风控服务
+// RiskService provides risk management functionality including:
+// - Pre-trade risk checks (order, withdrawal)
+// - Blacklist management
+// - Risk rule configuration
+// - Rate limiting
+// - Risk event monitoring
 type RiskServiceClient interface {
-	// === 交易前检查 (同步调用) ===
+	// CheckOrder validates an order against risk rules
+	// Called before order is sent to matching engine
 	CheckOrder(ctx context.Context, in *CheckOrderRequest, opts ...grpc.CallOption) (*CheckOrderResponse, error)
-	CheckWithdraw(ctx context.Context, in *CheckWithdrawRequest, opts ...grpc.CallOption) (*CheckWithdrawResponse, error)
-	// === 黑名单管理 ===
+	// CheckWithdrawal validates a withdrawal against risk rules
+	// Called before withdrawal is processed
+	CheckWithdrawal(ctx context.Context, in *CheckWithdrawalRequest, opts ...grpc.CallOption) (*CheckWithdrawalResponse, error)
+	// CheckTransaction validates a generic transaction
+	CheckTransaction(ctx context.Context, in *CheckTransactionRequest, opts ...grpc.CallOption) (*CheckTransactionResponse, error)
+	// AddToBlacklist adds a wallet to the blacklist
 	AddToBlacklist(ctx context.Context, in *AddToBlacklistRequest, opts ...grpc.CallOption) (*AddToBlacklistResponse, error)
+	// RemoveFromBlacklist removes a wallet from the blacklist
 	RemoveFromBlacklist(ctx context.Context, in *RemoveFromBlacklistRequest, opts ...grpc.CallOption) (*RemoveFromBlacklistResponse, error)
+	// CheckBlacklist checks if a wallet is blacklisted
 	CheckBlacklist(ctx context.Context, in *CheckBlacklistRequest, opts ...grpc.CallOption) (*CheckBlacklistResponse, error)
+	// ListBlacklist retrieves the blacklist with filters
 	ListBlacklist(ctx context.Context, in *ListBlacklistRequest, opts ...grpc.CallOption) (*ListBlacklistResponse, error)
-	// === 风控规则 ===
+	// ListRiskRules retrieves all risk rules
 	ListRiskRules(ctx context.Context, in *ListRiskRulesRequest, opts ...grpc.CallOption) (*ListRiskRulesResponse, error)
+	// GetRiskRule retrieves a specific risk rule
+	GetRiskRule(ctx context.Context, in *GetRiskRuleRequest, opts ...grpc.CallOption) (*GetRiskRuleResponse, error)
+	// UpdateRiskRule updates a risk rule
 	UpdateRiskRule(ctx context.Context, in *UpdateRiskRuleRequest, opts ...grpc.CallOption) (*UpdateRiskRuleResponse, error)
-	// === 风控事件 ===
+	// GetRateLimitStatus retrieves rate limit status for a wallet
+	GetRateLimitStatus(ctx context.Context, in *GetRateLimitStatusRequest, opts ...grpc.CallOption) (*GetRateLimitStatusResponse, error)
+	// ResetRateLimit resets rate limit counters for a wallet
+	ResetRateLimit(ctx context.Context, in *ResetRateLimitRequest, opts ...grpc.CallOption) (*ResetRateLimitResponse, error)
+	// ListRiskEvents retrieves risk events with filters
 	ListRiskEvents(ctx context.Context, in *ListRiskEventsRequest, opts ...grpc.CallOption) (*ListRiskEventsResponse, error)
-	// === 限额查询 ===
+	// GetRiskEvent retrieves a specific risk event
+	GetRiskEvent(ctx context.Context, in *GetRiskEventRequest, opts ...grpc.CallOption) (*GetRiskEventResponse, error)
+	// AcknowledgeRiskEvent acknowledges a risk event
+	AcknowledgeRiskEvent(ctx context.Context, in *AcknowledgeRiskEventRequest, opts ...grpc.CallOption) (*AcknowledgeRiskEventResponse, error)
+	// GetUserLimits retrieves limits for a user
 	GetUserLimits(ctx context.Context, in *GetUserLimitsRequest, opts ...grpc.CallOption) (*GetUserLimitsResponse, error)
+	// SetUserLimits sets custom limits for a user
+	SetUserLimits(ctx context.Context, in *SetUserLimitsRequest, opts ...grpc.CallOption) (*SetUserLimitsResponse, error)
+	// FreezeAccount freezes a user account
+	FreezeAccount(ctx context.Context, in *FreezeAccountRequest, opts ...grpc.CallOption) (*FreezeAccountResponse, error)
+	// UnfreezeAccount unfreezes a user account
+	UnfreezeAccount(ctx context.Context, in *UnfreezeAccountRequest, opts ...grpc.CallOption) (*UnfreezeAccountResponse, error)
+	// GetAccountStatus retrieves account risk status
+	GetAccountStatus(ctx context.Context, in *GetAccountStatusRequest, opts ...grpc.CallOption) (*GetAccountStatusResponse, error)
+	// GetRiskStats retrieves risk statistics
+	GetRiskStats(ctx context.Context, in *GetRiskStatsRequest, opts ...grpc.CallOption) (*GetRiskStatsResponse, error)
 }
 
 type riskServiceClient struct {
@@ -72,10 +117,20 @@ func (c *riskServiceClient) CheckOrder(ctx context.Context, in *CheckOrderReques
 	return out, nil
 }
 
-func (c *riskServiceClient) CheckWithdraw(ctx context.Context, in *CheckWithdrawRequest, opts ...grpc.CallOption) (*CheckWithdrawResponse, error) {
+func (c *riskServiceClient) CheckWithdrawal(ctx context.Context, in *CheckWithdrawalRequest, opts ...grpc.CallOption) (*CheckWithdrawalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CheckWithdrawResponse)
-	err := c.cc.Invoke(ctx, RiskService_CheckWithdraw_FullMethodName, in, out, cOpts...)
+	out := new(CheckWithdrawalResponse)
+	err := c.cc.Invoke(ctx, RiskService_CheckWithdrawal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) CheckTransaction(ctx context.Context, in *CheckTransactionRequest, opts ...grpc.CallOption) (*CheckTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckTransactionResponse)
+	err := c.cc.Invoke(ctx, RiskService_CheckTransaction_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +187,40 @@ func (c *riskServiceClient) ListRiskRules(ctx context.Context, in *ListRiskRules
 	return out, nil
 }
 
+func (c *riskServiceClient) GetRiskRule(ctx context.Context, in *GetRiskRuleRequest, opts ...grpc.CallOption) (*GetRiskRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRiskRuleResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetRiskRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *riskServiceClient) UpdateRiskRule(ctx context.Context, in *UpdateRiskRuleRequest, opts ...grpc.CallOption) (*UpdateRiskRuleResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateRiskRuleResponse)
 	err := c.cc.Invoke(ctx, RiskService_UpdateRiskRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) GetRateLimitStatus(ctx context.Context, in *GetRateLimitStatusRequest, opts ...grpc.CallOption) (*GetRateLimitStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRateLimitStatusResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetRateLimitStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) ResetRateLimit(ctx context.Context, in *ResetRateLimitRequest, opts ...grpc.CallOption) (*ResetRateLimitResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResetRateLimitResponse)
+	err := c.cc.Invoke(ctx, RiskService_ResetRateLimit_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +237,26 @@ func (c *riskServiceClient) ListRiskEvents(ctx context.Context, in *ListRiskEven
 	return out, nil
 }
 
+func (c *riskServiceClient) GetRiskEvent(ctx context.Context, in *GetRiskEventRequest, opts ...grpc.CallOption) (*GetRiskEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRiskEventResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetRiskEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) AcknowledgeRiskEvent(ctx context.Context, in *AcknowledgeRiskEventRequest, opts ...grpc.CallOption) (*AcknowledgeRiskEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AcknowledgeRiskEventResponse)
+	err := c.cc.Invoke(ctx, RiskService_AcknowledgeRiskEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *riskServiceClient) GetUserLimits(ctx context.Context, in *GetUserLimitsRequest, opts ...grpc.CallOption) (*GetUserLimitsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserLimitsResponse)
@@ -162,27 +267,111 @@ func (c *riskServiceClient) GetUserLimits(ctx context.Context, in *GetUserLimits
 	return out, nil
 }
 
+func (c *riskServiceClient) SetUserLimits(ctx context.Context, in *SetUserLimitsRequest, opts ...grpc.CallOption) (*SetUserLimitsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetUserLimitsResponse)
+	err := c.cc.Invoke(ctx, RiskService_SetUserLimits_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) FreezeAccount(ctx context.Context, in *FreezeAccountRequest, opts ...grpc.CallOption) (*FreezeAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FreezeAccountResponse)
+	err := c.cc.Invoke(ctx, RiskService_FreezeAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) UnfreezeAccount(ctx context.Context, in *UnfreezeAccountRequest, opts ...grpc.CallOption) (*UnfreezeAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnfreezeAccountResponse)
+	err := c.cc.Invoke(ctx, RiskService_UnfreezeAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) GetAccountStatus(ctx context.Context, in *GetAccountStatusRequest, opts ...grpc.CallOption) (*GetAccountStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAccountStatusResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetAccountStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) GetRiskStats(ctx context.Context, in *GetRiskStatsRequest, opts ...grpc.CallOption) (*GetRiskStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRiskStatsResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetRiskStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RiskServiceServer is the server API for RiskService service.
 // All implementations must embed UnimplementedRiskServiceServer
 // for forward compatibility.
 //
-// 风控服务
+// RiskService provides risk management functionality including:
+// - Pre-trade risk checks (order, withdrawal)
+// - Blacklist management
+// - Risk rule configuration
+// - Rate limiting
+// - Risk event monitoring
 type RiskServiceServer interface {
-	// === 交易前检查 (同步调用) ===
+	// CheckOrder validates an order against risk rules
+	// Called before order is sent to matching engine
 	CheckOrder(context.Context, *CheckOrderRequest) (*CheckOrderResponse, error)
-	CheckWithdraw(context.Context, *CheckWithdrawRequest) (*CheckWithdrawResponse, error)
-	// === 黑名单管理 ===
+	// CheckWithdrawal validates a withdrawal against risk rules
+	// Called before withdrawal is processed
+	CheckWithdrawal(context.Context, *CheckWithdrawalRequest) (*CheckWithdrawalResponse, error)
+	// CheckTransaction validates a generic transaction
+	CheckTransaction(context.Context, *CheckTransactionRequest) (*CheckTransactionResponse, error)
+	// AddToBlacklist adds a wallet to the blacklist
 	AddToBlacklist(context.Context, *AddToBlacklistRequest) (*AddToBlacklistResponse, error)
+	// RemoveFromBlacklist removes a wallet from the blacklist
 	RemoveFromBlacklist(context.Context, *RemoveFromBlacklistRequest) (*RemoveFromBlacklistResponse, error)
+	// CheckBlacklist checks if a wallet is blacklisted
 	CheckBlacklist(context.Context, *CheckBlacklistRequest) (*CheckBlacklistResponse, error)
+	// ListBlacklist retrieves the blacklist with filters
 	ListBlacklist(context.Context, *ListBlacklistRequest) (*ListBlacklistResponse, error)
-	// === 风控规则 ===
+	// ListRiskRules retrieves all risk rules
 	ListRiskRules(context.Context, *ListRiskRulesRequest) (*ListRiskRulesResponse, error)
+	// GetRiskRule retrieves a specific risk rule
+	GetRiskRule(context.Context, *GetRiskRuleRequest) (*GetRiskRuleResponse, error)
+	// UpdateRiskRule updates a risk rule
 	UpdateRiskRule(context.Context, *UpdateRiskRuleRequest) (*UpdateRiskRuleResponse, error)
-	// === 风控事件 ===
+	// GetRateLimitStatus retrieves rate limit status for a wallet
+	GetRateLimitStatus(context.Context, *GetRateLimitStatusRequest) (*GetRateLimitStatusResponse, error)
+	// ResetRateLimit resets rate limit counters for a wallet
+	ResetRateLimit(context.Context, *ResetRateLimitRequest) (*ResetRateLimitResponse, error)
+	// ListRiskEvents retrieves risk events with filters
 	ListRiskEvents(context.Context, *ListRiskEventsRequest) (*ListRiskEventsResponse, error)
-	// === 限额查询 ===
+	// GetRiskEvent retrieves a specific risk event
+	GetRiskEvent(context.Context, *GetRiskEventRequest) (*GetRiskEventResponse, error)
+	// AcknowledgeRiskEvent acknowledges a risk event
+	AcknowledgeRiskEvent(context.Context, *AcknowledgeRiskEventRequest) (*AcknowledgeRiskEventResponse, error)
+	// GetUserLimits retrieves limits for a user
 	GetUserLimits(context.Context, *GetUserLimitsRequest) (*GetUserLimitsResponse, error)
+	// SetUserLimits sets custom limits for a user
+	SetUserLimits(context.Context, *SetUserLimitsRequest) (*SetUserLimitsResponse, error)
+	// FreezeAccount freezes a user account
+	FreezeAccount(context.Context, *FreezeAccountRequest) (*FreezeAccountResponse, error)
+	// UnfreezeAccount unfreezes a user account
+	UnfreezeAccount(context.Context, *UnfreezeAccountRequest) (*UnfreezeAccountResponse, error)
+	// GetAccountStatus retrieves account risk status
+	GetAccountStatus(context.Context, *GetAccountStatusRequest) (*GetAccountStatusResponse, error)
+	// GetRiskStats retrieves risk statistics
+	GetRiskStats(context.Context, *GetRiskStatsRequest) (*GetRiskStatsResponse, error)
 	mustEmbedUnimplementedRiskServiceServer()
 }
 
@@ -196,8 +385,11 @@ type UnimplementedRiskServiceServer struct{}
 func (UnimplementedRiskServiceServer) CheckOrder(context.Context, *CheckOrderRequest) (*CheckOrderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckOrder not implemented")
 }
-func (UnimplementedRiskServiceServer) CheckWithdraw(context.Context, *CheckWithdrawRequest) (*CheckWithdrawResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CheckWithdraw not implemented")
+func (UnimplementedRiskServiceServer) CheckWithdrawal(context.Context, *CheckWithdrawalRequest) (*CheckWithdrawalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckWithdrawal not implemented")
+}
+func (UnimplementedRiskServiceServer) CheckTransaction(context.Context, *CheckTransactionRequest) (*CheckTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckTransaction not implemented")
 }
 func (UnimplementedRiskServiceServer) AddToBlacklist(context.Context, *AddToBlacklistRequest) (*AddToBlacklistResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddToBlacklist not implemented")
@@ -214,14 +406,44 @@ func (UnimplementedRiskServiceServer) ListBlacklist(context.Context, *ListBlackl
 func (UnimplementedRiskServiceServer) ListRiskRules(context.Context, *ListRiskRulesRequest) (*ListRiskRulesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRiskRules not implemented")
 }
+func (UnimplementedRiskServiceServer) GetRiskRule(context.Context, *GetRiskRuleRequest) (*GetRiskRuleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRiskRule not implemented")
+}
 func (UnimplementedRiskServiceServer) UpdateRiskRule(context.Context, *UpdateRiskRuleRequest) (*UpdateRiskRuleResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateRiskRule not implemented")
+}
+func (UnimplementedRiskServiceServer) GetRateLimitStatus(context.Context, *GetRateLimitStatusRequest) (*GetRateLimitStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRateLimitStatus not implemented")
+}
+func (UnimplementedRiskServiceServer) ResetRateLimit(context.Context, *ResetRateLimitRequest) (*ResetRateLimitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetRateLimit not implemented")
 }
 func (UnimplementedRiskServiceServer) ListRiskEvents(context.Context, *ListRiskEventsRequest) (*ListRiskEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRiskEvents not implemented")
 }
+func (UnimplementedRiskServiceServer) GetRiskEvent(context.Context, *GetRiskEventRequest) (*GetRiskEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRiskEvent not implemented")
+}
+func (UnimplementedRiskServiceServer) AcknowledgeRiskEvent(context.Context, *AcknowledgeRiskEventRequest) (*AcknowledgeRiskEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AcknowledgeRiskEvent not implemented")
+}
 func (UnimplementedRiskServiceServer) GetUserLimits(context.Context, *GetUserLimitsRequest) (*GetUserLimitsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserLimits not implemented")
+}
+func (UnimplementedRiskServiceServer) SetUserLimits(context.Context, *SetUserLimitsRequest) (*SetUserLimitsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetUserLimits not implemented")
+}
+func (UnimplementedRiskServiceServer) FreezeAccount(context.Context, *FreezeAccountRequest) (*FreezeAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FreezeAccount not implemented")
+}
+func (UnimplementedRiskServiceServer) UnfreezeAccount(context.Context, *UnfreezeAccountRequest) (*UnfreezeAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnfreezeAccount not implemented")
+}
+func (UnimplementedRiskServiceServer) GetAccountStatus(context.Context, *GetAccountStatusRequest) (*GetAccountStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAccountStatus not implemented")
+}
+func (UnimplementedRiskServiceServer) GetRiskStats(context.Context, *GetRiskStatsRequest) (*GetRiskStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRiskStats not implemented")
 }
 func (UnimplementedRiskServiceServer) mustEmbedUnimplementedRiskServiceServer() {}
 func (UnimplementedRiskServiceServer) testEmbeddedByValue()                     {}
@@ -262,20 +484,38 @@ func _RiskService_CheckOrder_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RiskService_CheckWithdraw_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckWithdrawRequest)
+func _RiskService_CheckWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckWithdrawalRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RiskServiceServer).CheckWithdraw(ctx, in)
+		return srv.(RiskServiceServer).CheckWithdrawal(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RiskService_CheckWithdraw_FullMethodName,
+		FullMethod: RiskService_CheckWithdrawal_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RiskServiceServer).CheckWithdraw(ctx, req.(*CheckWithdrawRequest))
+		return srv.(RiskServiceServer).CheckWithdrawal(ctx, req.(*CheckWithdrawalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_CheckTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).CheckTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_CheckTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).CheckTransaction(ctx, req.(*CheckTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -370,6 +610,24 @@ func _RiskService_ListRiskRules_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RiskService_GetRiskRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRiskRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetRiskRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetRiskRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetRiskRule(ctx, req.(*GetRiskRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RiskService_UpdateRiskRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateRiskRuleRequest)
 	if err := dec(in); err != nil {
@@ -384,6 +642,42 @@ func _RiskService_UpdateRiskRule_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RiskServiceServer).UpdateRiskRule(ctx, req.(*UpdateRiskRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_GetRateLimitStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRateLimitStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetRateLimitStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetRateLimitStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetRateLimitStatus(ctx, req.(*GetRateLimitStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_ResetRateLimit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetRateLimitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).ResetRateLimit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_ResetRateLimit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).ResetRateLimit(ctx, req.(*ResetRateLimitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -406,6 +700,42 @@ func _RiskService_ListRiskEvents_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RiskService_GetRiskEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRiskEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetRiskEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetRiskEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetRiskEvent(ctx, req.(*GetRiskEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_AcknowledgeRiskEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcknowledgeRiskEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).AcknowledgeRiskEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_AcknowledgeRiskEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).AcknowledgeRiskEvent(ctx, req.(*AcknowledgeRiskEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RiskService_GetUserLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserLimitsRequest)
 	if err := dec(in); err != nil {
@@ -424,6 +754,96 @@ func _RiskService_GetUserLimits_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RiskService_SetUserLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetUserLimitsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).SetUserLimits(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_SetUserLimits_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).SetUserLimits(ctx, req.(*SetUserLimitsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_FreezeAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FreezeAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).FreezeAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_FreezeAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).FreezeAccount(ctx, req.(*FreezeAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_UnfreezeAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnfreezeAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).UnfreezeAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_UnfreezeAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).UnfreezeAccount(ctx, req.(*UnfreezeAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_GetAccountStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccountStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetAccountStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetAccountStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetAccountStatus(ctx, req.(*GetAccountStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_GetRiskStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRiskStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetRiskStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetRiskStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetRiskStats(ctx, req.(*GetRiskStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RiskService_ServiceDesc is the grpc.ServiceDesc for RiskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -436,8 +856,12 @@ var RiskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RiskService_CheckOrder_Handler,
 		},
 		{
-			MethodName: "CheckWithdraw",
-			Handler:    _RiskService_CheckWithdraw_Handler,
+			MethodName: "CheckWithdrawal",
+			Handler:    _RiskService_CheckWithdrawal_Handler,
+		},
+		{
+			MethodName: "CheckTransaction",
+			Handler:    _RiskService_CheckTransaction_Handler,
 		},
 		{
 			MethodName: "AddToBlacklist",
@@ -460,16 +884,56 @@ var RiskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RiskService_ListRiskRules_Handler,
 		},
 		{
+			MethodName: "GetRiskRule",
+			Handler:    _RiskService_GetRiskRule_Handler,
+		},
+		{
 			MethodName: "UpdateRiskRule",
 			Handler:    _RiskService_UpdateRiskRule_Handler,
+		},
+		{
+			MethodName: "GetRateLimitStatus",
+			Handler:    _RiskService_GetRateLimitStatus_Handler,
+		},
+		{
+			MethodName: "ResetRateLimit",
+			Handler:    _RiskService_ResetRateLimit_Handler,
 		},
 		{
 			MethodName: "ListRiskEvents",
 			Handler:    _RiskService_ListRiskEvents_Handler,
 		},
 		{
+			MethodName: "GetRiskEvent",
+			Handler:    _RiskService_GetRiskEvent_Handler,
+		},
+		{
+			MethodName: "AcknowledgeRiskEvent",
+			Handler:    _RiskService_AcknowledgeRiskEvent_Handler,
+		},
+		{
 			MethodName: "GetUserLimits",
 			Handler:    _RiskService_GetUserLimits_Handler,
+		},
+		{
+			MethodName: "SetUserLimits",
+			Handler:    _RiskService_SetUserLimits_Handler,
+		},
+		{
+			MethodName: "FreezeAccount",
+			Handler:    _RiskService_FreezeAccount_Handler,
+		},
+		{
+			MethodName: "UnfreezeAccount",
+			Handler:    _RiskService_UnfreezeAccount_Handler,
+		},
+		{
+			MethodName: "GetAccountStatus",
+			Handler:    _RiskService_GetAccountStatus_Handler,
+		},
+		{
+			MethodName: "GetRiskStats",
+			Handler:    _RiskService_GetRiskStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1,0 +1,721 @@
+syntax = "proto3";
+
+package eidos.common.v1;
+
+option go_package = "github.com/eidos-exchange/eidos/proto/common;commonv1";
+
+import "common/enums.proto";
+
+// ============================================================================
+// Kafka Topic: orders
+// Description: New order messages from Trading Service to Matching Engine
+// Producer: Trading Service
+// Consumer: Matching Engine
+// ============================================================================
+
+// OrderMessage represents a new order sent to the matching engine
+message OrderMessage {
+    // Unique order identifier
+    string order_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Trading pair symbol (e.g., "BTC-USDC")
+    string market = 3;
+
+    // Order direction (buy/sell)
+    OrderSide side = 4;
+
+    // Order type (limit/market)
+    OrderType order_type = 5;
+
+    // Order price (decimal string, required for limit orders)
+    string price = 6;
+
+    // Order amount in base token (decimal string)
+    string amount = 7;
+
+    // Quote amount for market orders (decimal string, optional)
+    // Used when buying with quote amount (e.g., "buy $100 worth of BTC")
+    string quote_amount = 8;
+
+    // Time in force policy
+    TimeInForce time_in_force = 9;
+
+    // Self-trade prevention mode
+    SelfTradePrevention self_trade_prevention = 10;
+
+    // Client-provided order ID for idempotency
+    string client_order_id = 11;
+
+    // Order expiry timestamp (Unix milliseconds, 0 = no expiry)
+    int64 expire_at = 12;
+
+    // Maximum slippage for market orders (basis points, e.g., 50 = 0.5%)
+    uint32 max_slippage_bps = 13;
+
+    // Minimum fill amount for IOC orders (decimal string, optional)
+    string min_fill_amount = 14;
+
+    // Order creation timestamp (Unix milliseconds)
+    int64 created_at = 15;
+}
+
+// ============================================================================
+// Kafka Topic: cancel-requests
+// Description: Order cancellation requests
+// Producer: Trading Service
+// Consumer: Matching Engine
+// ============================================================================
+
+// CancelRequestMessage represents a request to cancel an order
+message CancelRequestMessage {
+    // Order ID to cancel
+    string order_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // User wallet address
+    string wallet = 3;
+
+    // Cancellation request timestamp (Unix milliseconds)
+    int64 requested_at = 4;
+
+    // Cancellation reason
+    string reason = 5;
+}
+
+// BatchCancelRequestMessage represents a request to cancel multiple orders
+message BatchCancelRequestMessage {
+    // Trading pair symbol (optional, cancel all markets if empty)
+    string market = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Specific order IDs to cancel (empty = cancel all)
+    repeated string order_ids = 3;
+
+    // Order side filter (optional)
+    OrderSide side = 4;
+
+    // Cancellation request timestamp (Unix milliseconds)
+    int64 requested_at = 5;
+}
+
+// ============================================================================
+// Kafka Topic: trade-results
+// Description: Trade execution results from Matching Engine
+// Producer: Matching Engine
+// Consumer: Trading Service, Market Data Service, Settlement Service
+// ============================================================================
+
+// TradeResultMessage represents a completed trade
+message TradeResultMessage {
+    // Unique trade identifier
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker order ID
+    string maker_order_id = 3;
+
+    // Taker order ID
+    string taker_order_id = 4;
+
+    // Maker wallet address
+    string maker_wallet = 5;
+
+    // Taker wallet address
+    string taker_wallet = 6;
+
+    // Taker order side (indicates market direction)
+    OrderSide taker_side = 7;
+
+    // Trade execution price (decimal string)
+    string price = 8;
+
+    // Trade amount in base token (decimal string)
+    string amount = 9;
+
+    // Trade amount in quote token (decimal string)
+    string quote_amount = 10;
+
+    // Maker fee amount (decimal string)
+    string maker_fee = 11;
+
+    // Taker fee amount (decimal string)
+    string taker_fee = 12;
+
+    // Fee token symbol
+    string fee_token = 13;
+
+    // Whether maker order is fully filled
+    bool maker_filled = 14;
+
+    // Whether taker order is fully filled
+    bool taker_filled = 15;
+
+    // Maker order remaining amount (decimal string)
+    string maker_remaining = 16;
+
+    // Taker order remaining amount (decimal string)
+    string taker_remaining = 17;
+
+    // Trade execution timestamp (Unix milliseconds)
+    int64 matched_at = 18;
+
+    // Matching engine sequence number
+    uint64 sequence = 19;
+}
+
+// ============================================================================
+// Kafka Topic: order-updates
+// Description: Order status update notifications
+// Producer: Trading Service, Matching Engine
+// Consumer: Notification Service, WebSocket Gateway
+// ============================================================================
+
+// OrderUpdateMessage represents an order status change
+message OrderUpdateMessage {
+    // Order ID
+    string order_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Trading pair symbol
+    string market = 3;
+
+    // New order status
+    OrderStatus status = 4;
+
+    // Previous order status
+    OrderStatus previous_status = 5;
+
+    // Filled amount (decimal string)
+    string filled_amount = 6;
+
+    // Filled quote amount (decimal string)
+    string filled_quote = 7;
+
+    // Remaining amount (decimal string)
+    string remaining_amount = 8;
+
+    // Average fill price (decimal string)
+    string avg_price = 9;
+
+    // Update reason
+    string reason = 10;
+
+    // Related trade ID (if status change due to trade)
+    string trade_id = 11;
+
+    // Update timestamp (Unix milliseconds)
+    int64 updated_at = 12;
+}
+
+// ============================================================================
+// Kafka Topic: order-cancelled
+// Description: Order cancellation confirmations
+// Producer: Matching Engine
+// Consumer: Trading Service
+// ============================================================================
+
+// OrderCancelledMessage confirms an order was cancelled
+message OrderCancelledMessage {
+    // Order ID
+    string order_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // User wallet address
+    string wallet = 3;
+
+    // Remaining amount at cancellation (decimal string)
+    string remaining_amount = 4;
+
+    // Cancellation reason
+    string reason = 5;
+
+    // Cancellation timestamp (Unix milliseconds)
+    int64 cancelled_at = 6;
+}
+
+// ============================================================================
+// Kafka Topic: orderbook-updates
+// Description: Real-time orderbook changes
+// Producer: Matching Engine
+// Consumer: Market Data Service, WebSocket Gateway
+// ============================================================================
+
+// OrderbookUpdateMessage represents orderbook changes
+message OrderbookUpdateMessage {
+    // Trading pair symbol
+    string market = 1;
+
+    // Sequence number for ordering updates
+    uint64 sequence = 2;
+
+    // Bid side updates
+    repeated PriceLevelUpdate bids = 3;
+
+    // Ask side updates
+    repeated PriceLevelUpdate asks = 4;
+
+    // Update timestamp (Unix milliseconds)
+    int64 timestamp = 5;
+}
+
+// PriceLevelUpdate represents a change at a price level
+message PriceLevelUpdate {
+    // Price level (decimal string)
+    string price = 1;
+
+    // New total amount at price (decimal string, "0" means remove level)
+    string amount = 2;
+
+    // Number of orders at this price level
+    int32 order_count = 3;
+}
+
+// ============================================================================
+// Kafka Topic: balance-updates
+// Description: Balance change notifications
+// Producer: Trading Service
+// Consumer: Notification Service, WebSocket Gateway
+// ============================================================================
+
+// BalanceUpdateMessage represents a balance change
+message BalanceUpdateMessage {
+    // User wallet address
+    string wallet = 1;
+
+    // Token symbol
+    string token = 2;
+
+    // Change type
+    BalanceChangeType change_type = 3;
+
+    // Change amount (decimal string, can be negative)
+    string amount = 4;
+
+    // Balance before change (decimal string)
+    string balance_before = 5;
+
+    // Balance after change (decimal string)
+    string balance_after = 6;
+
+    // Available balance after change (decimal string)
+    string available_after = 7;
+
+    // Frozen balance after change (decimal string)
+    string frozen_after = 8;
+
+    // Related order ID (optional)
+    string order_id = 9;
+
+    // Related trade ID (optional)
+    string trade_id = 10;
+
+    // Related transaction hash (optional)
+    string tx_hash = 11;
+
+    // Change timestamp (Unix milliseconds)
+    int64 updated_at = 12;
+}
+
+// ============================================================================
+// Kafka Topic: deposits
+// Description: Deposit events from chain indexer
+// Producer: Chain Service (Indexer)
+// Consumer: Trading Service
+// ============================================================================
+
+// DepositMessage represents a detected deposit event
+message DepositMessage {
+    // Unique deposit identifier
+    string deposit_id = 1;
+
+    // On-chain transaction hash
+    string tx_hash = 2;
+
+    // Log index within transaction
+    uint32 log_index = 3;
+
+    // User wallet address
+    string wallet = 4;
+
+    // Token symbol
+    string token = 5;
+
+    // Token contract address
+    string token_address = 6;
+
+    // Deposit amount (decimal string)
+    string amount = 7;
+
+    // Block number where deposit was detected
+    int64 block_number = 8;
+
+    // Chain ID
+    int64 chain_id = 9;
+
+    // Current confirmations
+    int32 confirmations = 10;
+
+    // Required confirmations for crediting
+    int32 required_confirmations = 11;
+
+    // Detection timestamp (Unix milliseconds)
+    int64 detected_at = 12;
+}
+
+// DepositConfirmedMessage represents a confirmed deposit
+message DepositConfirmedMessage {
+    // Deposit identifier
+    string deposit_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Deposit amount (decimal string)
+    string amount = 4;
+
+    // Transaction hash
+    string tx_hash = 5;
+
+    // Confirmation timestamp (Unix milliseconds)
+    int64 confirmed_at = 6;
+}
+
+// ============================================================================
+// Kafka Topic: withdrawals
+// Description: Withdrawal request events
+// Producer: Trading Service
+// Consumer: Chain Service (Executor)
+// ============================================================================
+
+// WithdrawalRequestMessage represents a withdrawal to be processed
+message WithdrawalRequestMessage {
+    // Withdrawal identifier
+    string withdraw_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Token contract address
+    string token_address = 4;
+
+    // Withdrawal amount (decimal string)
+    string amount = 5;
+
+    // Destination address
+    string to_address = 6;
+
+    // User's nonce for the withdrawal
+    uint64 nonce = 7;
+
+    // User's signature
+    bytes signature = 8;
+
+    // Chain ID
+    int64 chain_id = 9;
+
+    // Priority level (0 = normal, 1 = high)
+    int32 priority = 10;
+
+    // Request timestamp (Unix milliseconds)
+    int64 requested_at = 11;
+}
+
+// WithdrawalStatusMessage represents withdrawal status update
+message WithdrawalStatusMessage {
+    // Withdrawal identifier
+    string withdraw_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // New status
+    WithdrawStatus status = 3;
+
+    // Transaction hash (if submitted)
+    string tx_hash = 4;
+
+    // Block number (if confirmed)
+    int64 block_number = 5;
+
+    // Error message (if failed)
+    string error_message = 6;
+
+    // Update timestamp (Unix milliseconds)
+    int64 updated_at = 7;
+}
+
+// ============================================================================
+// Kafka Topic: settlements
+// Description: Settlement batch for on-chain processing
+// Producer: Settlement Service
+// Consumer: Chain Service (Executor)
+// ============================================================================
+
+// SettlementMessage represents a batch of trades to settle
+message SettlementMessage {
+    // Unique batch identifier
+    string batch_id = 1;
+
+    // Trades in this batch
+    repeated SettlementTrade trades = 2;
+
+    // Chain ID for settlement
+    int64 chain_id = 3;
+
+    // Priority level (0 = normal, 1 = high)
+    int32 priority = 4;
+
+    // Batch creation timestamp (Unix milliseconds)
+    int64 created_at = 5;
+}
+
+// SettlementTrade represents a single trade in settlement batch
+message SettlementTrade {
+    // Trade identifier
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker wallet address
+    string maker_wallet = 3;
+
+    // Taker wallet address
+    string taker_wallet = 4;
+
+    // Base token symbol
+    string base_token = 5;
+
+    // Quote token symbol
+    string quote_token = 6;
+
+    // Base token contract address
+    string base_token_address = 7;
+
+    // Quote token contract address
+    string quote_token_address = 8;
+
+    // Trade price (decimal string)
+    string price = 9;
+
+    // Base amount (decimal string)
+    string base_amount = 10;
+
+    // Quote amount (decimal string)
+    string quote_amount = 11;
+
+    // Taker side (buy = taker buys base, sell = taker sells base)
+    OrderSide taker_side = 12;
+
+    // Maker fee (decimal string)
+    string maker_fee = 13;
+
+    // Taker fee (decimal string)
+    string taker_fee = 14;
+
+    // Trade timestamp (Unix milliseconds)
+    int64 matched_at = 15;
+}
+
+// ============================================================================
+// Kafka Topic: settlement-confirmed
+// Description: Settlement confirmation from chain
+// Producer: Chain Service (Indexer)
+// Consumer: Trading Service, Settlement Service
+// ============================================================================
+
+// SettlementConfirmedMessage confirms trades settled on-chain
+message SettlementConfirmedMessage {
+    // Batch identifier
+    string batch_id = 1;
+
+    // Transaction hash
+    string tx_hash = 2;
+
+    // Block number
+    int64 block_number = 3;
+
+    // Trade IDs in the batch
+    repeated string trade_ids = 4;
+
+    // Gas used
+    int64 gas_used = 5;
+
+    // Gas price (wei string)
+    string gas_price = 6;
+
+    // Confirmation timestamp (Unix milliseconds)
+    int64 confirmed_at = 7;
+}
+
+// SettlementFailedMessage indicates settlement failure
+message SettlementFailedMessage {
+    // Batch identifier
+    string batch_id = 1;
+
+    // Trade IDs in the batch
+    repeated string trade_ids = 2;
+
+    // Error message
+    string error_message = 3;
+
+    // Failure reason code
+    string error_code = 4;
+
+    // Whether to retry
+    bool should_retry = 5;
+
+    // Suggested retry delay (seconds)
+    int32 retry_delay_seconds = 6;
+
+    // Failure timestamp (Unix milliseconds)
+    int64 failed_at = 7;
+}
+
+// ============================================================================
+// Kafka Topic: risk-alerts
+// Description: Risk management alerts and events
+// Producer: Risk Service
+// Consumer: Admin Service, Notification Service
+// ============================================================================
+
+// RiskAlertMessage represents a risk management alert
+message RiskAlertMessage {
+    // Unique alert identifier
+    string alert_id = 1;
+
+    // User wallet address (optional, may be system-wide alert)
+    string wallet = 2;
+
+    // Alert type
+    RiskEventType alert_type = 3;
+
+    // Risk level/severity
+    RiskLevel severity = 4;
+
+    // Risk rule ID that triggered alert
+    string rule_id = 5;
+
+    // Alert description
+    string description = 6;
+
+    // Action taken
+    RiskAction action_taken = 7;
+
+    // Additional context
+    map<string, string> context = 8;
+
+    // Related order ID (optional)
+    string order_id = 9;
+
+    // Related withdrawal ID (optional)
+    string withdraw_id = 10;
+
+    // Alert timestamp (Unix milliseconds)
+    int64 created_at = 11;
+}
+
+// ============================================================================
+// Kafka Topic: notifications
+// Description: User notifications for various events
+// Producer: Various services
+// Consumer: Notification Service, WebSocket Gateway
+// ============================================================================
+
+// NotificationMessage represents a user notification
+message NotificationMessage {
+    // Unique notification identifier
+    string notification_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Notification type
+    NotificationType notification_type = 3;
+
+    // Notification title
+    string title = 4;
+
+    // Notification message body
+    string message = 5;
+
+    // Additional data as JSON string
+    string data = 6;
+
+    // Related entity ID (order_id, trade_id, etc.)
+    string entity_id = 7;
+
+    // Channels to deliver (email, push, websocket)
+    repeated string channels = 8;
+
+    // Notification timestamp (Unix milliseconds)
+    int64 created_at = 9;
+}
+
+// ============================================================================
+// Kafka Topic: market-stats
+// Description: Aggregated market statistics
+// Producer: Market Data Service
+// Consumer: Cache Service, Admin Dashboard
+// ============================================================================
+
+// MarketStatsMessage represents market statistics update
+message MarketStatsMessage {
+    // Trading pair symbol
+    string market = 1;
+
+    // Statistics interval (1m, 1h, 1d)
+    string interval = 2;
+
+    // Interval start timestamp (Unix milliseconds)
+    int64 interval_start = 3;
+
+    // Open price (decimal string)
+    string open = 4;
+
+    // High price (decimal string)
+    string high = 5;
+
+    // Low price (decimal string)
+    string low = 6;
+
+    // Close price (decimal string)
+    string close = 7;
+
+    // Volume in base token (decimal string)
+    string volume = 8;
+
+    // Volume in quote token (decimal string)
+    string quote_volume = 9;
+
+    // Number of trades
+    int64 trade_count = 10;
+
+    // Buyer volume (decimal string)
+    string buyer_volume = 11;
+
+    // Seller volume (decimal string)
+    string seller_volume = 12;
+
+    // Update timestamp (Unix milliseconds)
+    int64 updated_at = 13;
+}

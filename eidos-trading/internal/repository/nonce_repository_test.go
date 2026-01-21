@@ -14,7 +14,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 )
 
-// usedNonceColumns 返回 used_nonces 表的所有列名
+// usedNonceColumns 返回 trading_used_nonces 表的所有列名
 func usedNonceColumns() []string {
 	return []string{
 		"id", "wallet", "usage", "nonce", "order_id", "created_at",
@@ -58,7 +58,7 @@ func TestNonceRepository_IsUsed_NotInRedis_ExistsInDB(t *testing.T) {
 	key := model.GetNonceRedisKey(wallet, usage, nonce)
 	rdbMock.ExpectExists(key).SetVal(0)
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
 		WithArgs(wallet, usage, nonce).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
@@ -85,7 +85,7 @@ func TestNonceRepository_IsUsed_NotFound(t *testing.T) {
 	key := model.GetNonceRedisKey(wallet, usage, nonce)
 	rdbMock.ExpectExists(key).SetVal(0)
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
 		WithArgs(wallet, usage, nonce).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
@@ -112,7 +112,7 @@ func TestNonceRepository_IsUsed_RedisError_FallbackToDB(t *testing.T) {
 	key := model.GetNonceRedisKey(wallet, usage, nonce)
 	rdbMock.ExpectExists(key).SetErr(errors.New("redis connection error"))
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_used_nonces" WHERE wallet = \$1 AND usage = \$2 AND nonce = \$3`).
 		WithArgs(wallet, usage, nonce).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
@@ -137,7 +137,7 @@ func TestNonceRepository_MarkUsed_Success(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "used_nonces"`).
+	mock.ExpectQuery(`INSERT INTO "trading_used_nonces"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -165,7 +165,7 @@ func TestNonceRepository_MarkUsed_AlreadyUsed(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "used_nonces"`).
+	mock.ExpectQuery(`INSERT INTO "trading_used_nonces"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"})) // No row returned = 0 rows affected
 	mock.ExpectCommit()
 
@@ -189,7 +189,7 @@ func TestNonceRepository_MarkUsed_DBError(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "used_nonces"`).
+	mock.ExpectQuery(`INSERT INTO "trading_used_nonces"`).
 		WillReturnError(errors.New("database error"))
 	mock.ExpectRollback()
 
@@ -214,7 +214,7 @@ func TestNonceRepository_MarkUsedWithTx_Success(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "used_nonces"`).
+	mock.ExpectQuery(`INSERT INTO "trading_used_nonces"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -238,7 +238,7 @@ func TestNonceRepository_MarkUsedWithTx_AlreadyUsed(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "used_nonces"`).
+	mock.ExpectQuery(`INSERT INTO "trading_used_nonces"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"})) // No row = 0 rows affected
 	mock.ExpectCommit()
 
@@ -264,7 +264,7 @@ func TestNonceRepository_GetLatestNonce_Success(t *testing.T) {
 		1, wallet, usage, 100, "O123", now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "used_nonces" WHERE wallet = \$1 AND usage = \$2 ORDER BY nonce DESC,"used_nonces"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_used_nonces" WHERE wallet = \$1 AND usage = \$2 ORDER BY nonce DESC,"trading_used_nonces"\."id" LIMIT \$3`).
 		WithArgs(wallet, usage, 1).
 		WillReturnRows(rows)
 
@@ -286,7 +286,7 @@ func TestNonceRepository_GetLatestNonce_NotFound(t *testing.T) {
 	wallet := "0x1234567890123456789012345678901234567890"
 	usage := model.NonceUsageOrder
 
-	mock.ExpectQuery(`SELECT \* FROM "used_nonces" WHERE wallet = \$1 AND usage = \$2 ORDER BY nonce DESC,"used_nonces"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_used_nonces" WHERE wallet = \$1 AND usage = \$2 ORDER BY nonce DESC,"trading_used_nonces"\."id" LIMIT \$3`).
 		WithArgs(wallet, usage, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -310,7 +310,7 @@ func TestNonceRepository_CleanExpired_Success(t *testing.T) {
 
 	// First batch: delete 50 records
 	mock.ExpectBegin()
-	mock.ExpectExec(`DELETE FROM "used_nonces" WHERE created_at < \$1`).
+	mock.ExpectExec(`DELETE FROM "trading_used_nonces" WHERE created_at < \$1`).
 		WithArgs(beforeTime).
 		WillReturnResult(sqlmock.NewResult(0, 50))
 	mock.ExpectCommit()
@@ -335,14 +335,14 @@ func TestNonceRepository_CleanExpired_MultipleBatches(t *testing.T) {
 
 	// First batch: delete 100 records
 	mock.ExpectBegin()
-	mock.ExpectExec(`DELETE FROM "used_nonces" WHERE created_at < \$1`).
+	mock.ExpectExec(`DELETE FROM "trading_used_nonces" WHERE created_at < \$1`).
 		WithArgs(beforeTime).
 		WillReturnResult(sqlmock.NewResult(0, 100))
 	mock.ExpectCommit()
 
 	// Second batch: delete 30 records (less than batch size, so stops)
 	mock.ExpectBegin()
-	mock.ExpectExec(`DELETE FROM "used_nonces" WHERE created_at < \$1`).
+	mock.ExpectExec(`DELETE FROM "trading_used_nonces" WHERE created_at < \$1`).
 		WithArgs(beforeTime).
 		WillReturnResult(sqlmock.NewResult(0, 30))
 	mock.ExpectCommit()
@@ -366,7 +366,7 @@ func TestNonceRepository_CleanExpired_NothingToDelete(t *testing.T) {
 	batchSize := 100
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`DELETE FROM "used_nonces" WHERE created_at < \$1`).
+	mock.ExpectExec(`DELETE FROM "trading_used_nonces" WHERE created_at < \$1`).
 		WithArgs(beforeTime).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
@@ -390,7 +390,7 @@ func TestNonceRepository_CleanExpired_Error(t *testing.T) {
 	batchSize := 100
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`DELETE FROM "used_nonces" WHERE created_at < \$1`).
+	mock.ExpectExec(`DELETE FROM "trading_used_nonces" WHERE created_at < \$1`).
 		WithArgs(beforeTime).
 		WillReturnError(errors.New("database error"))
 	mock.ExpectRollback()

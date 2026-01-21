@@ -141,7 +141,7 @@ func TestWithdrawalService_CreateWithdrawal_Success(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -191,7 +191,7 @@ func TestWithdrawalService_CreateWithdrawal_InvalidWallet(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -218,7 +218,7 @@ func TestWithdrawalService_CreateWithdrawal_InvalidToken(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -247,7 +247,7 @@ func TestWithdrawalService_CreateWithdrawal_DuplicateNonce(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -287,7 +287,7 @@ func TestWithdrawalService_CreateWithdrawal_InsufficientBalance(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -325,7 +325,7 @@ func TestWithdrawalService_CreateWithdrawal_Idempotent(t *testing.T) {
 	idGen := new(MockIDGenerator)
 	tokenCfg := new(MockTokenConfigProvider)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nonceRepo, idGen, tokenCfg, nil)
 
 	ctx := context.Background()
 	req := &CreateWithdrawalRequest{
@@ -357,7 +357,7 @@ func TestWithdrawalService_CreateWithdrawal_Idempotent(t *testing.T) {
 
 func TestWithdrawalService_GetWithdrawal_Success(t *testing.T) {
 	withdrawRepo := new(MockWithdrawalRepository)
-	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -378,11 +378,20 @@ func TestWithdrawalService_GetWithdrawal_Success(t *testing.T) {
 
 func TestWithdrawalService_ApproveWithdrawal_Success(t *testing.T) {
 	withdrawRepo := new(MockWithdrawalRepository)
-	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
 
+	withdrawal := &model.Withdrawal{
+		WithdrawID: withdrawID,
+		Wallet:     "0x1234567890123456789012345678901234567890",
+		Token:      "USDT",
+		Amount:     decimal.NewFromFloat(100),
+		Status:     model.WithdrawStatusPending,
+	}
+
+	withdrawRepo.On("GetByWithdrawID", ctx, withdrawID).Return(withdrawal, nil)
 	withdrawRepo.On("MarkProcessing", ctx, withdrawID).Return(nil)
 
 	err := svc.ApproveWithdrawal(ctx, withdrawID)
@@ -395,7 +404,7 @@ func TestWithdrawalService_RejectWithdrawal_Success(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -429,7 +438,7 @@ func TestWithdrawalService_RejectWithdrawal_NotPending(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -451,7 +460,7 @@ func TestWithdrawalService_RejectWithdrawal_NotPending(t *testing.T) {
 
 func TestWithdrawalService_SubmitWithdrawal_Success(t *testing.T) {
 	withdrawRepo := new(MockWithdrawalRepository)
-	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -469,7 +478,7 @@ func TestWithdrawalService_ConfirmWithdrawal_Success(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -501,7 +510,7 @@ func TestWithdrawalService_FailWithdrawal_Success(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	withdrawID := "W123456789"
@@ -536,7 +545,7 @@ func TestWithdrawalService_CancelWithdrawal_Success(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -570,7 +579,7 @@ func TestWithdrawalService_CancelWithdrawal_WrongWallet(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -595,7 +604,7 @@ func TestWithdrawalService_CancelWithdrawal_NotPending(t *testing.T) {
 	balanceRepo := new(ExtendedMockBalanceRepository)
 	balanceCache := new(MockBalanceRedisRepository)
 
-	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, balanceRepo, balanceCache, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
@@ -617,7 +626,7 @@ func TestWithdrawalService_CancelWithdrawal_NotPending(t *testing.T) {
 
 func TestWithdrawalService_GetPendingWithdrawals_Success(t *testing.T) {
 	withdrawRepo := new(MockWithdrawalRepository)
-	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	limit := 10
@@ -637,7 +646,7 @@ func TestWithdrawalService_GetPendingWithdrawals_Success(t *testing.T) {
 
 func TestWithdrawalService_GetSubmittedWithdrawals_Success(t *testing.T) {
 	withdrawRepo := new(MockWithdrawalRepository)
-	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil)
+	svc := NewWithdrawalService(withdrawRepo, nil, nil, nil, nil, nil, nil)
 
 	ctx := context.Background()
 	limit := 10

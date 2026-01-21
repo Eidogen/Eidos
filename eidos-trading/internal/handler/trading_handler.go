@@ -13,6 +13,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
@@ -132,11 +133,11 @@ func (h *TradingHandler) ListOrders(ctx context.Context, req *pb.ListOrdersReque
 	filter := &repository.OrderFilter{
 		Market: req.Market,
 	}
-	if req.Side != pb.OrderSide_ORDER_SIDE_UNSPECIFIED {
+	if req.Side != commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED {
 		side := protoToModelOrderSide(req.Side)
 		filter.Side = &side
 	}
-	if req.Type != pb.OrderType_ORDER_TYPE_UNSPECIFIED {
+	if req.Type != commonv1.OrderType_ORDER_TYPE_UNSPECIFIED {
 		orderType := protoToModelOrderType(req.Type)
 		filter.Type = &orderType
 	}
@@ -248,8 +249,8 @@ func (h *TradingHandler) GetBalanceLogs(ctx context.Context, req *pb.GetBalanceL
 		Token:   req.Token,
 		OrderID: req.OrderId,
 	}
-	if req.Type != pb.BalanceLogType_BALANCE_LOG_TYPE_UNSPECIFIED {
-		logType := protoToModelBalanceLogType(req.Type)
+	if req.Type != commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNSPECIFIED {
+		logType := protoToModelBalanceChangeType(req.Type)
 		filter.Type = &logType
 	}
 	if req.StartTime > 0 && req.EndTime > 0 {
@@ -307,7 +308,7 @@ func (h *TradingHandler) ListTrades(ctx context.Context, req *pb.ListTradesReque
 	filter := &repository.TradeFilter{
 		Market: req.Market,
 	}
-	if req.SettlementStatus != pb.SettlementStatus_SETTLEMENT_STATUS_UNSPECIFIED {
+	if req.SettlementStatus != commonv1.SettlementStatus_SETTLEMENT_STATUS_UNSPECIFIED {
 		settlementStatus := protoToModelSettlementStatus(req.SettlementStatus)
 		filter.SettlementStatus = &settlementStatus
 	}
@@ -390,7 +391,7 @@ func (h *TradingHandler) ListDeposits(ctx context.Context, req *pb.ListDepositsR
 	filter := &repository.DepositFilter{
 		Token: req.Token,
 	}
-	if req.Status != pb.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED {
+	if req.Status != commonv1.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED {
 		depositStatus := protoToModelDepositStatus(req.Status)
 		filter.Status = &depositStatus
 	}
@@ -491,7 +492,7 @@ func (h *TradingHandler) ListWithdrawals(ctx context.Context, req *pb.ListWithdr
 	filter := &repository.WithdrawalFilter{
 		Token: req.Token,
 	}
-	if req.Status != pb.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED {
+	if req.Status != commonv1.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED {
 		withdrawStatus := protoToModelWithdrawStatus(req.Status)
 		filter.Status = &withdrawStatus
 	}
@@ -544,7 +545,7 @@ func (h *TradingHandler) ProcessTradeResult(ctx context.Context, req *pb.Process
 		MakerFee:     req.MakerFee,
 		TakerFee:     req.TakerFee,
 		Timestamp:    req.MatchedAt,
-		MakerIsBuyer: req.MakerSide == pb.OrderSide_ORDER_SIDE_BUY,
+		MakerIsBuyer: req.MakerSide == commonv1.OrderSide_ORDER_SIDE_BUY,
 	}
 
 	if err := h.clearingService.ProcessTradeResult(ctx, msg); err != nil {

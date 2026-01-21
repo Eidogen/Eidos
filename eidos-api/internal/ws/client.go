@@ -1,6 +1,10 @@
 package ws
 
 import (
+	"encoding/hex"
+	"encoding/json"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -9,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/crypto"
 )
 
 // Client WebSocket 客户端
@@ -24,8 +29,9 @@ type Client struct {
 	subscriptions map[string]bool
 	subMu         sync.RWMutex
 
-	// 认证信息（可选）
-	wallet string
+	// 认证信息
+	wallet        string
+	authenticated bool // 是否已认证（用于私有频道）
 
 	// 关闭控制
 	closeOnce sync.Once
@@ -53,12 +59,22 @@ func (c *Client) ID() string {
 
 // SetWallet 设置钱包地址
 func (c *Client) SetWallet(wallet string) {
-	c.wallet = wallet
+	c.wallet = strings.ToLower(wallet)
 }
 
 // Wallet 返回钱包地址
 func (c *Client) Wallet() string {
 	return c.wallet
+}
+
+// SetAuthenticated 设置认证状态
+func (c *Client) SetAuthenticated(auth bool) {
+	c.authenticated = auth
+}
+
+// IsAuthenticated 返回是否已认证
+func (c *Client) IsAuthenticated() bool {
+	return c.authenticated
 }
 
 // AddSubscription 添加订阅
@@ -182,6 +198,8 @@ func (c *Client) handleMessage(data []byte) {
 		c.handleSubscribe(msg)
 	case MsgTypeUnsubscribe:
 		c.handleUnsubscribe(msg)
+	case MsgTypeAuth:
+		c.handleAuth(msg)
 	default:
 		c.sendError(msg.ID, 400, "unknown message type")
 	}
@@ -202,8 +220,8 @@ func (c *Client) handleSubscribe(msg *ClientMessage) {
 		return
 	}
 
-	// 验证市场
-	if msg.Market == "" && msg.Channel != ChannelOrders {
+	// 验证市场（非私有频道需要市场参数）
+	if msg.Market == "" && !isPrivateChannel(msg.Channel) {
 		c.sendError(msg.ID, 400, "market is required")
 		return
 	}
@@ -215,9 +233,15 @@ func (c *Client) handleSubscribe(msg *ClientMessage) {
 	}
 
 	// 私有频道需要认证
-	if msg.Channel == ChannelOrders && c.wallet == "" {
-		c.sendError(msg.ID, 401, "authentication required for private channel")
-		return
+	if isPrivateChannel(msg.Channel) {
+		if !c.authenticated {
+			c.sendError(msg.ID, 401, "authentication required for private channel")
+			return
+		}
+		// 私有频道使用钱包地址作为 market key
+		if msg.Market == "" {
+			msg.Market = c.wallet
+		}
 	}
 
 	// 订阅
@@ -241,6 +265,129 @@ func (c *Client) handleUnsubscribe(msg *ClientMessage) {
 
 	// 发送确认
 	resp := NewAckMessage(msg.ID, msg.Channel, msg.Market)
+	data, _ := resp.ToJSON()
+	c.send <- data
+}
+
+// AuthMessage 认证消息
+type AuthMessage struct {
+	Wallet    string `json:"wallet"`
+	Timestamp int64  `json:"timestamp"`
+	Signature string `json:"signature"`
+}
+
+// handleAuth 处理认证请求（用于私有频道订阅）
+func (c *Client) handleAuth(msg *ClientMessage) {
+	// 如果已经认证，直接返回成功
+	if c.authenticated {
+		c.sendAuthSuccess(msg.ID)
+		return
+	}
+
+	// 解析认证参数
+	authData, ok := msg.Params.(map[string]interface{})
+	if !ok {
+		c.sendError(msg.ID, 400, "invalid auth params")
+		return
+	}
+
+	wallet, _ := authData["wallet"].(string)
+	timestampFloat, _ := authData["timestamp"].(float64)
+	timestamp := int64(timestampFloat)
+	signature, _ := authData["signature"].(string)
+
+	if wallet == "" || timestamp == 0 || signature == "" {
+		c.sendError(msg.ID, 400, "missing auth params: wallet, timestamp, signature required")
+		return
+	}
+
+	// 验证时间戳（5分钟有效期）
+	now := time.Now().UnixMilli()
+	if now-timestamp > 300000 || timestamp-now > 300000 {
+		c.sendError(msg.ID, 401, "signature expired")
+		return
+	}
+
+	// 验证 EIP-712 签名
+	if !c.cfg.EnablePrivateAuth {
+		// 如果禁用私有认证，跳过签名验证（开发模式）
+		c.wallet = strings.ToLower(wallet)
+		c.authenticated = true
+		c.sendAuthSuccess(msg.ID)
+		return
+	}
+
+	// 验证签名
+	if err := c.verifyAuthSignature(wallet, timestamp, signature); err != nil {
+		c.logger.Warn("auth signature verification failed",
+			zap.String("wallet", wallet),
+			zap.Error(err),
+		)
+		c.sendError(msg.ID, 401, "invalid signature")
+		return
+	}
+
+	// 认证成功
+	c.wallet = strings.ToLower(wallet)
+	c.authenticated = true
+	c.sendAuthSuccess(msg.ID)
+
+	c.logger.Info("client authenticated",
+		zap.String("client", c.id),
+		zap.String("wallet", c.wallet),
+	)
+}
+
+// verifyAuthSignature 验证认证签名
+func (c *Client) verifyAuthSignature(wallet string, timestamp int64, signature string) error {
+	// 构建签名消息
+	message := buildAuthMessage(wallet, timestamp)
+
+	// 解码签名
+	sig, err := decodeHexSignature(signature)
+	if err != nil {
+		return err
+	}
+
+	// 使用简单的个人签名验证
+	// 实际生产环境应该使用完整的 EIP-712 验证
+	messageHash := crypto.Keccak256([]byte(message))
+
+	valid, err := crypto.VerifyPersonalSignature(wallet, messageHash, sig)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return ErrInvalidSignature
+	}
+
+	return nil
+}
+
+// buildAuthMessage 构建认证消息
+func buildAuthMessage(wallet string, timestamp int64) string {
+	return "Eidos Exchange WebSocket Authentication\n" +
+		"Wallet: " + wallet + "\n" +
+		"Timestamp: " + strconv.FormatInt(timestamp, 10)
+}
+
+// decodeHexSignature 解码十六进制签名
+func decodeHexSignature(sig string) ([]byte, error) {
+	sig = strings.TrimPrefix(sig, "0x")
+	return hex.DecodeString(sig)
+}
+
+// sendAuthSuccess 发送认证成功消息
+func (c *Client) sendAuthSuccess(id string) {
+	resp := &ServerMessage{
+		Type:    MsgTypeAuth,
+		ID:      id,
+		Message: "authenticated",
+		Data: map[string]interface{}{
+			"wallet":        c.wallet,
+			"authenticated": true,
+		},
+	}
 	data, _ := resp.ToJSON()
 	c.send <- data
 }
@@ -308,9 +455,30 @@ func (c *Client) IsClosed() bool {
 // isValidChannel 验证频道
 func isValidChannel(ch Channel) bool {
 	switch ch {
-	case ChannelTicker, ChannelDepth, ChannelKline, ChannelTrades, ChannelOrders:
+	case ChannelTicker, ChannelDepth, ChannelKline, ChannelTrades,
+		ChannelOrders, ChannelBalances, ChannelPositions:
 		return true
 	default:
 		return false
 	}
+}
+
+// isPrivateChannel 判断是否为私有频道
+func isPrivateChannel(ch Channel) bool {
+	switch ch {
+	case ChannelOrders, ChannelBalances, ChannelPositions:
+		return true
+	default:
+		return false
+	}
+}
+
+// SendJSON 发送 JSON 消息
+func (c *Client) SendJSON(v interface{}) bool {
+	data, err := json.Marshal(v)
+	if err != nil {
+		c.logger.Error("failed to marshal message", zap.Error(err))
+		return false
+	}
+	return c.Send(data)
 }

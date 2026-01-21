@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/eidos-exchange/eidos/proto/common/v1"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	jobsv1 "github.com/eidos-exchange/eidos/proto/jobs/v1"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/repository"
@@ -141,7 +141,7 @@ func (h *JobsHandler) ListJobExecutions(ctx context.Context, req *jobsv1.ListJob
 	return &jobsv1.ListJobExecutionsResponse{
 		Executions: result,
 		Pagination: &commonv1.PaginationResponse{
-			Total:    int32(total),
+			Total:    int64(total),
 			Page:     req.GetPagination().GetPage(),
 			PageSize: int32(limit),
 		},
@@ -261,7 +261,7 @@ func (h *JobsHandler) ListReconciliationRecords(ctx context.Context, req *jobsv1
 	return &jobsv1.ListReconciliationRecordsResponse{
 		Records: result,
 		Pagination: &commonv1.PaginationResponse{
-			Total:    int32(len(records)),
+			Total:    int64(len(records)),
 			Page:     req.GetPagination().GetPage(),
 			PageSize: int32(limit),
 		},

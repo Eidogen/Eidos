@@ -15,7 +15,8 @@ import (
 
 // OrderService 订单服务适配器
 type OrderService struct {
-	client client.TradingClientInterface
+	client      client.TradingClientInterface
+	riskService *RiskService
 }
 
 // NewOrderService 创建订单服务
@@ -23,16 +24,66 @@ func NewOrderService(c client.TradingClientInterface) *OrderService {
 	return &OrderService{client: c}
 }
 
+// NewOrderServiceWithRisk 创建带风控的订单服务
+func NewOrderServiceWithRisk(c client.TradingClientInterface, risk *RiskService) *OrderService {
+	return &OrderService{client: c, riskService: risk}
+}
+
+// SetRiskService 设置风控服务
+func (s *OrderService) SetRiskService(risk *RiskService) {
+	s.riskService = risk
+}
+
 // PrepareOrder 准备订单（生成签名摘要）
-// TODO: 需要 Trading 服务支持 PrepareOrder 接口
-func (s *OrderService) PrepareOrder(_ *gin.Context, _ *dto.PrepareOrderRequest) (*dto.PrepareOrderResponse, error) {
-	// TODO: 实现 PrepareOrder，需要 Trading 服务支持
-	return nil, dto.ErrNotImplemented
+// 调用 eidos-trading 服务获取订单预处理信息，返回 EIP-712 类型化数据供前端签名
+func (s *OrderService) PrepareOrder(c *gin.Context, req *dto.PrepareOrderRequest) (*dto.PrepareOrderResponse, error) {
+	wallet, exists := c.Get("wallet")
+	if !exists {
+		return nil, dto.ErrUnauthorized
+	}
+
+	prepareReq := &client.PrepareOrderRequest{
+		Wallet:      wallet.(string),
+		Market:      req.Market,
+		Side:        req.Side,
+		OrderType:   req.Type,
+		Price:       req.Price,
+		Amount:      req.Amount,
+		TimeInForce: req.TimeInForce,
+	}
+
+	resp, err := s.client.PrepareOrder(c.Request.Context(), prepareReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.ToDTO(), nil
 }
 
 // CreateOrder 创建订单
 func (s *OrderService) CreateOrder(c *gin.Context, req *dto.CreateOrderRequest) (*dto.OrderResponse, error) {
-	resp, err := s.client.CreateOrder(c.Request.Context(), req, req.Wallet)
+	ctx := c.Request.Context()
+
+	// 风控检查
+	if s.riskService != nil {
+		riskReq := &CheckOrderRequest{
+			Wallet: req.Wallet,
+			Market: req.Market,
+			Side:   req.Side,
+			Type:   req.Type,
+			Price:  req.Price,
+			Amount: req.Amount,
+		}
+		result, err := s.riskService.CheckOrder(ctx, riskReq)
+		if err != nil {
+			return nil, dto.ErrInternalError.WithMessage("risk check failed")
+		}
+		if !result.Approved {
+			return nil, result.ToBizError()
+		}
+	}
+
+	resp, err := s.client.CreateOrder(ctx, req, req.Wallet)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +301,8 @@ func (s *DepositService) ListDeposits(c *gin.Context, req *dto.ListDepositsReque
 
 // WithdrawalService 提现服务适配器
 type WithdrawalService struct {
-	client client.TradingClientInterface
+	client      client.TradingClientInterface
+	riskService *RiskService
 }
 
 // NewWithdrawalService 创建提现服务
@@ -258,9 +310,43 @@ func NewWithdrawalService(c client.TradingClientInterface) *WithdrawalService {
 	return &WithdrawalService{client: c}
 }
 
+// NewWithdrawalServiceWithRisk 创建带风控的提现服务
+func NewWithdrawalServiceWithRisk(c client.TradingClientInterface, risk *RiskService) *WithdrawalService {
+	return &WithdrawalService{client: c, riskService: risk}
+}
+
+// SetRiskService 设置风控服务
+func (s *WithdrawalService) SetRiskService(risk *RiskService) {
+	s.riskService = risk
+}
+
 // CreateWithdrawal 创建提现
 func (s *WithdrawalService) CreateWithdrawal(c *gin.Context, req *dto.CreateWithdrawalRequest) (*dto.WithdrawalResponse, error) {
-	resp, err := s.client.CreateWithdrawal(c.Request.Context(), req, req.Wallet)
+	ctx := c.Request.Context()
+
+	// 风控检查
+	if s.riskService != nil {
+		riskReq := &CheckWithdrawalRequest{
+			Wallet:    req.Wallet,
+			Token:     req.Token,
+			Amount:    req.Amount,
+			ToAddress: req.ToAddress,
+		}
+		result, err := s.riskService.CheckWithdrawal(ctx, riskReq)
+		if err != nil {
+			return nil, dto.ErrInternalError.WithMessage("risk check failed")
+		}
+		if !result.Approved {
+			return nil, result.ToBizError()
+		}
+		// 需要人工审核的情况
+		if result.RequireManualReview {
+			// 仍然创建提现，但标记为待审核状态
+			// 这里继续执行，Trading 服务会处理审核状态
+		}
+	}
+
+	resp, err := s.client.CreateWithdrawal(ctx, req, req.Wallet)
 	if err != nil {
 		return nil, err
 	}

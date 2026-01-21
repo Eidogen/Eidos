@@ -1,55 +1,101 @@
 #!/bin/bash
+#
+# Eidos Trading System - Kafka Topics Initialization Script
+# Creates all required Kafka topics for the trading system
+#
 
-# Kafka server address
-KAFKA_BOOTSTRAP_SERVER=${KAFKA_BOOTSTRAP_SERVER:-"kafka:9092"}
-# Default Replication Factor (1 for dev/docker, 3 for prod)
-REPLICATION_FACTOR=${REPLICATION_FACTOR:-1}
+set -e
 
-echo "Waiting for Kafka to be ready at $KAFKA_BOOTSTRAP_SERVER..."
-# Loop until Kafka is ready
-until /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$KAFKA_BOOTSTRAP_SERVER" --list > /dev/null 2>&1; do
-  echo "Kafka is not ready yet..."
-  sleep 2
-done
+KAFKA_BOOTSTRAP_SERVER="${KAFKA_BOOTSTRAP_SERVER:-kafka:9092}"
+REPLICATION_FACTOR="${REPLICATION_FACTOR:-1}"
 
-echo "Kafka is ready! Creating topics..."
+echo "Waiting for Kafka to be ready..."
+sleep 30
 
-# Function to create topic if not exists
+# Function to create topic if it doesn't exist
 create_topic() {
-  local topic_name=$1
-  local partitions=$2
+    local topic=$1
+    local partitions=$2
+    local retention_hours=${3:-168}  # Default 7 days
 
-  echo "Creating topic: $topic_name (Partitions: $partitions, RF: $REPLICATION_FACTOR)"
-  
-  /opt/kafka/bin/kafka-topics.sh --create \
-    --bootstrap-server "$KAFKA_BOOTSTRAP_SERVER" \
-    --replication-factor "$REPLICATION_FACTOR" \
-    --partitions "$partitions" \
-    --topic "$topic_name" \
-    --if-not-exists
+    echo "Creating topic: $topic (partitions: $partitions, retention: ${retention_hours}h)"
+
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$KAFKA_BOOTSTRAP_SERVER" \
+        --create \
+        --if-not-exists \
+        --topic "$topic" \
+        --partitions "$partitions" \
+        --replication-factor "$REPLICATION_FACTOR" \
+        --config retention.ms=$((retention_hours * 3600000)) \
+        || true
 }
 
-# --- Core Trading Topics (Essential) ---
-create_topic "orders" 6             # Trading -> Matching
-create_topic "trade-results" 6      # Matching -> Trading
-create_topic "cancel-requests" 3    # Trading -> Matching
-create_topic "order-cancelled" 3    # Matching -> Trading
+echo "=============================================="
+echo "  Creating Kafka Topics for Eidos"
+echo "=============================================="
+echo ""
 
-# --- Chain Integration Topics (Essential) ---
-create_topic "deposits" 3              # Chain -> Trading
-create_topic "withdrawals" 3           # Trading -> Chain
-create_topic "withdrawal-confirmed" 3  # Chain -> Trading
-create_topic "settlements" 3           # Trading -> Chain
-create_topic "settlement-confirmed" 3  # Chain -> Trading
+# Order Flow Topics
+echo "Creating Order Flow Topics..."
+create_topic "orders" 16                    # High traffic: new orders
+create_topic "cancel-requests" 8            # Cancel requests
+create_topic "order-accepted" 16            # Order accepted by matching
+create_topic "order-cancelled" 8            # Order cancelled
+create_topic "order-rejected" 8             # Order rejected
+create_topic "order-updates" 16             # Order status updates
 
-# --- Internal Audit Topics (Used by BalanceService) ---
-create_topic "balance_log" 3        # BalanceService -> Data Warehouse (Audit)
+# Trade Topics
+echo "Creating Trade Topics..."
+create_topic "trade-results" 16             # Matched trades (high traffic)
 
-# --- Future/External Service Topics (Enable when deploying relevant services) ---
-create_topic "orderbook-updates" 6  # Matching -> Market
-create_topic "order-updates" 6      # Trading -> API/WS
-create_topic "balance-updates" 3    # Trading -> API/WS
-create_topic "kline-1m" 3           # Market -> API/WS
-create_topic "risk-alerts" 3        # Risk -> Monitor
+# Market Data Topics
+echo "Creating Market Data Topics..."
+create_topic "orderbook-updates" 16         # Real-time orderbook updates
+create_topic "market-stats" 4               # Market statistics
 
-echo "All topics created successfully."
+# Balance Topics
+echo "Creating Balance Topics..."
+create_topic "balance-updates" 8            # Balance change notifications
+
+# Deposit/Withdrawal Topics
+echo "Creating Deposit/Withdrawal Topics..."
+create_topic "deposits" 4                   # Deposit events from chain
+create_topic "deposit-confirmed" 4          # Deposit confirmations
+create_topic "withdrawals" 4                # Withdrawal requests
+create_topic "withdrawal-submitted" 4       # Withdrawal submitted to chain
+create_topic "withdrawal-confirmed" 4       # Withdrawal confirmed
+create_topic "withdrawal-status" 4          # Withdrawal status updates
+
+# Settlement Topics
+echo "Creating Settlement Topics..."
+create_topic "settlements" 8                # Settlement batches
+create_topic "settlement-submitted" 4       # Settlement submitted to chain
+create_topic "settlement-confirmed" 4       # Settlement confirmed
+create_topic "settlement-failed" 4          # Settlement failures
+
+# Risk Topics
+echo "Creating Risk Topics..."
+create_topic "risk-alerts" 4                # Risk alerts
+create_topic "risk-checks" 8                # Risk check requests
+
+# Notification Topics
+echo "Creating Notification Topics..."
+create_topic "notifications" 8              # User notifications
+
+# Admin Topics
+echo "Creating Admin Topics..."
+create_topic "admin-commands" 2             # Admin commands
+create_topic "audit-logs" 4                 # Audit logs
+
+echo ""
+echo "=============================================="
+echo "  Topic Creation Complete"
+echo "=============================================="
+
+# List all topics
+echo ""
+echo "Current topics:"
+/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$KAFKA_BOOTSTRAP_SERVER" --list
+
+echo ""
+echo "Done!"

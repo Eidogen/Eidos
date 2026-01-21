@@ -45,7 +45,7 @@ func TestSettlementBatchStatus_IsTerminal(t *testing.T) {
 
 func TestSettlementBatch_TableName(t *testing.T) {
 	batch := SettlementBatch{}
-	assert.Equal(t, "eidos_chain_settlement_batches", batch.TableName())
+	assert.Equal(t, "chain_settlement_batches", batch.TableName())
 }
 
 func TestSettlementBatch_GetSetTradeIDList(t *testing.T) {
@@ -87,5 +87,5 @@ func TestSettlementBatch_GetTradeIDList_InvalidJSON(t *testing.T) {
 
 func TestSettlementRollbackLog_TableName(t *testing.T) {
 	log := SettlementRollbackLog{}
-	assert.Equal(t, "eidos_chain_settlement_rollback_logs", log.TableName())
+	assert.Equal(t, "chain_settlement_rollback_logs", log.TableName())
 }

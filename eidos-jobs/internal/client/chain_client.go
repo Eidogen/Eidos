@@ -14,6 +14,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/jobs"
 	chainpb "github.com/eidos-exchange/eidos/proto/chain/v1"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	tradingpb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
@@ -64,7 +65,10 @@ func (c *ChainClient) GetOnchainBalances(ctx context.Context, wallets []string) 
 	for _, wallet := range wallets {
 		resp, err := c.client.ListReconciliationRecords(ctx, &chainpb.ListReconciliationRecordsRequest{
 			WalletAddress: wallet,
-			PageSize:      100,
+			Pagination: &commonv1.PaginationRequest{
+				Page:     1,
+				PageSize: 100,
+			},
 		})
 		if err != nil {
 			logger.Warn("failed to get reconciliation records",
@@ -83,6 +87,24 @@ func (c *ChainClient) GetOnchainBalances(ctx context.Context, wallets []string) 
 	}
 
 	return result, nil
+}
+
+// GetBalance 获取单个钱包的单个代币余额
+// TODO: 需要在 chain proto 中定义 GetBalance RPC
+func (c *ChainClient) GetBalance(ctx context.Context, wallet, token string) (decimal.Decimal, error) {
+	return decimal.Zero, fmt.Errorf("not implemented: GetBalance RPC not defined in proto")
+}
+
+// BatchGetBalances 批量获取余额
+// TODO: 需要在 chain proto 中定义 BatchGetBalances RPC
+func (c *ChainClient) BatchGetBalances(ctx context.Context, requests []*BalanceRequest) (map[string]map[string]decimal.Decimal, error) {
+	return nil, fmt.Errorf("not implemented: BatchGetBalances RPC not defined in proto")
+}
+
+// BalanceRequest 余额查询请求
+type BalanceRequest struct {
+	Wallet string
+	Token  string
 }
 
 // Close 关闭连接
@@ -154,7 +176,10 @@ func (p *ReconciliationDataProviderImpl) GetChangedWallets(ctx context.Context, 
 func (p *ReconciliationDataProviderImpl) GetAllWallets(ctx context.Context) ([]string, error) {
 	// 通过 chain 服务的对账记录获取所有钱包
 	resp, err := p.chainClient.client.ListReconciliationRecords(ctx, &chainpb.ListReconciliationRecordsRequest{
-		PageSize: 1000,
+		Pagination: &commonv1.PaginationRequest{
+			Page:     1,
+			PageSize: 1000,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list reconciliation records: %w", err)

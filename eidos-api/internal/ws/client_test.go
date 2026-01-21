@@ -552,7 +552,8 @@ func TestClient_HandleMessage_Subscribe_PrivateChannelWithAuth(t *testing.T) {
 		logger:        logger,
 		cfg:           cfg,
 		subscriptions: make(map[string]bool),
-		wallet:        "0x1234567890123456789012345678901234567890", // 已认证
+		wallet:        "0x1234567890123456789012345678901234567890",
+		authenticated: true, // 已认证
 	}
 
 	// 订阅私有频道（orders），不需要 market

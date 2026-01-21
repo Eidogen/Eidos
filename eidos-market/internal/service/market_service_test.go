@@ -145,6 +145,25 @@ func (m *mockTradeRepo) ListRecent(ctx context.Context, market string, limit int
 	return result, nil
 }
 
+func (m *mockTradeRepo) ListByTimeRange(ctx context.Context, market string, startTime, endTime int64, limit int) ([]*model.Trade, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var result []*model.Trade
+	for _, t := range m.trades {
+		if t.Market == market {
+			if (startTime == 0 || t.Timestamp >= startTime) && (endTime == 0 || t.Timestamp <= endTime) {
+				result = append(result, t)
+			}
+		}
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
 func (m *mockTradeRepo) GetByID(ctx context.Context, tradeID string) (*model.Trade, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

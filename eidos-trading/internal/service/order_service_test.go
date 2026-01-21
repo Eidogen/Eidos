@@ -1066,6 +1066,166 @@ func TestOrderService_CalculateFreezeAmount_SellOrder(t *testing.T) {
 	assert.True(t, amount.Equal(decimal.NewFromFloat(1)))
 }
 
+func TestOrderService_CalculateFreezeAmount_MarketBuyWithQuoteAmount(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideBuy,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.NewFromFloat(2000),
+		Amount:      decimal.Zero, // Will be calculated from QuoteAmount
+		QuoteAmount: decimal.NewFromFloat(1000), // Spend 1000 USDT
+	}
+
+	cfg := &MarketConfig{
+		BaseToken:    "ETH",
+		QuoteToken:   "USDT",
+		TakerFeeRate: decimal.NewFromFloat(0.001),
+	}
+
+	token, amount := svc.calculateFreezeAmount(req, cfg)
+
+	assert.Equal(t, "USDT", token)
+	// 1000 * 1.001 = 1001
+	assert.True(t, amount.Equal(decimal.NewFromFloat(1001)))
+}
+
+func TestOrderService_ProcessMarketOrder_DefaultSlippage(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:       model.OrderSideBuy,
+		Type:       model.OrderTypeMarket,
+		Price:      decimal.NewFromFloat(2000),
+		Amount:     decimal.NewFromFloat(1),
+		SlippageBps: 0, // Should default to 100 bps (1%)
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001),
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int32(DefaultMarketOrderSlippageBps), req.SlippageBps)
+	// Price should be adjusted for slippage (buy): 2000 * 1.01 = 2020
+	assert.True(t, req.Price.Equal(decimal.NewFromFloat(2020)))
+}
+
+func TestOrderService_ProcessMarketOrder_CustomSlippage(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideSell,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.NewFromFloat(2000),
+		Amount:      decimal.NewFromFloat(1),
+		SlippageBps: 200, // 2% slippage
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001),
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.NoError(t, err)
+	// Price should be adjusted for slippage (sell): 2000 * 0.98 = 1960
+	assert.True(t, req.Price.Equal(decimal.NewFromFloat(1960)))
+}
+
+func TestOrderService_ProcessMarketOrder_InvalidSlippage(t *testing.T) {
+	svc := &orderService{}
+
+	// Slippage too high
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideBuy,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.NewFromFloat(2000),
+		Amount:      decimal.NewFromFloat(1),
+		SlippageBps: 2000, // 20% - exceeds max
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001),
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidSlippage))
+}
+
+func TestOrderService_ProcessMarketOrder_QuoteAmountConversion(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideBuy,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.NewFromFloat(2000), // Current price
+		Amount:      decimal.Zero,               // Not specified
+		QuoteAmount: decimal.NewFromFloat(1000), // Spend 1000 USDT
+		SlippageBps: 100,                        // 1%
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001),
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.NoError(t, err)
+	// Expected amount: 1000 / (2000 * 1.01) = 1000 / 2020 = ~0.495
+	// Amount should be calculated
+	assert.True(t, req.Amount.GreaterThan(decimal.Zero))
+	assert.True(t, req.Amount.LessThan(decimal.NewFromFloat(0.5)))
+}
+
+func TestOrderService_ProcessMarketOrder_QuoteAmountBelowMinimum(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideBuy,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.NewFromFloat(2000),
+		Amount:      decimal.Zero,
+		QuoteAmount: decimal.NewFromFloat(0.01), // Very small quote amount
+		SlippageBps: 100,
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001), // Minimum 0.001 ETH
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidQuoteAmount))
+}
+
+func TestOrderService_ProcessMarketOrder_NoPriceForQuoteAmount(t *testing.T) {
+	svc := &orderService{}
+
+	req := &CreateOrderRequest{
+		Side:        model.OrderSideBuy,
+		Type:        model.OrderTypeMarket,
+		Price:       decimal.Zero,               // No price provided
+		Amount:      decimal.Zero,
+		QuoteAmount: decimal.NewFromFloat(1000),
+		SlippageBps: 100,
+	}
+
+	cfg := &MarketConfig{
+		MinAmount: decimal.NewFromFloat(0.001),
+	}
+
+	err := svc.processMarketOrder(req, cfg)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrMarketOrderPriceRequired))
+}
+
 func TestOrderService_ValidateCreateOrderRequest(t *testing.T) {
 	svc := &orderService{}
 

@@ -213,24 +213,24 @@ func (r *balanceRepository) Freeze(ctx context.Context, wallet, token string, am
 	var sql string
 	if fromSettled {
 		// 从已结算可用冻结到已结算冻结
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET settled_available = settled_available - ?,
 				   settled_frozen = settled_frozen + ?,
 				   version = version + 1,
 				   updated_at = ?
 			   WHERE wallet = ? AND token = ?
 				 AND settled_available >= ?
-				 AND version = (SELECT version FROM balances WHERE wallet = ? AND token = ?)`
+				 AND version = (SELECT version FROM trading_balances WHERE wallet = ? AND token = ?)`
 	} else {
 		// 从待结算可用冻结到待结算冻结
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET pending_available = pending_available - ?,
 				   pending_frozen = pending_frozen + ?,
 				   version = version + 1,
 				   updated_at = ?
 			   WHERE wallet = ? AND token = ?
 				 AND pending_available >= ?
-				 AND version = (SELECT version FROM balances WHERE wallet = ? AND token = ?)`
+				 AND version = (SELECT version FROM trading_balances WHERE wallet = ? AND token = ?)`
 	}
 
 	result := r.DB(ctx).Exec(sql, amount, amount, time.Now().UnixMilli(), wallet, token, amount, wallet, token)
@@ -252,7 +252,7 @@ func (r *balanceRepository) Unfreeze(ctx context.Context, wallet, token string, 
 	var sql string
 	if toSettled {
 		// 从已结算冻结解冻到已结算可用
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET settled_frozen = settled_frozen - ?,
 				   settled_available = settled_available + ?,
 				   version = version + 1,
@@ -261,7 +261,7 @@ func (r *balanceRepository) Unfreeze(ctx context.Context, wallet, token string, 
 				 AND settled_frozen >= ?`
 	} else {
 		// 从待结算冻结解冻到待结算可用
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET pending_frozen = pending_frozen - ?,
 				   pending_available = pending_available + ?,
 				   version = version + 1,
@@ -295,14 +295,14 @@ func (r *balanceRepository) Credit(ctx context.Context, wallet, token string, am
 	var sql string
 	if toSettled {
 		// 增加已结算可用
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET settled_available = settled_available + ?,
 				   version = version + 1,
 				   updated_at = ?
 			   WHERE wallet = ? AND token = ?`
 	} else {
 		// 增加待结算可用
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET pending_available = pending_available + ?,
 				   pending_total = pending_total + ?,
 				   version = version + 1,
@@ -332,7 +332,7 @@ func (r *balanceRepository) Debit(ctx context.Context, wallet, token string, amo
 	var sql string
 	if fromSettled {
 		// 从已结算冻结扣减
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET settled_frozen = settled_frozen - ?,
 				   version = version + 1,
 				   updated_at = ?
@@ -340,7 +340,7 @@ func (r *balanceRepository) Debit(ctx context.Context, wallet, token string, amo
 				 AND settled_frozen >= ?`
 	} else {
 		// 从待结算冻结扣减
-		sql = `UPDATE balances
+		sql = `UPDATE trading_balances
 			   SET pending_frozen = pending_frozen - ?,
 				   pending_total = pending_total - ?,
 				   version = version + 1,
@@ -389,7 +389,7 @@ func (r *balanceRepository) Settle(ctx context.Context, wallet, token string, am
 	}
 
 	// 从待结算可用转移到已结算可用
-	sql := `UPDATE balances
+	sql := `UPDATE trading_balances
 		   SET pending_available = pending_available - ?,
 			   pending_total = pending_total - ?,
 			   settled_available = settled_available + ?,
@@ -490,7 +490,7 @@ func (r *balanceRepository) CreditFeeAccount(ctx context.Context, bucketID int, 
 		return nil
 	}
 
-	sql := `UPDATE fee_accounts
+	sql := `UPDATE trading_fee_accounts
 		   SET balance = balance + ?,
 			   version = version + 1,
 			   updated_at = ?

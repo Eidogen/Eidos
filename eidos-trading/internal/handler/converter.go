@@ -3,126 +3,127 @@ package handler
 import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
 // ========== Proto -> Model 转换 ==========
 
-func protoToModelOrderSide(side pb.OrderSide) model.OrderSide {
+func protoToModelOrderSide(side commonv1.OrderSide) model.OrderSide {
 	switch side {
-	case pb.OrderSide_ORDER_SIDE_BUY:
+	case commonv1.OrderSide_ORDER_SIDE_BUY:
 		return model.OrderSideBuy
-	case pb.OrderSide_ORDER_SIDE_SELL:
+	case commonv1.OrderSide_ORDER_SIDE_SELL:
 		return model.OrderSideSell
 	default:
 		return model.OrderSideBuy
 	}
 }
 
-func protoToModelOrderType(orderType pb.OrderType) model.OrderType {
+func protoToModelOrderType(orderType commonv1.OrderType) model.OrderType {
 	switch orderType {
-	case pb.OrderType_ORDER_TYPE_LIMIT:
+	case commonv1.OrderType_ORDER_TYPE_LIMIT:
 		return model.OrderTypeLimit
-	case pb.OrderType_ORDER_TYPE_MARKET:
+	case commonv1.OrderType_ORDER_TYPE_MARKET:
 		return model.OrderTypeMarket
 	default:
 		return model.OrderTypeLimit
 	}
 }
 
-func protoToModelOrderStatus(status pb.OrderStatus) model.OrderStatus {
+func protoToModelOrderStatus(status commonv1.OrderStatus) model.OrderStatus {
 	switch status {
-	case pb.OrderStatus_ORDER_STATUS_PENDING:
+	case commonv1.OrderStatus_ORDER_STATUS_PENDING:
 		return model.OrderStatusPending
-	case pb.OrderStatus_ORDER_STATUS_OPEN:
+	case commonv1.OrderStatus_ORDER_STATUS_OPEN:
 		return model.OrderStatusOpen
-	case pb.OrderStatus_ORDER_STATUS_PARTIAL:
+	case commonv1.OrderStatus_ORDER_STATUS_PARTIAL:
 		return model.OrderStatusPartial
-	case pb.OrderStatus_ORDER_STATUS_FILLED:
+	case commonv1.OrderStatus_ORDER_STATUS_FILLED:
 		return model.OrderStatusFilled
-	case pb.OrderStatus_ORDER_STATUS_CANCELLED:
+	case commonv1.OrderStatus_ORDER_STATUS_CANCELLED:
 		return model.OrderStatusCancelled
-	case pb.OrderStatus_ORDER_STATUS_EXPIRED:
+	case commonv1.OrderStatus_ORDER_STATUS_EXPIRED:
 		return model.OrderStatusExpired
-	case pb.OrderStatus_ORDER_STATUS_REJECTED:
+	case commonv1.OrderStatus_ORDER_STATUS_REJECTED:
 		return model.OrderStatusRejected
 	default:
 		return model.OrderStatusPending
 	}
 }
 
-func protoToModelBalanceLogType(logType pb.BalanceLogType) model.BalanceLogType {
-	switch logType {
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_DEPOSIT:
+func protoToModelBalanceChangeType(changeType commonv1.BalanceChangeType) model.BalanceLogType {
+	switch changeType {
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_DEPOSIT:
 		return model.BalanceLogTypeDeposit
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW:
 		return model.BalanceLogTypeWithdraw
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_FREEZE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FREEZE:
 		return model.BalanceLogTypeFreeze
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_UNFREEZE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNFREEZE:
 		return model.BalanceLogTypeUnfreeze
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_TRADE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_DEBIT:
 		return model.BalanceLogTypeTrade
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_FEE:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FEE:
 		return model.BalanceLogTypeFee
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_SETTLEMENT:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_SETTLEMENT:
 		return model.BalanceLogTypeSettlement
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_ROLLBACK:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_ROLLBACK:
 		return model.BalanceLogTypeRollback
-	case pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW_REFUND:
+	case commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW_REFUND:
 		return model.BalanceLogTypeWithdrawRefund
 	default:
 		return model.BalanceLogTypeDeposit
 	}
 }
 
-func protoToModelSettlementStatus(status pb.SettlementStatus) model.SettlementStatus {
+func protoToModelSettlementStatus(status commonv1.SettlementStatus) model.SettlementStatus {
 	switch status {
-	case pb.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN:
 		return model.SettlementStatusMatchedOffchain
-	case pb.SettlementStatus_SETTLEMENT_STATUS_PENDING:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_PENDING:
 		return model.SettlementStatusPending
-	case pb.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED:
 		return model.SettlementStatusSubmitted
-	case pb.SettlementStatus_SETTLEMENT_STATUS_SETTLED_ONCHAIN:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_SETTLED:
 		return model.SettlementStatusSettledOnchain
-	case pb.SettlementStatus_SETTLEMENT_STATUS_FAILED:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_FAILED:
 		return model.SettlementStatusFailed
-	case pb.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK:
+	case commonv1.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK:
 		return model.SettlementStatusRolledBack
 	default:
 		return model.SettlementStatusMatchedOffchain
 	}
 }
 
-func protoToModelDepositStatus(status pb.DepositStatus) model.DepositStatus {
+func protoToModelDepositStatus(status commonv1.DepositStatus) model.DepositStatus {
 	switch status {
-	case pb.DepositStatus_DEPOSIT_STATUS_PENDING:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_PENDING:
 		return model.DepositStatusPending
-	case pb.DepositStatus_DEPOSIT_STATUS_CONFIRMED:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_CONFIRMED:
 		return model.DepositStatusConfirmed
-	case pb.DepositStatus_DEPOSIT_STATUS_CREDITED:
+	case commonv1.DepositStatus_DEPOSIT_STATUS_CREDITED:
 		return model.DepositStatusCredited
 	default:
 		return model.DepositStatusPending
 	}
 }
 
-func protoToModelWithdrawStatus(status pb.WithdrawStatus) model.WithdrawStatus {
+func protoToModelWithdrawStatus(status commonv1.WithdrawStatus) model.WithdrawStatus {
 	switch status {
-	case pb.WithdrawStatus_WITHDRAW_STATUS_PENDING:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_PENDING:
 		return model.WithdrawStatusPending
-	case pb.WithdrawStatus_WITHDRAW_STATUS_PROCESSING:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_PROCESSING:
 		return model.WithdrawStatusProcessing
-	case pb.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED:
 		return model.WithdrawStatusSubmitted
-	case pb.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED:
 		return model.WithdrawStatusConfirmed
-	case pb.WithdrawStatus_WITHDRAW_STATUS_FAILED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_FAILED:
 		return model.WithdrawStatusFailed
-	case pb.WithdrawStatus_WITHDRAW_STATUS_CANCELLED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_CANCELLED:
 		return model.WithdrawStatusCancelled
-	case pb.WithdrawStatus_WITHDRAW_STATUS_REJECTED:
+	case commonv1.WithdrawStatus_WITHDRAW_STATUS_REJECTED:
 		return model.WithdrawStatusRejected
 	default:
 		return model.WithdrawStatusPending
@@ -131,137 +132,137 @@ func protoToModelWithdrawStatus(status pb.WithdrawStatus) model.WithdrawStatus {
 
 // ========== Model -> Proto 转换 ==========
 
-func modelToProtoOrderSide(side model.OrderSide) pb.OrderSide {
+func modelToProtoOrderSide(side model.OrderSide) commonv1.OrderSide {
 	switch side {
 	case model.OrderSideBuy:
-		return pb.OrderSide_ORDER_SIDE_BUY
+		return commonv1.OrderSide_ORDER_SIDE_BUY
 	case model.OrderSideSell:
-		return pb.OrderSide_ORDER_SIDE_SELL
+		return commonv1.OrderSide_ORDER_SIDE_SELL
 	default:
-		return pb.OrderSide_ORDER_SIDE_UNSPECIFIED
+		return commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED
 	}
 }
 
-func modelToProtoOrderType(orderType model.OrderType) pb.OrderType {
+func modelToProtoOrderType(orderType model.OrderType) commonv1.OrderType {
 	switch orderType {
 	case model.OrderTypeLimit:
-		return pb.OrderType_ORDER_TYPE_LIMIT
+		return commonv1.OrderType_ORDER_TYPE_LIMIT
 	case model.OrderTypeMarket:
-		return pb.OrderType_ORDER_TYPE_MARKET
+		return commonv1.OrderType_ORDER_TYPE_MARKET
 	default:
-		return pb.OrderType_ORDER_TYPE_UNSPECIFIED
+		return commonv1.OrderType_ORDER_TYPE_UNSPECIFIED
 	}
 }
 
-func modelToProtoOrderStatus(status model.OrderStatus) pb.OrderStatus {
+func modelToProtoOrderStatus(status model.OrderStatus) commonv1.OrderStatus {
 	switch status {
 	case model.OrderStatusPending:
-		return pb.OrderStatus_ORDER_STATUS_PENDING
+		return commonv1.OrderStatus_ORDER_STATUS_PENDING
 	case model.OrderStatusOpen:
-		return pb.OrderStatus_ORDER_STATUS_OPEN
+		return commonv1.OrderStatus_ORDER_STATUS_OPEN
 	case model.OrderStatusPartial:
-		return pb.OrderStatus_ORDER_STATUS_PARTIAL
+		return commonv1.OrderStatus_ORDER_STATUS_PARTIAL
 	case model.OrderStatusFilled:
-		return pb.OrderStatus_ORDER_STATUS_FILLED
+		return commonv1.OrderStatus_ORDER_STATUS_FILLED
 	case model.OrderStatusCancelled:
-		return pb.OrderStatus_ORDER_STATUS_CANCELLED
+		return commonv1.OrderStatus_ORDER_STATUS_CANCELLED
 	case model.OrderStatusExpired:
-		return pb.OrderStatus_ORDER_STATUS_EXPIRED
+		return commonv1.OrderStatus_ORDER_STATUS_EXPIRED
 	case model.OrderStatusRejected:
-		return pb.OrderStatus_ORDER_STATUS_REJECTED
+		return commonv1.OrderStatus_ORDER_STATUS_REJECTED
 	default:
-		return pb.OrderStatus_ORDER_STATUS_UNSPECIFIED
+		return commonv1.OrderStatus_ORDER_STATUS_UNSPECIFIED
 	}
 }
 
-func modelToProtoTimeInForce(tif model.TimeInForce) pb.TimeInForce {
+func modelToProtoTimeInForce(tif model.TimeInForce) commonv1.TimeInForce {
 	switch tif {
 	case model.TimeInForceGTC:
-		return pb.TimeInForce_TIME_IN_FORCE_GTC
+		return commonv1.TimeInForce_TIME_IN_FORCE_GTC
 	case model.TimeInForceIOC:
-		return pb.TimeInForce_TIME_IN_FORCE_IOC
+		return commonv1.TimeInForce_TIME_IN_FORCE_IOC
 	case model.TimeInForceFOK:
-		return pb.TimeInForce_TIME_IN_FORCE_FOK
+		return commonv1.TimeInForce_TIME_IN_FORCE_FOK
 	default:
-		return pb.TimeInForce_TIME_IN_FORCE_UNSPECIFIED
+		return commonv1.TimeInForce_TIME_IN_FORCE_UNSPECIFIED
 	}
 }
 
-func modelToProtoBalanceLogType(logType model.BalanceLogType) pb.BalanceLogType {
+func modelToProtoBalanceChangeType(logType model.BalanceLogType) commonv1.BalanceChangeType {
 	switch logType {
 	case model.BalanceLogTypeDeposit:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_DEPOSIT
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_DEPOSIT
 	case model.BalanceLogTypeWithdraw:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW
 	case model.BalanceLogTypeFreeze:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_FREEZE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FREEZE
 	case model.BalanceLogTypeUnfreeze:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_UNFREEZE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNFREEZE
 	case model.BalanceLogTypeTrade:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_TRADE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_TRADE_DEBIT
 	case model.BalanceLogTypeFee:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_FEE
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_FEE
 	case model.BalanceLogTypeSettlement:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_SETTLEMENT
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_SETTLEMENT
 	case model.BalanceLogTypeRollback:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_ROLLBACK
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_ROLLBACK
 	case model.BalanceLogTypeWithdrawRefund:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_WITHDRAW_REFUND
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_WITHDRAW_REFUND
 	default:
-		return pb.BalanceLogType_BALANCE_LOG_TYPE_UNSPECIFIED
+		return commonv1.BalanceChangeType_BALANCE_CHANGE_TYPE_UNSPECIFIED
 	}
 }
 
-func modelToProtoSettlementStatus(status model.SettlementStatus) pb.SettlementStatus {
+func modelToProtoSettlementStatus(status model.SettlementStatus) commonv1.SettlementStatus {
 	switch status {
 	case model.SettlementStatusMatchedOffchain:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_MATCHED_OFFCHAIN
 	case model.SettlementStatusPending:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_PENDING
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_PENDING
 	case model.SettlementStatusSubmitted:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_SUBMITTED
 	case model.SettlementStatusSettledOnchain:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_SETTLED_ONCHAIN
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_SETTLED
 	case model.SettlementStatusFailed:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_FAILED
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_FAILED
 	case model.SettlementStatusRolledBack:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_ROLLED_BACK
 	default:
-		return pb.SettlementStatus_SETTLEMENT_STATUS_UNSPECIFIED
+		return commonv1.SettlementStatus_SETTLEMENT_STATUS_UNSPECIFIED
 	}
 }
 
-func modelToProtoDepositStatus(status model.DepositStatus) pb.DepositStatus {
+func modelToProtoDepositStatus(status model.DepositStatus) commonv1.DepositStatus {
 	switch status {
 	case model.DepositStatusPending:
-		return pb.DepositStatus_DEPOSIT_STATUS_PENDING
+		return commonv1.DepositStatus_DEPOSIT_STATUS_PENDING
 	case model.DepositStatusConfirmed:
-		return pb.DepositStatus_DEPOSIT_STATUS_CONFIRMED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_CONFIRMED
 	case model.DepositStatusCredited:
-		return pb.DepositStatus_DEPOSIT_STATUS_CREDITED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_CREDITED
 	default:
-		return pb.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED
+		return commonv1.DepositStatus_DEPOSIT_STATUS_UNSPECIFIED
 	}
 }
 
-func modelToProtoWithdrawStatus(status model.WithdrawStatus) pb.WithdrawStatus {
+func modelToProtoWithdrawStatus(status model.WithdrawStatus) commonv1.WithdrawStatus {
 	switch status {
 	case model.WithdrawStatusPending:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_PENDING
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_PENDING
 	case model.WithdrawStatusProcessing:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_PROCESSING
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_PROCESSING
 	case model.WithdrawStatusSubmitted:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_SUBMITTED
 	case model.WithdrawStatusConfirmed:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_CONFIRMED
 	case model.WithdrawStatusFailed:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_FAILED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_FAILED
 	case model.WithdrawStatusCancelled:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_CANCELLED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_CANCELLED
 	case model.WithdrawStatusRejected:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_REJECTED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_REJECTED
 	default:
-		return pb.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED
+		return commonv1.WithdrawStatus_WITHDRAW_STATUS_UNSPECIFIED
 	}
 }
 
@@ -311,7 +312,7 @@ func modelToProtoBalanceLog(log *model.BalanceLog) *pb.BalanceLog {
 		Id:            log.ID,
 		Wallet:        log.Wallet,
 		Token:         log.Token,
-		Type:          modelToProtoBalanceLogType(log.Type),
+		Type:          modelToProtoBalanceChangeType(log.Type),
 		Amount:        log.Amount.String(),
 		BalanceBefore: log.BalanceBefore.String(),
 		BalanceAfter:  log.BalanceAfter.String(),

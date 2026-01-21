@@ -1,16 +1,26 @@
 service:
   name: eidos-chain
   grpc_port: 50054
-  http_port: 8080
-  env: dev
+  http_port: 8085
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:postgres}
+  host: ${POSTGRES_HOST:localhost}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_chain}
   user: ${POSTGRES_USER:eidos}
@@ -18,35 +28,134 @@ postgres:
   max_connections: 50
   max_idle_conns: 10
   conn_max_lifetime: 3600
+  ssl_mode: disable
+  timezone: UTC
 
+# Redis Configuration
 redis:
   addresses:
-    - ${REDIS_ADDR:redis:6379}
+    - ${REDIS_ADDR:localhost:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 50
+  min_idle_conns: 10
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# Kafka Configuration
 kafka:
+  enabled: ${KAFKA_ENABLED:true}
   brokers:
-    - ${KAFKA_BROKERS:kafka:9092}
+    - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-chain
   client_id: eidos-chain
+  consumer:
+    topics:
+      - settlement-requests
+      - withdrawal-requests
+    auto_offset_reset: earliest
+    max_poll_records: 100
+  producer:
+    topics:
+      settlement_results: settlement-results
+      deposit_events: deposit-events
+      withdrawal_events: withdrawal-events
+    compression: lz4
+    batch_size: 500
+    linger_ms: 10
+    required_acks: -1
 
+# gRPC Client Configuration
+grpc_clients:
+  trading:
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    timeout_ms: 5000
+    max_retry: 3
+  risk:
+    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    timeout_ms: 5000
+    max_retry: 3
+
+# Blockchain Configuration
 blockchain:
   rpc_url: ${RPC_URL:http://localhost:8545}
+  ws_url: ${WS_URL:ws://localhost:8546}
   chain_id: ${CHAIN_ID:31337}
   contract_address: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
   private_key: ${PRIVATE_KEY:}
+
+  # Confirmation Requirements
   confirmations:
-    deposit: 0
-    settlement: 0
+    deposit: ${DEPOSIT_CONFIRMATIONS:0}
+    settlement: ${SETTLEMENT_CONFIRMATIONS:0}
+    withdrawal: ${WITHDRAWAL_CONFIRMATIONS:1}
 
-settlement:
+  # Gas Configuration
+  gas:
+    price_multiplier: 1.2
+    limit_multiplier: 1.5
+    max_gas_price_gwei: 500
+    min_gas_price_gwei: 1
+
+  # Retry Configuration
+  retry:
+    max_attempts: 5
+    initial_backoff_ms: 1000
+    max_backoff_ms: 30000
+
+# Block Scanner Configuration
+scanner:
+  enabled: true
+  start_block: ${START_BLOCK:0}
   batch_size: 100
-  batch_interval: 10  # 秒
-  max_retries: 3
-  retry_backoff: 30   # 秒
+  poll_interval_sec: 3
+  reorg_depth: 20
 
+# Settlement Configuration
+settlement:
+  enabled: true
+  batch_size: 100
+  batch_interval: 10  # Seconds
+  max_retries: 3
+  retry_backoff: 30   # Seconds
+  min_batch_amount: "0.01"
+
+# Withdrawal Configuration
+withdrawal:
+  enabled: true
+  max_pending: 1000
+  processing_interval_sec: 5
+  max_retries: 3
+
+# Token Configuration
+tokens:
+  - symbol: ETH
+    address: "0x0000000000000000000000000000000000000000"
+    decimals: 18
+    is_native: true
+  - symbol: USDT
+    address: ${USDT_ADDRESS:0x0000000000000000000000000000000000000001}
+    decimals: 6
+    is_native: false
+  - symbol: USDC
+    address: ${USDC_ADDRESS:0x0000000000000000000000000000000000000002}
+    decimals: 6
+    is_native: false
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9095
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

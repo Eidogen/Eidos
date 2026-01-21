@@ -47,7 +47,7 @@ func TestTradeRepository_Create_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "trades"`).
+	mock.ExpectQuery(`INSERT INTO "trading_trades"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -75,7 +75,7 @@ func TestTradeRepository_GetByTradeID_Success(t *testing.T) {
 		model.SettlementStatusMatchedOffchain, "", "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE trade_id = \$1 ORDER BY "trades"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE trade_id = \$1 ORDER BY "trading_trades"\."id" LIMIT \$2`).
 		WithArgs(tradeID, 1).
 		WillReturnRows(rows)
 
@@ -95,7 +95,7 @@ func TestTradeRepository_GetByTradeID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	tradeID := "T999999999"
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE trade_id = \$1 ORDER BY "trades"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE trade_id = \$1 ORDER BY "trading_trades"\."id" LIMIT \$2`).
 		WithArgs(tradeID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -129,7 +129,7 @@ func TestTradeRepository_ListByOrderID_Success(t *testing.T) {
 		model.SettlementStatusMatchedOffchain, "", "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE maker_order_id = \$1 OR taker_order_id = \$2 ORDER BY matched_at ASC`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE maker_order_id = \$1 OR taker_order_id = \$2 ORDER BY matched_at ASC`).
 		WithArgs(orderID, orderID).
 		WillReturnRows(rows)
 
@@ -157,7 +157,7 @@ func TestTradeRepository_ListBySettlementStatus_Success(t *testing.T) {
 		status, "", "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE settlement_status = \$1 ORDER BY matched_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE settlement_status = \$1 ORDER BY matched_at ASC LIMIT \$2`).
 		WithArgs(status, 100).
 		WillReturnRows(rows)
 
@@ -177,7 +177,7 @@ func TestTradeRepository_UpdateSettlementStatus_Success(t *testing.T) {
 	tradeID := "T123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "trades" SET`).
+	mock.ExpectExec(`UPDATE "trading_trades" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -199,7 +199,7 @@ func TestTradeRepository_UpdateSettlementStatus_OptimisticLock(t *testing.T) {
 	tradeID := "T123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "trades" SET`).
+	mock.ExpectExec(`UPDATE "trading_trades" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
@@ -222,7 +222,7 @@ func TestTradeRepository_MarkSettled_Success(t *testing.T) {
 	txHash := "0xabcdef1234567890"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "trades" SET`).
+	mock.ExpectExec(`UPDATE "trading_trades" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -242,7 +242,7 @@ func TestTradeRepository_MarkSettled_NotFound(t *testing.T) {
 	txHash := "0xabcdef1234567890"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "trades" SET`).
+	mock.ExpectExec(`UPDATE "trading_trades" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
@@ -269,7 +269,7 @@ func TestTradeRepository_GetRecentTrades_Success(t *testing.T) {
 		model.SettlementStatusMatchedOffchain, "", "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE market = \$1 ORDER BY matched_at DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE market = \$1 ORDER BY matched_at DESC LIMIT \$2`).
 		WithArgs(market, 10).
 		WillReturnRows(rows)
 
@@ -288,7 +288,7 @@ func TestTradeRepository_CountByMarket_Success(t *testing.T) {
 	ctx := context.Background()
 	market := "ETH-USDT"
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "trades" WHERE market = \$1`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_trades" WHERE market = \$1`).
 		WithArgs(market).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(100))
 
@@ -313,7 +313,7 @@ func TestTradeRepository_GetBatch_Success(t *testing.T) {
 		model.SettlementStatusPending, "", now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "settlement_batches" WHERE batch_id = \$1 ORDER BY "settlement_batches"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_settlement_batches" WHERE batch_id = \$1 ORDER BY "trading_settlement_batches"\."id" LIMIT \$2`).
 		WithArgs(batchID, 1).
 		WillReturnRows(rows)
 
@@ -333,7 +333,7 @@ func TestTradeRepository_GetBatch_NotFound(t *testing.T) {
 	ctx := context.Background()
 	batchID := "BATCH999"
 
-	mock.ExpectQuery(`SELECT \* FROM "settlement_batches" WHERE batch_id = \$1 ORDER BY "settlement_batches"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_settlement_batches" WHERE batch_id = \$1 ORDER BY "trading_settlement_batches"\."id" LIMIT \$2`).
 		WithArgs(batchID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -358,7 +358,7 @@ func TestTradeRepository_CreateBatch_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "settlement_batches"`).
+	mock.ExpectQuery(`INSERT INTO "trading_settlement_batches"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -384,7 +384,7 @@ func TestTradeRepository_ListPendingBatches_Success(t *testing.T) {
 		model.SettlementStatusSubmitted, "0xabc", now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "settlement_batches" WHERE status IN \(\$1,\$2\) ORDER BY created_at ASC LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_settlement_batches" WHERE status IN \(\$1,\$2\) ORDER BY created_at ASC LIMIT \$3`).
 		WithArgs(model.SettlementStatusPending, model.SettlementStatusSubmitted, 100).
 		WillReturnRows(rows)
 
@@ -412,7 +412,7 @@ func TestTradeRepository_GetByID_Success(t *testing.T) {
 		model.SettlementStatusMatchedOffchain, "", "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE id = \$1 ORDER BY "trades"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE id = \$1 ORDER BY "trading_trades"\."id" LIMIT \$2`).
 		WithArgs(id, 1).
 		WillReturnRows(rows)
 
@@ -441,7 +441,7 @@ func TestTradeRepository_ListByBatchID_Success(t *testing.T) {
 		model.SettlementStatusPending, batchID, "", now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "trades" WHERE batch_id = \$1 ORDER BY matched_at ASC`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_trades" WHERE batch_id = \$1 ORDER BY matched_at ASC`).
 		WithArgs(batchID).
 		WillReturnRows(rows)
 

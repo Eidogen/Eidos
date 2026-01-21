@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	commonpb "github.com/eidos-exchange/eidos/proto/common/v1"
+	commonpb "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -193,7 +193,7 @@ func (c *RiskClient) CheckWithdraw(ctx context.Context, req *CheckWithdrawReques
 	ctx, cancel := context.WithTimeout(ctx, DefaultTimeout)
 	defer cancel()
 
-	resp, err := c.client.CheckWithdraw(ctx, &pb.CheckWithdrawRequest{
+	resp, err := c.client.CheckWithdrawal(ctx, &pb.CheckWithdrawalRequest{
 		Wallet:    req.Wallet,
 		Token:     req.Token,
 		Amount:    req.Amount,
@@ -223,10 +223,16 @@ func (c *RiskClient) CheckBlacklist(ctx context.Context, wallet string) (*CheckB
 		return nil, convertRiskError(err)
 	}
 
+	var reason string
+	var expireAt int64
+	if entry := resp.GetEntry(); entry != nil {
+		reason = entry.GetReason()
+		expireAt = entry.GetExpireAt()
+	}
 	return &CheckBlacklistResponse{
-		IsBlacklisted: resp.IsBlacklisted,
-		Reason:        resp.Reason,
-		ExpireAt:      resp.ExpireAt,
+		IsBlacklisted: resp.GetIsBlacklisted(),
+		Reason:        reason,
+		ExpireAt:      expireAt,
 	}, nil
 }
 
@@ -245,12 +251,12 @@ func (c *RiskClient) GetUserLimits(ctx context.Context, wallet string) (*GetUser
 	limits := make([]*UserLimit, len(resp.Limits))
 	for i, l := range resp.Limits {
 		limits[i] = &UserLimit{
-			LimitType:      l.LimitType,
-			Token:          l.Token,
-			MaxValue:       l.MaxValue,
-			UsedValue:      l.UsedValue,
-			RemainingValue: l.RemainingValue,
-			ResetAt:        l.ResetAt,
+			LimitType:      l.GetLimitType(),
+			Token:          l.GetToken(),
+			MaxValue:       l.GetMaxValue(),
+			UsedValue:      l.GetUsedValue(),
+			RemainingValue: l.GetRemainingValue(),
+			ResetAt:        l.GetResetsAt(),
 		}
 	}
 

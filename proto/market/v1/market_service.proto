@@ -23,6 +23,12 @@ service MarketService {
 
   // 获取订单簿深度
   rpc GetDepth(GetDepthRequest) returns (GetDepthResponse);
+
+  // 获取 24 小时统计
+  rpc Get24hStats(Get24hStatsRequest) returns (Get24hStatsResponse);
+
+  // 获取历史成交记录
+  rpc GetTradeHistory(GetTradeHistoryRequest) returns (GetTradeHistoryResponse);
 }
 
 // MarketStatus 市场状态
@@ -184,4 +190,38 @@ message GetDepthResponse {
   repeated PriceLevel asks = 3;        // 卖单（价格升序）
   uint64 sequence = 4;                 // 序列号
   int64 timestamp = 5;                 // 时间戳（毫秒）
+}
+
+// --- 24h Stats ---
+
+message Get24hStatsRequest {
+  string market = 1;                   // 交易对
+}
+
+message Get24hStatsResponse {
+  string market = 1;                   // 交易对
+  string price_change = 2;             // 24h 价格变化
+  string price_change_percent = 3;     // 24h 价格变化百分比
+  string high = 4;                     // 24h 最高价
+  string low = 5;                      // 24h 最低价
+  string volume = 6;                   // 24h 成交量 (Base)
+  string quote_volume = 7;             // 24h 成交额 (Quote)
+  string open = 8;                     // 24h 开盘价
+  string last_price = 9;               // 最新价
+  int32 trade_count = 10;              // 24h 成交笔数
+  int64 timestamp = 11;                // 时间戳（毫秒）
+}
+
+// --- Trade History ---
+
+message GetTradeHistoryRequest {
+  string market = 1;                   // 交易对
+  int64 start_time = 2;                // 开始时间（毫秒）
+  int64 end_time = 3;                  // 结束时间（毫秒）
+  int32 limit = 4;                     // 返回数量，默认 100，最大 1000
+  string from_id = 5;                  // 从指定成交 ID 开始
+}
+
+message GetTradeHistoryResponse {
+  repeated RecentTrade trades = 1;
 }

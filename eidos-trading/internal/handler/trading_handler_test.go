@@ -16,6 +16,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/worker"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
@@ -456,8 +457,8 @@ func TestTradingHandler_CreateOrder_Success(t *testing.T) {
 	resp, err := handler.CreateOrder(ctx, &pb.CreateOrderRequest{
 		Wallet:    "0x1234567890abcdef",
 		Market:    "ETH-USDC",
-		Side:      pb.OrderSide_ORDER_SIDE_BUY,
-		Type:      pb.OrderType_ORDER_TYPE_LIMIT,
+		Side:      commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:      commonv1.OrderType_ORDER_TYPE_LIMIT,
 		Price:     "3000.0",
 		Amount:    "1.0",
 		Nonce:     12345,
@@ -467,7 +468,7 @@ func TestTradingHandler_CreateOrder_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "O123456789", resp.Order.OrderId)
-	assert.Equal(t, pb.OrderSide_ORDER_SIDE_BUY, resp.Order.Side)
+	assert.Equal(t, commonv1.OrderSide_ORDER_SIDE_BUY, resp.Order.Side)
 	orderService.AssertExpectations(t)
 }
 
@@ -556,8 +557,8 @@ func TestTradingHandler_CreateOrder_InsufficientBalance(t *testing.T) {
 	resp, err := handler.CreateOrder(ctx, &pb.CreateOrderRequest{
 		Wallet: "0x1234567890abcdef",
 		Market: "ETH-USDC",
-		Side:   pb.OrderSide_ORDER_SIDE_BUY,
-		Type:   pb.OrderType_ORDER_TYPE_LIMIT,
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
 		Price:  "3000.0",
 		Amount: "100.0",
 	})
@@ -578,8 +579,8 @@ func TestTradingHandler_CreateOrder_DuplicateOrder(t *testing.T) {
 	resp, err := handler.CreateOrder(ctx, &pb.CreateOrderRequest{
 		Wallet: "0x1234567890abcdef",
 		Market: "ETH-USDC",
-		Side:   pb.OrderSide_ORDER_SIDE_BUY,
-		Type:   pb.OrderType_ORDER_TYPE_LIMIT,
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
 		Price:  "3000.0",
 		Amount: "1.0",
 		Nonce:  12345,
@@ -668,7 +669,7 @@ func TestTradingHandler_GetOrder_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "O123456789", resp.OrderId)
-	assert.Equal(t, pb.OrderStatus_ORDER_STATUS_PARTIAL, resp.Status)
+	assert.Equal(t, commonv1.OrderStatus_ORDER_STATUS_PARTIAL, resp.Status)
 	orderService.AssertExpectations(t)
 }
 
@@ -1226,7 +1227,7 @@ func TestTradingHandler_ProcessTradeResult_Success(t *testing.T) {
 		QuoteAmount:  "3000.0",
 		MakerFee:     "1.5",
 		TakerFee:     "3.0",
-		MakerSide:    pb.OrderSide_ORDER_SIDE_BUY,
+		MakerSide:    commonv1.OrderSide_ORDER_SIDE_BUY,
 		MatchedAt:    time.Now().UnixMilli(),
 	})
 

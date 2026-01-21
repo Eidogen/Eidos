@@ -8,7 +8,7 @@ import (
 
 func TestBlockCheckpoint_TableName(t *testing.T) {
 	checkpoint := BlockCheckpoint{}
-	assert.Equal(t, "eidos_chain_block_checkpoints", checkpoint.TableName())
+	assert.Equal(t, "chain_block_checkpoints", checkpoint.TableName())
 }
 
 func TestChainEventType_Constants(t *testing.T) {
@@ -20,5 +20,5 @@ func TestChainEventType_Constants(t *testing.T) {
 
 func TestChainEvent_TableName(t *testing.T) {
 	event := ChainEvent{}
-	assert.Equal(t, "eidos_chain_events", event.TableName())
+	assert.Equal(t, "chain_events", event.TableName())
 }

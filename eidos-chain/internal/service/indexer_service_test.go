@@ -389,9 +389,9 @@ func TestIndexerService_GetTokenSymbol(t *testing.T) {
 	depositRepo := newMockDepositRepository()
 	svc := createTestIndexerService(checkpointRepo, depositRepo)
 
-	// 目前是硬编码返回 USDC
+	// tokenRegistry 为 nil 时返回地址本身
 	symbol := svc.getTokenSymbol("0xtoken")
-	assert.Equal(t, "USDC", symbol)
+	assert.Equal(t, "0xtoken", symbol)
 }
 
 // TestIndexerStatus 测试索引器状态结构

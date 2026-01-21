@@ -22,6 +22,7 @@ const (
 // TradingClientInterface 定义 Trading 客户端接口（用于测试 mock）
 type TradingClientInterface interface {
 	Ping(ctx context.Context) error
+	PrepareOrder(ctx context.Context, req *PrepareOrderRequest) (*PrepareOrderResponse, error)
 	CreateOrder(ctx context.Context, req *dto.CreateOrderRequest, wallet string) (*dto.CreateOrderResponse, error)
 	CancelOrder(ctx context.Context, orderID, wallet string) error
 	GetOrder(ctx context.Context, orderID, wallet string) (*dto.OrderResponse, error)
@@ -285,7 +286,7 @@ func (c *TradingClient) GetBalanceLogs(ctx context.Context, wallet string, query
 	}
 
 	if query.Type != "" {
-		req.Type = convertBalanceLogType(query.Type)
+		req.Type = convertBalanceChangeType(query.Type)
 	}
 
 	resp, err := c.client.GetBalanceLogs(ctx, req)

@@ -26,5 +26,5 @@ func TestDepositRecordStatus_String(t *testing.T) {
 
 func TestDepositRecord_TableName(t *testing.T) {
 	record := DepositRecord{}
-	assert.Equal(t, "eidos_chain_deposit_records", record.TableName())
+	assert.Equal(t, "chain_deposit_records", record.TableName())
 }

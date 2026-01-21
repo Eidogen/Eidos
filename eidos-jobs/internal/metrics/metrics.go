@@ -400,3 +400,153 @@ func UpdateDBConnections(idle, inUse int) {
 	DBConnectionsGauge.WithLabelValues("idle").Set(float64(idle))
 	DBConnectionsGauge.WithLabelValues("in_use").Set(float64(inUse))
 }
+
+// 余额扫描任务指标
+var (
+	// BalanceScanTotal 余额扫描执行总数
+	BalanceScanTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "balance_scan_total",
+			Help:      "余额扫描执行总数",
+		},
+		[]string{"status"}, // status: success/failed
+	)
+
+	// BalanceScanWalletsChecked 余额扫描检查钱包数
+	BalanceScanWalletsChecked = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "balance_scan_wallets_checked_total",
+			Help:      "余额扫描检查的钱包总数",
+		},
+	)
+
+	// BalanceScanInsufficientWallets 余额不足钱包数
+	BalanceScanInsufficientWallets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "balance_scan_insufficient_wallets_total",
+			Help:      "余额扫描发现余额不足的钱包总数",
+		},
+	)
+
+	// BalanceScanOrdersCancelled 因余额不足取消的订单数
+	BalanceScanOrdersCancelled = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "balance_scan_orders_cancelled_total",
+			Help:      "因余额不足取消的订单总数",
+		},
+	)
+
+	// BalanceScanDuration 余额扫描耗时
+	BalanceScanDuration = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "balance_scan_duration_seconds",
+			Help:      "余额扫描任务耗时(秒)",
+			Buckets:   []float64{1, 5, 10, 30, 60, 120, 240},
+		},
+	)
+)
+
+// 结算触发任务指标
+var (
+	// SettlementTriggerTotal 结算触发执行总数
+	SettlementTriggerTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "settlement_trigger_total",
+			Help:      "结算触发执行总数",
+		},
+		[]string{"status"}, // status: success/failed
+	)
+
+	// SettlementBatchesCreated 创建的结算批次数
+	SettlementBatchesCreated = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "settlement_batches_created_total",
+			Help:      "创建的结算批次总数",
+		},
+	)
+
+	// SettlementBatchesSubmitted 提交的结算批次数
+	SettlementBatchesSubmitted = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "settlement_batches_submitted_total",
+			Help:      "提交的结算批次总数",
+		},
+	)
+
+	// SettlementBatchesRetried 重试的结算批次数
+	SettlementBatchesRetried = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "settlement_batches_retried_total",
+			Help:      "重试的结算批次总数",
+		},
+	)
+
+	// SettlementBatchesFailed 失败的结算批次数
+	SettlementBatchesFailed = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "settlement_batches_failed_total",
+			Help:      "失败的结算批次总数",
+		},
+	)
+
+	// SettlementPendingTradesGauge 待结算交易数量
+	SettlementPendingTradesGauge = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "settlement_pending_trades",
+			Help:      "当前待结算交易数量",
+		},
+	)
+
+	// SettlementTriggerDuration 结算触发耗时
+	SettlementTriggerDuration = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "settlement_trigger_duration_seconds",
+			Help:      "结算触发任务耗时(秒)",
+			Buckets:   []float64{0.5, 1, 5, 10, 30, 50},
+		},
+	)
+)
+
+// RecordBalanceScan 记录余额扫描
+func RecordBalanceScan(status string, walletsChecked, insufficientWallets, ordersCancelled int, durationSeconds float64) {
+	BalanceScanTotal.WithLabelValues(status).Inc()
+	BalanceScanWalletsChecked.Add(float64(walletsChecked))
+	BalanceScanInsufficientWallets.Add(float64(insufficientWallets))
+	BalanceScanOrdersCancelled.Add(float64(ordersCancelled))
+	BalanceScanDuration.Observe(durationSeconds)
+}
+
+// RecordSettlementTrigger 记录结算触发
+func RecordSettlementTrigger(status string, batchesCreated, batchesSubmitted, batchesRetried, batchesFailed int, durationSeconds float64) {
+	SettlementTriggerTotal.WithLabelValues(status).Inc()
+	if batchesCreated > 0 {
+		SettlementBatchesCreated.Add(float64(batchesCreated))
+	}
+	if batchesSubmitted > 0 {
+		SettlementBatchesSubmitted.Add(float64(batchesSubmitted))
+	}
+	if batchesRetried > 0 {
+		SettlementBatchesRetried.Add(float64(batchesRetried))
+	}
+	if batchesFailed > 0 {
+		SettlementBatchesFailed.Add(float64(batchesFailed))
+	}
+	SettlementTriggerDuration.Observe(durationSeconds)
+}
+
+// UpdateSettlementPendingTrades 更新待结算交易数量
+func UpdateSettlementPendingTrades(count int) {
+	SettlementPendingTradesGauge.Set(float64(count))
+}

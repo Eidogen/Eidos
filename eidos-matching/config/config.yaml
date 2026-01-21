@@ -2,40 +2,72 @@ service:
   name: eidos-matching
   node_id: ${NODE_ID:engine-1}
   grpc_port: 50052
-  http_port: 8080
+  http_port: 8083
   env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Redis Configuration
 redis:
   addresses:
-    - ${REDIS_ADDR:redis:6379}
+    - ${REDIS_ADDR:localhost:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
+  min_idle_conns: 20
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
   tls_enabled: ${REDIS_TLS_ENABLED:false}
 
+# Kafka Configuration
 kafka:
+  enabled: ${KAFKA_ENABLED:true}
   brokers:
-    - ${KAFKA_BROKERS:kafka:9092}
+    - ${KAFKA_BROKERS:localhost:9092}
   consumer:
     group_id: eidos-matching
     topics:
       - orders
       - cancel-requests
+    auto_offset_reset: earliest
     batch_size: 100
     linger_ms: 5
+    max_poll_records: 500
   producer:
+    topics:
+      matching_results: matching-results
+      trade_events: trade-events
+      order_book_updates: order-book-updates
     compression: lz4
     batch_size: 1000
     batch_timeout_ms: 10
     required_acks: -1  # all
 
-# 市场配置
-# TODO: 从配置中心 (Nacos/eidos-admin) 动态加载
+# gRPC Client Configuration
+grpc_clients:
+  trading:
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    timeout_ms: 5000
+    max_retry: 3
+  risk:
+    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    timeout_ms: 100
+    max_retry: 1
+
+# Market Configuration
 markets:
   - symbol: BTC-USDC
     base_token: BTC
@@ -57,19 +89,69 @@ markets:
     maker_fee_rate: "0.0005"
     taker_fee_rate: "0.001"
     max_slippage: "0.05"
+  - symbol: ETH-USDT
+    base_token: ETH
+    quote_token: USDT
+    price_decimals: 8
+    size_decimals: 8
+    min_size: "0.001"
+    tick_size: "0.01"
+    maker_fee_rate: "0.001"
+    taker_fee_rate: "0.002"
+    max_slippage: "0.05"
 
-# 快照配置
+# Snapshot Configuration
 snapshot:
+  enabled: true
   interval: 30s
   max_count: 10
   two_phase: true
+  storage_path: /var/lib/eidos/snapshots
 
-# 高可用配置
+# High Availability Configuration
 ha:
   enabled: ${HA_ENABLED:false}
   heartbeat_interval: 100ms
   failover_timeout: 500ms
+  leader_election:
+    enabled: true
+    ttl_sec: 30
 
+# Index Price Configuration
+index_price:
+  enabled: true
+  update_interval: 1s
+  stale_threshold: 30s
+  aggregation_method: median  # median, weighted_avg, best_source
+  min_valid_sources: 1
+  deviation_threshold: "0.1"  # 10%
+
+# Risk Integration
+risk:
+  enabled: ${RISK_ENABLED:false}
+  addr: ${RISK_ADDR:localhost:50055}
+  timeout_ms: 100
+  fail_open: false
+
+# Performance Tuning
+performance:
+  max_orders_per_batch: 1000
+  order_book_depth: 1000
+  gc_interval: 60s
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9093
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

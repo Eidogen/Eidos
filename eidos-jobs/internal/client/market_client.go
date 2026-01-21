@@ -81,14 +81,21 @@ func (c *MarketClient) GetKlines(ctx context.Context, market, interval string, s
 }
 
 // SaveKline 保存 K 线数据
-// 注意: proto 中没有定义保存 K 线的接口，需要 eidos-market 增加或使用直连数据库
+// TODO: 需要在 market proto 中定义 UpsertKline RPC
 func (c *MarketClient) SaveKline(ctx context.Context, kline *jobs.Kline) error {
-	// TODO: 需要 eidos-market 提供 SaveKline gRPC 接口
-	// 或者直连 eidos-market 的数据库保存
-	logger.Debug("save kline (not implemented via gRPC)",
-		zap.String("market", kline.Market),
-		zap.String("interval", kline.Interval))
-	return nil
+	return fmt.Errorf("not implemented: UpsertKline RPC not defined in proto")
+}
+
+// BatchSaveKlines 批量保存 K 线数据
+// TODO: 需要在 market proto 中定义 BatchUpsertKlines RPC
+func (c *MarketClient) BatchSaveKlines(ctx context.Context, klines []*jobs.Kline) error {
+	return fmt.Errorf("not implemented: BatchUpsertKlines RPC not defined in proto")
+}
+
+// RepairKlineHistory 修复 K 线历史数据
+// TODO: 需要在 market proto 中定义 RepairKlineHistory RPC
+func (c *MarketClient) RepairKlineHistory(ctx context.Context, market, interval string, startTime, endTime int64) (int, error) {
+	return 0, fmt.Errorf("not implemented: RepairKlineHistory RPC not defined in proto")
 }
 
 // GetMarkets 获取所有交易对

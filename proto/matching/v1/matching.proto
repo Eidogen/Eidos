@@ -6,125 +6,626 @@ option go_package = "github.com/eidos-exchange/eidos/proto/matching/v1;matchingv
 
 import "common/enums.proto";
 
-// 撮合引擎服务
+// ============================================================================
+// MatchingService - Order Book Query API
+// ============================================================================
+
+// MatchingService provides read-only access to the matching engine state.
+// Order submission and cancellation are done via Kafka messages.
 service MatchingService {
-    // 获取订单簿快照
+    // GetOrderbook retrieves a snapshot of the orderbook for a market
     rpc GetOrderbook(GetOrderbookRequest) returns (GetOrderbookResponse);
 
-    // 获取订单簿深度
+    // GetDepth retrieves aggregated depth at specified levels
     rpc GetDepth(GetDepthRequest) returns (GetDepthResponse);
 
-    // 健康检查
+    // GetBestPrices retrieves best bid/ask for a market
+    rpc GetBestPrices(GetBestPricesRequest) returns (GetBestPricesResponse);
+
+    // GetMarketState retrieves the current state of a market
+    rpc GetMarketState(GetMarketStateRequest) returns (GetMarketStateResponse);
+
+    // ListMarkets retrieves status of all active markets
+    rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse);
+
+    // HealthCheck checks the health of the matching engine
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+    // GetMetrics retrieves matching engine performance metrics
+    rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
 }
 
+// ============================================================================
+// Orderbook Messages
+// ============================================================================
+
+// GetOrderbookRequest is the request to get orderbook snapshot
 message GetOrderbookRequest {
+    // Trading pair symbol (required)
     string market = 1;
-    int32 limit = 2;  // 每边数量限制，默认 100
+
+    // Maximum number of price levels per side (optional, default 100, max 500)
+    int32 limit = 2;
 }
 
+// GetOrderbookResponse contains the orderbook snapshot
 message GetOrderbookResponse {
+    // Trading pair symbol
     string market = 1;
+
+    // Bid price levels (sorted by price descending)
     repeated PriceLevel bids = 2;
+
+    // Ask price levels (sorted by price ascending)
     repeated PriceLevel asks = 3;
+
+    // Snapshot timestamp (Unix milliseconds)
     int64 timestamp = 4;
+
+    // Sequence number for this snapshot
     uint64 sequence = 5;
+
+    // Last trade price (decimal string)
+    string last_price = 6;
+
+    // Last trade timestamp (Unix milliseconds)
+    int64 last_trade_time = 7;
 }
 
+// GetDepthRequest is the request to get aggregated depth
 message GetDepthRequest {
+    // Trading pair symbol (required)
     string market = 1;
-    int32 level = 2;  // 5, 10, 20, 50, 100
+
+    // Number of levels: 5, 10, 20, 50, or 100 (optional, default 20)
+    int32 level = 2;
 }
 
+// GetDepthResponse contains aggregated depth data
 message GetDepthResponse {
+    // Trading pair symbol
     string market = 1;
+
+    // Bid price levels (sorted by price descending)
     repeated PriceLevel bids = 2;
+
+    // Ask price levels (sorted by price ascending)
     repeated PriceLevel asks = 3;
+
+    // Snapshot timestamp (Unix milliseconds)
     int64 timestamp = 4;
 }
 
+// PriceLevel represents a single price level in the orderbook
 message PriceLevel {
+    // Price at this level (decimal string)
     string price = 1;
+
+    // Total quantity at this price (decimal string)
     string amount = 2;
-    int32 order_count = 3;  // 该价位订单数量
+
+    // Number of orders at this price level
+    int32 order_count = 3;
 }
 
+// GetBestPricesRequest is the request to get best bid/ask
+message GetBestPricesRequest {
+    // Trading pair symbol (required)
+    string market = 1;
+}
+
+// GetBestPricesResponse contains best bid/ask prices
+message GetBestPricesResponse {
+    // Trading pair symbol
+    string market = 1;
+
+    // Best bid price (decimal string, empty if no bids)
+    string best_bid = 2;
+
+    // Best bid quantity (decimal string)
+    string best_bid_qty = 3;
+
+    // Best ask price (decimal string, empty if no asks)
+    string best_ask = 4;
+
+    // Best ask quantity (decimal string)
+    string best_ask_qty = 5;
+
+    // Spread (decimal string, ask - bid)
+    string spread = 6;
+
+    // Spread percentage (decimal string, spread / mid price * 100)
+    string spread_percent = 7;
+
+    // Timestamp (Unix milliseconds)
+    int64 timestamp = 8;
+}
+
+// ============================================================================
+// Market State Messages
+// ============================================================================
+
+// GetMarketStateRequest is the request to get market state
+message GetMarketStateRequest {
+    // Trading pair symbol (required)
+    string market = 1;
+}
+
+// GetMarketStateResponse contains the market state
+message GetMarketStateResponse {
+    // Trading pair symbol
+    string market = 1;
+
+    // Whether the market is active
+    bool is_active = 2;
+
+    // Current market status
+    eidos.common.v1.MarketStatus status = 3;
+
+    // Total number of bid orders
+    int64 bid_order_count = 4;
+
+    // Total number of ask orders
+    int64 ask_order_count = 5;
+
+    // Total bid volume (decimal string)
+    string bid_volume = 6;
+
+    // Total ask volume (decimal string)
+    string ask_volume = 7;
+
+    // Best bid price (decimal string)
+    string best_bid = 8;
+
+    // Best ask price (decimal string)
+    string best_ask = 9;
+
+    // Last trade price (decimal string)
+    string last_price = 10;
+
+    // Last trade timestamp (Unix milliseconds)
+    int64 last_trade_time = 11;
+
+    // Last match sequence number
+    uint64 last_sequence = 12;
+
+    // Market statistics for current period
+    MarketStats stats_24h = 13;
+}
+
+// MarketStats contains market statistics
+message MarketStats {
+    // Volume in base token (decimal string)
+    string volume = 1;
+
+    // Volume in quote token (decimal string)
+    string quote_volume = 2;
+
+    // Number of trades
+    int64 trade_count = 3;
+
+    // High price (decimal string)
+    string high = 4;
+
+    // Low price (decimal string)
+    string low = 5;
+
+    // Open price (decimal string)
+    string open = 6;
+
+    // Price change (decimal string)
+    string price_change = 7;
+
+    // Price change percentage (decimal string)
+    string price_change_percent = 8;
+}
+
+// ListMarketsRequest is the request to list all markets
+message ListMarketsRequest {
+    // Filter by status (optional)
+    eidos.common.v1.MarketStatus status = 1;
+}
+
+// ListMarketsResponse contains all market states
+message ListMarketsResponse {
+    // List of market states
+    repeated MarketSummary markets = 1;
+}
+
+// MarketSummary contains brief market information
+message MarketSummary {
+    // Trading pair symbol
+    string market = 1;
+
+    // Whether the market is active
+    bool is_active = 2;
+
+    // Market status
+    eidos.common.v1.MarketStatus status = 3;
+
+    // Best bid price (decimal string)
+    string best_bid = 4;
+
+    // Best ask price (decimal string)
+    string best_ask = 5;
+
+    // Last trade price (decimal string)
+    string last_price = 6;
+
+    // 24h volume (decimal string)
+    string volume_24h = 7;
+
+    // Last update time (Unix milliseconds)
+    int64 updated_at = 8;
+}
+
+// ============================================================================
+// Health Check Messages
+// ============================================================================
+
+// HealthCheckRequest is the health check request
 message HealthCheckRequest {}
 
+// HealthCheckResponse contains health status
 message HealthCheckResponse {
+    // Overall health status
     bool healthy = 1;
-    map<string, MarketStatus> markets = 2;
+
+    // Health status per market
+    map<string, MarketHealth> markets = 2;
+
+    // Engine uptime in seconds
+    int64 uptime_seconds = 3;
+
+    // Memory usage in bytes
+    int64 memory_usage_bytes = 4;
+
+    // Number of goroutines
+    int32 goroutine_count = 5;
 }
 
-message MarketStatus {
+// MarketHealth contains health info for a market
+message MarketHealth {
+    // Trading pair symbol
     string market = 1;
+
+    // Whether the market is active
     bool active = 2;
-    int64 bid_count = 3;
-    int64 ask_count = 4;
-    string best_bid = 5;
-    string best_ask = 6;
-    int64 last_match_time = 7;
+
+    // Market status
+    eidos.common.v1.MarketStatus status = 3;
+
+    // Number of bid orders
+    int64 bid_count = 4;
+
+    // Number of ask orders
+    int64 ask_count = 5;
+
+    // Best bid price (decimal string)
+    string best_bid = 6;
+
+    // Best ask price (decimal string)
+    string best_ask = 7;
+
+    // Last match timestamp (Unix milliseconds)
+    int64 last_match_time = 8;
+
+    // Orders processed in last minute
+    int64 orders_per_minute = 9;
+
+    // Trades executed in last minute
+    int64 trades_per_minute = 10;
 }
 
-// === Kafka 消息定义 ===
+// ============================================================================
+// Metrics Messages
+// ============================================================================
 
-// 订单消息 (Kafka: orders)
-message OrderMessage {
-    string order_id = 1;
-    string wallet = 2;
-    string market = 3;
-    eidos.common.v1.OrderSide side = 4;
-    eidos.common.v1.OrderType order_type = 5;
-    string price = 6;
-    string amount = 7;
-    eidos.common.v1.TimeInForce time_in_force = 8;
-    int64 created_at = 9;
-}
-
-// 取消请求消息 (Kafka: cancel-requests)
-message CancelRequestMessage {
-    string order_id = 1;
-    string market = 2;
-    string wallet = 3;
-    int64 requested_at = 4;
-}
-
-// 成交结果消息 (Kafka: trade-results)
-message TradeResultMessage {
-    string trade_id = 1;
-    string market = 2;
-    string maker_order_id = 3;
-    string taker_order_id = 4;
-    string maker_wallet = 5;
-    string taker_wallet = 6;
-    eidos.common.v1.OrderSide taker_side = 7;
-    string price = 8;
-    string amount = 9;
-    string quote_amount = 10;
-    string maker_fee = 11;
-    string taker_fee = 12;
-    int64 matched_at = 13;
-}
-
-// 订单簿更新消息 (Kafka: orderbook-updates)
-message OrderbookUpdateMessage {
+// GetMetricsRequest is the request to get matching engine metrics
+message GetMetricsRequest {
+    // Filter by market (optional, empty = all markets)
     string market = 1;
+}
+
+// GetMetricsResponse contains performance metrics
+message GetMetricsResponse {
+    // Per-market metrics
+    map<string, MarketMetrics> markets = 1;
+
+    // Global metrics
+    GlobalMetrics global = 2;
+}
+
+// MarketMetrics contains metrics for a single market
+message MarketMetrics {
+    // Trading pair symbol
+    string market = 1;
+
+    // Orders received count
+    int64 orders_received = 2;
+
+    // Orders matched count
+    int64 orders_matched = 3;
+
+    // Orders cancelled count
+    int64 orders_cancelled = 4;
+
+    // Orders rejected count
+    int64 orders_rejected = 5;
+
+    // Trades executed count
+    int64 trades_executed = 6;
+
+    // Average order processing latency (microseconds)
+    int64 avg_latency_us = 7;
+
+    // P99 order processing latency (microseconds)
+    int64 p99_latency_us = 8;
+
+    // Orders per second (last minute)
+    double orders_per_second = 9;
+
+    // Trades per second (last minute)
+    double trades_per_second = 10;
+}
+
+// GlobalMetrics contains aggregate metrics
+message GlobalMetrics {
+    // Total orders received
+    int64 total_orders = 1;
+
+    // Total trades executed
+    int64 total_trades = 2;
+
+    // Total volume processed (quote token, decimal string)
+    string total_volume = 3;
+
+    // Peak orders per second
+    double peak_ops = 4;
+
+    // Average latency across all markets (microseconds)
+    int64 avg_latency_us = 5;
+
+    // P99 latency across all markets (microseconds)
+    int64 p99_latency_us = 6;
+
+    // Kafka consumer lag
+    int64 kafka_lag = 7;
+
+    // Start time (Unix milliseconds)
+    int64 start_time = 8;
+}
+
+// ============================================================================
+// Kafka Message Definitions
+// These messages are used for Kafka-based communication
+// ============================================================================
+
+// OrderMessage represents a new order to be processed (Kafka: orders)
+// Note: Full definition in common/kafka.proto
+message OrderMessage {
+    // Order ID
+    string order_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Trading pair symbol
+    string market = 3;
+
+    // Order direction
+    eidos.common.v1.OrderSide side = 4;
+
+    // Order type
+    eidos.common.v1.OrderType order_type = 5;
+
+    // Order price (decimal string)
+    string price = 6;
+
+    // Order amount (decimal string)
+    string amount = 7;
+
+    // Quote amount for market orders (decimal string)
+    string quote_amount = 8;
+
+    // Time in force
+    eidos.common.v1.TimeInForce time_in_force = 9;
+
+    // Self-trade prevention
+    eidos.common.v1.SelfTradePrevention self_trade_prevention = 10;
+
+    // Client order ID
+    string client_order_id = 11;
+
+    // Expiry timestamp (Unix milliseconds)
+    int64 expire_at = 12;
+
+    // Max slippage (basis points)
+    uint32 max_slippage_bps = 13;
+
+    // Minimum fill amount (decimal string)
+    string min_fill_amount = 14;
+
+    // Order creation time (Unix milliseconds)
+    int64 created_at = 15;
+}
+
+// CancelRequestMessage represents a cancel request (Kafka: cancel-requests)
+message CancelRequestMessage {
+    // Order ID to cancel
+    string order_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // User wallet address
+    string wallet = 3;
+
+    // Cancel reason
+    string reason = 4;
+
+    // Request timestamp (Unix milliseconds)
+    int64 requested_at = 5;
+}
+
+// TradeResultMessage represents a trade result (Kafka: trade-results)
+message TradeResultMessage {
+    // Trade ID
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker order ID
+    string maker_order_id = 3;
+
+    // Taker order ID
+    string taker_order_id = 4;
+
+    // Maker wallet address
+    string maker_wallet = 5;
+
+    // Taker wallet address
+    string taker_wallet = 6;
+
+    // Taker side
+    eidos.common.v1.OrderSide taker_side = 7;
+
+    // Trade price (decimal string)
+    string price = 8;
+
+    // Trade amount (decimal string)
+    string amount = 9;
+
+    // Quote amount (decimal string)
+    string quote_amount = 10;
+
+    // Maker fee (decimal string)
+    string maker_fee = 11;
+
+    // Taker fee (decimal string)
+    string taker_fee = 12;
+
+    // Fee token
+    string fee_token = 13;
+
+    // Whether maker is fully filled
+    bool maker_filled = 14;
+
+    // Whether taker is fully filled
+    bool taker_filled = 15;
+
+    // Maker remaining amount (decimal string)
+    string maker_remaining = 16;
+
+    // Taker remaining amount (decimal string)
+    string taker_remaining = 17;
+
+    // Match timestamp (Unix milliseconds)
+    int64 matched_at = 18;
+
+    // Sequence number
+    uint64 sequence = 19;
+}
+
+// OrderbookUpdateMessage represents orderbook update (Kafka: orderbook-updates)
+message OrderbookUpdateMessage {
+    // Trading pair symbol
+    string market = 1;
+
+    // Sequence number
     uint64 sequence = 2;
+
+    // Bid updates
     repeated PriceLevelUpdate bids = 3;
+
+    // Ask updates
     repeated PriceLevelUpdate asks = 4;
+
+    // Update timestamp (Unix milliseconds)
     int64 timestamp = 5;
 }
 
+// PriceLevelUpdate represents a price level change
 message PriceLevelUpdate {
+    // Price (decimal string)
     string price = 1;
-    string amount = 2;  // 0 表示删除该价位
+
+    // New total amount (decimal string, "0" = remove level)
+    string amount = 2;
+
+    // Order count at this level
+    int32 order_count = 3;
 }
 
-// 订单取消确认消息 (Kafka: order-cancelled)
+// OrderCancelledMessage represents cancel confirmation (Kafka: order-cancelled)
 message OrderCancelledMessage {
+    // Order ID
     string order_id = 1;
+
+    // Trading pair symbol
     string market = 2;
+
+    // User wallet address
     string wallet = 3;
+
+    // Remaining amount (decimal string)
     string remaining_amount = 4;
-    int64 cancelled_at = 5;
+
+    // Cancel reason
+    string reason = 5;
+
+    // Cancel timestamp (Unix milliseconds)
+    int64 cancelled_at = 6;
+}
+
+// OrderRejectedMessage represents order rejection (Kafka: order-rejected)
+message OrderRejectedMessage {
+    // Order ID
+    string order_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // User wallet address
+    string wallet = 3;
+
+    // Rejection code
+    string reject_code = 4;
+
+    // Rejection reason
+    string reject_reason = 5;
+
+    // Rejection timestamp (Unix milliseconds)
+    int64 rejected_at = 6;
+}
+
+// OrderAcceptedMessage represents order acceptance (Kafka: order-accepted)
+message OrderAcceptedMessage {
+    // Order ID
+    string order_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // User wallet address
+    string wallet = 3;
+
+    // Order side
+    eidos.common.v1.OrderSide side = 4;
+
+    // Order type
+    eidos.common.v1.OrderType order_type = 5;
+
+    // Order price (decimal string)
+    string price = 6;
+
+    // Order amount (decimal string)
+    string amount = 7;
+
+    // Acceptance timestamp (Unix milliseconds)
+    int64 accepted_at = 8;
+
+    // Initial sequence number
+    uint64 sequence = 9;
 }

@@ -321,6 +321,23 @@ func (e *Engine) updateAvgLatency(latencyUs int64) {
 	atomic.StoreInt64(&e.avgLatencyUs, newAvg)
 }
 
+// UpdateConfig 更新市场配置 (热更新)
+func (e *Engine) UpdateConfig(cfg *MarketConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// 更新配置
+	e.config = cfg
+
+	// 更新撮合器配置
+	e.matcher.UpdateConfig(cfg)
+}
+
+// UpdateIndexPrice 更新外部指数价格
+func (e *Engine) UpdateIndexPrice(price decimal.Decimal) {
+	e.matcher.UpdateIndexPrice(price)
+}
+
 // EngineStats 引擎统计
 type EngineStats struct {
 	Market          string                   `json:"market"`

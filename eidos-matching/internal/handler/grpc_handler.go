@@ -158,7 +158,7 @@ func (h *MatchingHandler) HealthCheck(ctx context.Context, req *matchingv1.Healt
 	}()
 
 	markets := h.engineManager.GetMarkets()
-	marketStatuses := make(map[string]*matchingv1.MarketStatus, len(markets))
+	marketStatuses := make(map[string]*matchingv1.MarketHealth, len(markets))
 
 	for _, market := range markets {
 		eng, err := h.engineManager.GetEngine(market)
@@ -169,7 +169,7 @@ func (h *MatchingHandler) HealthCheck(ctx context.Context, req *matchingv1.Healt
 		stats := eng.GetStats()
 		obStats := stats.OrderBookStats
 
-		marketStatuses[market] = &matchingv1.MarketStatus{
+		marketStatuses[market] = &matchingv1.MarketHealth{
 			Market:        market,
 			Active:        eng.IsRunning(),
 			BidCount:      int64(obStats.BidLevels),

@@ -39,7 +39,7 @@ func TestDepositRepository_Create_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "deposits"`).
+	mock.ExpectQuery(`INSERT INTO "trading_deposits"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -65,7 +65,7 @@ func TestDepositRepository_GetByDepositID_Success(t *testing.T) {
 		now, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "deposits" WHERE deposit_id = \$1 ORDER BY "deposits"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_deposits" WHERE deposit_id = \$1 ORDER BY "trading_deposits"\."id" LIMIT \$2`).
 		WithArgs(depositID, 1).
 		WillReturnRows(rows)
 
@@ -85,7 +85,7 @@ func TestDepositRepository_GetByDepositID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	depositID := "D999999999"
 
-	mock.ExpectQuery(`SELECT \* FROM "deposits" WHERE deposit_id = \$1 ORDER BY "deposits"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_deposits" WHERE deposit_id = \$1 ORDER BY "trading_deposits"\."id" LIMIT \$2`).
 		WithArgs(depositID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -113,7 +113,7 @@ func TestDepositRepository_GetByTxHashLogIndex_Success(t *testing.T) {
 		now, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "deposits" WHERE tx_hash = \$1 AND log_index = \$2 ORDER BY "deposits"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_deposits" WHERE tx_hash = \$1 AND log_index = \$2 ORDER BY "trading_deposits"\."id" LIMIT \$3`).
 		WithArgs(txHash, logIndex, 1).
 		WillReturnRows(rows)
 
@@ -140,7 +140,7 @@ func TestDepositRepository_ListPending_Success(t *testing.T) {
 		now, nil, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "deposits" WHERE status = \$1 ORDER BY detected_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_deposits" WHERE status = \$1 ORDER BY detected_at ASC LIMIT \$2`).
 		WithArgs(model.DepositStatusPending, 100).
 		WillReturnRows(rows)
 
@@ -166,7 +166,7 @@ func TestDepositRepository_ListConfirmed_Success(t *testing.T) {
 		now, now, nil, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "deposits" WHERE status = \$1 ORDER BY confirmed_at ASC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_deposits" WHERE status = \$1 ORDER BY confirmed_at ASC LIMIT \$2`).
 		WithArgs(model.DepositStatusConfirmed, 100).
 		WillReturnRows(rows)
 
@@ -186,7 +186,7 @@ func TestDepositRepository_MarkConfirmed_Success(t *testing.T) {
 	depositID := "D123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "deposits" SET`).
+	mock.ExpectExec(`UPDATE "trading_deposits" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -205,7 +205,7 @@ func TestDepositRepository_MarkConfirmed_OptimisticLock(t *testing.T) {
 	depositID := "D999999999"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "deposits" SET`).
+	mock.ExpectExec(`UPDATE "trading_deposits" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
@@ -224,7 +224,7 @@ func TestDepositRepository_MarkCredited_Success(t *testing.T) {
 	depositID := "D123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "deposits" SET`).
+	mock.ExpectExec(`UPDATE "trading_deposits" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -242,7 +242,7 @@ func TestDepositRepository_CountByWallet_Success(t *testing.T) {
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "deposits" WHERE wallet = \$1`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_deposits" WHERE wallet = \$1`).
 		WithArgs(wallet).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(10))
 

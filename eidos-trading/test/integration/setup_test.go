@@ -167,6 +167,7 @@ func NewTestSuite(t *testing.T) *TestSuite {
 		suite.nonceRepo,
 		suite.idGen,
 		suite.tokenCfg,
+		nil, // no withdrawal publisher in tests
 	)
 
 	suite.clearingSvc = service.NewClearingService(
@@ -178,6 +179,7 @@ func NewTestSuite(t *testing.T) *TestSuite {
 		suite.marketCfg,
 		nil, // no order publisher in tests
 		nil, // no balance publisher in tests
+		nil, // no settlement publisher in tests
 	)
 
 	return suite

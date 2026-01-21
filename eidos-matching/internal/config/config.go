@@ -12,15 +12,16 @@ import (
 
 // Config 服务配置
 type Config struct {
-	Service  ServiceConfig  `yaml:"service" json:"service"`
-	Nacos    NacosConfig    `yaml:"nacos" json:"nacos"`
-	Redis    RedisConfig    `yaml:"redis" json:"redis"`
-	Kafka    KafkaConfig    `yaml:"kafka" json:"kafka"`
-	Risk     RiskConfig     `yaml:"risk" json:"risk"`
-	Markets  []MarketConfig `yaml:"markets" json:"markets"`
-	Snapshot SnapshotConfig `yaml:"snapshot" json:"snapshot"`
-	HA       HAConfig       `yaml:"ha" json:"ha"`
-	Log      LogConfig      `yaml:"log" json:"log"`
+	Service    ServiceConfig    `yaml:"service" json:"service"`
+	Nacos      NacosConfig      `yaml:"nacos" json:"nacos"`
+	Redis      RedisConfig      `yaml:"redis" json:"redis"`
+	Kafka      KafkaConfig      `yaml:"kafka" json:"kafka"`
+	Risk       RiskConfig       `yaml:"risk" json:"risk"`
+	Markets    []MarketConfig   `yaml:"markets" json:"markets"`
+	Snapshot   SnapshotConfig   `yaml:"snapshot" json:"snapshot"`
+	HA         HAConfig         `yaml:"ha" json:"ha"`
+	IndexPrice IndexPriceConfig `yaml:"index_price" json:"index_price"`
+	Log        LogConfig        `yaml:"log" json:"log"`
 }
 
 // ServiceConfig 服务配置
@@ -112,6 +113,16 @@ type RiskConfig struct {
 	Timeout int    `yaml:"timeout_ms" json:"timeout_ms"` // 超时时间 (毫秒)
 }
 
+// IndexPriceConfig 指数价格配置
+type IndexPriceConfig struct {
+	Enabled            bool          `yaml:"enabled" json:"enabled"`
+	UpdateInterval     time.Duration `yaml:"update_interval" json:"update_interval"`
+	StaleThreshold     time.Duration `yaml:"stale_threshold" json:"stale_threshold"`
+	AggregationMethod  string        `yaml:"aggregation_method" json:"aggregation_method"` // median, weighted_avg, best_source
+	MinValidSources    int           `yaml:"min_valid_sources" json:"min_valid_sources"`
+	DeviationThreshold string        `yaml:"deviation_threshold" json:"deviation_threshold"`
+}
+
 // Load 加载配置
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -189,6 +200,23 @@ func (c *Config) setDefaults() {
 	// Risk 默认配置
 	if c.Risk.Timeout == 0 {
 		c.Risk.Timeout = 100 // 默认 100ms 超时，风控检查需要快速响应
+	}
+
+	// IndexPrice 默认配置
+	if c.IndexPrice.UpdateInterval == 0 {
+		c.IndexPrice.UpdateInterval = time.Second
+	}
+	if c.IndexPrice.StaleThreshold == 0 {
+		c.IndexPrice.StaleThreshold = 30 * time.Second
+	}
+	if c.IndexPrice.AggregationMethod == "" {
+		c.IndexPrice.AggregationMethod = "median"
+	}
+	if c.IndexPrice.MinValidSources == 0 {
+		c.IndexPrice.MinValidSources = 1
+	}
+	if c.IndexPrice.DeviationThreshold == "" {
+		c.IndexPrice.DeviationThreshold = "0.1" // 10%
 	}
 }
 

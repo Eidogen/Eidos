@@ -13,6 +13,7 @@ import (
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/jobs"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	tradingpb "github.com/eidos-exchange/eidos/proto/trading/v1"
 )
 
@@ -47,9 +48,9 @@ func NewTradingClient(addr string) (*TradingClient, error) {
 // 通过 ListOrders API 查询 OPEN/PARTIAL 状态且 expire_at < beforeTime 的订单
 func (c *TradingClient) GetExpiredOrders(ctx context.Context, beforeTime int64, limit int) ([]*jobs.OrderExpireRequest, error) {
 	resp, err := c.client.ListOrders(ctx, &tradingpb.ListOrdersRequest{
-		Statuses: []tradingpb.OrderStatus{
-			tradingpb.OrderStatus_ORDER_STATUS_OPEN,
-			tradingpb.OrderStatus_ORDER_STATUS_PARTIAL,
+		Statuses: []commonv1.OrderStatus{
+			commonv1.OrderStatus_ORDER_STATUS_OPEN,
+			commonv1.OrderStatus_ORDER_STATUS_PARTIAL,
 		},
 		EndTime:  beforeTime, // 使用 end_time 过滤 expire_at
 		PageSize: int32(limit),

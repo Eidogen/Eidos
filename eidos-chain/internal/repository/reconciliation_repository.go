@@ -17,7 +17,7 @@ var (
 type ReconciliationRepository interface {
 	Create(ctx context.Context, record *model.ReconciliationRecord) error
 	GetByID(ctx context.Context, id int64) (*model.ReconciliationRecord, error)
-	UpdateResolution(ctx context.Context, id int64, resolution string, resolvedBy string) error
+	UpdateResolution(ctx context.Context, id int64, status model.ReconciliationStatus, resolution string, resolvedBy string) error
 
 	ListByWallet(ctx context.Context, wallet string, page *Pagination) ([]*model.ReconciliationRecord, error)
 	ListByStatus(ctx context.Context, status model.ReconciliationStatus, page *Pagination) ([]*model.ReconciliationRecord, error)
@@ -58,12 +58,12 @@ func (r *reconciliationRepository) GetByID(ctx context.Context, id int64) (*mode
 	return &record, nil
 }
 
-func (r *reconciliationRepository) UpdateResolution(ctx context.Context, id int64, resolution string, resolvedBy string) error {
+func (r *reconciliationRepository) UpdateResolution(ctx context.Context, id int64, status model.ReconciliationStatus, resolution string, resolvedBy string) error {
 	now := time.Now().UnixMilli()
 	result := r.DB(ctx).Model(&model.ReconciliationRecord{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":      model.ReconciliationStatusResolved,
+			"status":      status,
 			"resolution":  resolution,
 			"resolved_by": resolvedBy,
 			"resolved_at": now,

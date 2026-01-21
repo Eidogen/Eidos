@@ -138,6 +138,19 @@ func (m *MockTradeRepository) CountByMarket(ctx context.Context, market string, 
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (m *MockTradeRepository) ListUnsettledTrades(ctx context.Context, limit int) ([]*model.Trade, error) {
+	args := m.Called(ctx, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Trade), args.Error(1)
+}
+
+func (m *MockTradeRepository) UpdateSettlementBatchID(ctx context.Context, tradeID, batchID string) error {
+	args := m.Called(ctx, tradeID, batchID)
+	return args.Error(0)
+}
+
 // ========== Test Cases ==========
 // Note: ProcessTradeResult tests have been moved to clearing_service_test.go
 // as ProcessTradeResult is now implemented in ClearingService using Redis Lua atomic operations.

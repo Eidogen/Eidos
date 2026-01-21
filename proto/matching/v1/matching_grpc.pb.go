@@ -19,23 +19,36 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MatchingService_GetOrderbook_FullMethodName = "/eidos.matching.v1.MatchingService/GetOrderbook"
-	MatchingService_GetDepth_FullMethodName     = "/eidos.matching.v1.MatchingService/GetDepth"
-	MatchingService_HealthCheck_FullMethodName  = "/eidos.matching.v1.MatchingService/HealthCheck"
+	MatchingService_GetOrderbook_FullMethodName   = "/eidos.matching.v1.MatchingService/GetOrderbook"
+	MatchingService_GetDepth_FullMethodName       = "/eidos.matching.v1.MatchingService/GetDepth"
+	MatchingService_GetBestPrices_FullMethodName  = "/eidos.matching.v1.MatchingService/GetBestPrices"
+	MatchingService_GetMarketState_FullMethodName = "/eidos.matching.v1.MatchingService/GetMarketState"
+	MatchingService_ListMarkets_FullMethodName    = "/eidos.matching.v1.MatchingService/ListMarkets"
+	MatchingService_HealthCheck_FullMethodName    = "/eidos.matching.v1.MatchingService/HealthCheck"
+	MatchingService_GetMetrics_FullMethodName     = "/eidos.matching.v1.MatchingService/GetMetrics"
 )
 
 // MatchingServiceClient is the client API for MatchingService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// 撮合引擎服务
+// MatchingService provides read-only access to the matching engine state.
+// Order submission and cancellation are done via Kafka messages.
 type MatchingServiceClient interface {
-	// 获取订单簿快照
+	// GetOrderbook retrieves a snapshot of the orderbook for a market
 	GetOrderbook(ctx context.Context, in *GetOrderbookRequest, opts ...grpc.CallOption) (*GetOrderbookResponse, error)
-	// 获取订单簿深度
+	// GetDepth retrieves aggregated depth at specified levels
 	GetDepth(ctx context.Context, in *GetDepthRequest, opts ...grpc.CallOption) (*GetDepthResponse, error)
-	// 健康检查
+	// GetBestPrices retrieves best bid/ask for a market
+	GetBestPrices(ctx context.Context, in *GetBestPricesRequest, opts ...grpc.CallOption) (*GetBestPricesResponse, error)
+	// GetMarketState retrieves the current state of a market
+	GetMarketState(ctx context.Context, in *GetMarketStateRequest, opts ...grpc.CallOption) (*GetMarketStateResponse, error)
+	// ListMarkets retrieves status of all active markets
+	ListMarkets(ctx context.Context, in *ListMarketsRequest, opts ...grpc.CallOption) (*ListMarketsResponse, error)
+	// HealthCheck checks the health of the matching engine
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
+	// GetMetrics retrieves matching engine performance metrics
+	GetMetrics(ctx context.Context, in *GetMetricsRequest, opts ...grpc.CallOption) (*GetMetricsResponse, error)
 }
 
 type matchingServiceClient struct {
@@ -66,6 +79,36 @@ func (c *matchingServiceClient) GetDepth(ctx context.Context, in *GetDepthReques
 	return out, nil
 }
 
+func (c *matchingServiceClient) GetBestPrices(ctx context.Context, in *GetBestPricesRequest, opts ...grpc.CallOption) (*GetBestPricesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBestPricesResponse)
+	err := c.cc.Invoke(ctx, MatchingService_GetBestPrices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *matchingServiceClient) GetMarketState(ctx context.Context, in *GetMarketStateRequest, opts ...grpc.CallOption) (*GetMarketStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMarketStateResponse)
+	err := c.cc.Invoke(ctx, MatchingService_GetMarketState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *matchingServiceClient) ListMarkets(ctx context.Context, in *ListMarketsRequest, opts ...grpc.CallOption) (*ListMarketsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMarketsResponse)
+	err := c.cc.Invoke(ctx, MatchingService_ListMarkets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *matchingServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthCheckResponse)
@@ -76,18 +119,37 @@ func (c *matchingServiceClient) HealthCheck(ctx context.Context, in *HealthCheck
 	return out, nil
 }
 
+func (c *matchingServiceClient) GetMetrics(ctx context.Context, in *GetMetricsRequest, opts ...grpc.CallOption) (*GetMetricsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMetricsResponse)
+	err := c.cc.Invoke(ctx, MatchingService_GetMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MatchingServiceServer is the server API for MatchingService service.
 // All implementations must embed UnimplementedMatchingServiceServer
 // for forward compatibility.
 //
-// 撮合引擎服务
+// MatchingService provides read-only access to the matching engine state.
+// Order submission and cancellation are done via Kafka messages.
 type MatchingServiceServer interface {
-	// 获取订单簿快照
+	// GetOrderbook retrieves a snapshot of the orderbook for a market
 	GetOrderbook(context.Context, *GetOrderbookRequest) (*GetOrderbookResponse, error)
-	// 获取订单簿深度
+	// GetDepth retrieves aggregated depth at specified levels
 	GetDepth(context.Context, *GetDepthRequest) (*GetDepthResponse, error)
-	// 健康检查
+	// GetBestPrices retrieves best bid/ask for a market
+	GetBestPrices(context.Context, *GetBestPricesRequest) (*GetBestPricesResponse, error)
+	// GetMarketState retrieves the current state of a market
+	GetMarketState(context.Context, *GetMarketStateRequest) (*GetMarketStateResponse, error)
+	// ListMarkets retrieves status of all active markets
+	ListMarkets(context.Context, *ListMarketsRequest) (*ListMarketsResponse, error)
+	// HealthCheck checks the health of the matching engine
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
+	// GetMetrics retrieves matching engine performance metrics
+	GetMetrics(context.Context, *GetMetricsRequest) (*GetMetricsResponse, error)
 	mustEmbedUnimplementedMatchingServiceServer()
 }
 
@@ -104,8 +166,20 @@ func (UnimplementedMatchingServiceServer) GetOrderbook(context.Context, *GetOrde
 func (UnimplementedMatchingServiceServer) GetDepth(context.Context, *GetDepthRequest) (*GetDepthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDepth not implemented")
 }
+func (UnimplementedMatchingServiceServer) GetBestPrices(context.Context, *GetBestPricesRequest) (*GetBestPricesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBestPrices not implemented")
+}
+func (UnimplementedMatchingServiceServer) GetMarketState(context.Context, *GetMarketStateRequest) (*GetMarketStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMarketState not implemented")
+}
+func (UnimplementedMatchingServiceServer) ListMarkets(context.Context, *ListMarketsRequest) (*ListMarketsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMarkets not implemented")
+}
 func (UnimplementedMatchingServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
+}
+func (UnimplementedMatchingServiceServer) GetMetrics(context.Context, *GetMetricsRequest) (*GetMetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetrics not implemented")
 }
 func (UnimplementedMatchingServiceServer) mustEmbedUnimplementedMatchingServiceServer() {}
 func (UnimplementedMatchingServiceServer) testEmbeddedByValue()                         {}
@@ -164,6 +238,60 @@ func _MatchingService_GetDepth_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MatchingService_GetBestPrices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBestPricesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MatchingServiceServer).GetBestPrices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MatchingService_GetBestPrices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MatchingServiceServer).GetBestPrices(ctx, req.(*GetBestPricesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MatchingService_GetMarketState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMarketStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MatchingServiceServer).GetMarketState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MatchingService_GetMarketState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MatchingServiceServer).GetMarketState(ctx, req.(*GetMarketStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MatchingService_ListMarkets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMarketsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MatchingServiceServer).ListMarkets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MatchingService_ListMarkets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MatchingServiceServer).ListMarkets(ctx, req.(*ListMarketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MatchingService_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthCheckRequest)
 	if err := dec(in); err != nil {
@@ -178,6 +306,24 @@ func _MatchingService_HealthCheck_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MatchingServiceServer).HealthCheck(ctx, req.(*HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MatchingService_GetMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MatchingServiceServer).GetMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MatchingService_GetMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MatchingServiceServer).GetMetrics(ctx, req.(*GetMetricsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -198,8 +344,24 @@ var MatchingService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MatchingService_GetDepth_Handler,
 		},
 		{
+			MethodName: "GetBestPrices",
+			Handler:    _MatchingService_GetBestPrices_Handler,
+		},
+		{
+			MethodName: "GetMarketState",
+			Handler:    _MatchingService_GetMarketState_Handler,
+		},
+		{
+			MethodName: "ListMarkets",
+			Handler:    _MatchingService_ListMarkets_Handler,
+		},
+		{
 			MethodName: "HealthCheck",
 			Handler:    _MatchingService_HealthCheck_Handler,
+		},
+		{
+			MethodName: "GetMetrics",
+			Handler:    _MatchingService_GetMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -25,6 +25,8 @@ const (
 	MarketService_GetKlines_FullMethodName       = "/eidos.market.v1.MarketService/GetKlines"
 	MarketService_GetRecentTrades_FullMethodName = "/eidos.market.v1.MarketService/GetRecentTrades"
 	MarketService_GetDepth_FullMethodName        = "/eidos.market.v1.MarketService/GetDepth"
+	MarketService_Get24HStats_FullMethodName     = "/eidos.market.v1.MarketService/Get24hStats"
+	MarketService_GetTradeHistory_FullMethodName = "/eidos.market.v1.MarketService/GetTradeHistory"
 )
 
 // MarketServiceClient is the client API for MarketService service.
@@ -45,6 +47,10 @@ type MarketServiceClient interface {
 	GetRecentTrades(ctx context.Context, in *GetRecentTradesRequest, opts ...grpc.CallOption) (*GetRecentTradesResponse, error)
 	// 获取订单簿深度
 	GetDepth(ctx context.Context, in *GetDepthRequest, opts ...grpc.CallOption) (*GetDepthResponse, error)
+	// 获取 24 小时统计
+	Get24HStats(ctx context.Context, in *Get24HStatsRequest, opts ...grpc.CallOption) (*Get24HStatsResponse, error)
+	// 获取历史成交记录
+	GetTradeHistory(ctx context.Context, in *GetTradeHistoryRequest, opts ...grpc.CallOption) (*GetTradeHistoryResponse, error)
 }
 
 type marketServiceClient struct {
@@ -115,6 +121,26 @@ func (c *marketServiceClient) GetDepth(ctx context.Context, in *GetDepthRequest,
 	return out, nil
 }
 
+func (c *marketServiceClient) Get24HStats(ctx context.Context, in *Get24HStatsRequest, opts ...grpc.CallOption) (*Get24HStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Get24HStatsResponse)
+	err := c.cc.Invoke(ctx, MarketService_Get24HStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *marketServiceClient) GetTradeHistory(ctx context.Context, in *GetTradeHistoryRequest, opts ...grpc.CallOption) (*GetTradeHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTradeHistoryResponse)
+	err := c.cc.Invoke(ctx, MarketService_GetTradeHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MarketServiceServer is the server API for MarketService service.
 // All implementations must embed UnimplementedMarketServiceServer
 // for forward compatibility.
@@ -133,6 +159,10 @@ type MarketServiceServer interface {
 	GetRecentTrades(context.Context, *GetRecentTradesRequest) (*GetRecentTradesResponse, error)
 	// 获取订单簿深度
 	GetDepth(context.Context, *GetDepthRequest) (*GetDepthResponse, error)
+	// 获取 24 小时统计
+	Get24HStats(context.Context, *Get24HStatsRequest) (*Get24HStatsResponse, error)
+	// 获取历史成交记录
+	GetTradeHistory(context.Context, *GetTradeHistoryRequest) (*GetTradeHistoryResponse, error)
 	mustEmbedUnimplementedMarketServiceServer()
 }
 
@@ -160,6 +190,12 @@ func (UnimplementedMarketServiceServer) GetRecentTrades(context.Context, *GetRec
 }
 func (UnimplementedMarketServiceServer) GetDepth(context.Context, *GetDepthRequest) (*GetDepthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDepth not implemented")
+}
+func (UnimplementedMarketServiceServer) Get24HStats(context.Context, *Get24HStatsRequest) (*Get24HStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get24HStats not implemented")
+}
+func (UnimplementedMarketServiceServer) GetTradeHistory(context.Context, *GetTradeHistoryRequest) (*GetTradeHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTradeHistory not implemented")
 }
 func (UnimplementedMarketServiceServer) mustEmbedUnimplementedMarketServiceServer() {}
 func (UnimplementedMarketServiceServer) testEmbeddedByValue()                       {}
@@ -290,6 +326,42 @@ func _MarketService_GetDepth_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MarketService_Get24HStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Get24HStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MarketServiceServer).Get24HStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MarketService_Get24HStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MarketServiceServer).Get24HStats(ctx, req.(*Get24HStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MarketService_GetTradeHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTradeHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MarketServiceServer).GetTradeHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MarketService_GetTradeHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MarketServiceServer).GetTradeHistory(ctx, req.(*GetTradeHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MarketService_ServiceDesc is the grpc.ServiceDesc for MarketService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -320,6 +392,14 @@ var MarketService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDepth",
 			Handler:    _MarketService_GetDepth_Handler,
+		},
+		{
+			MethodName: "Get24hStats",
+			Handler:    _MarketService_Get24HStats_Handler,
+		},
+		{
+			MethodName: "GetTradeHistory",
+			Handler:    _MarketService_GetTradeHistory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

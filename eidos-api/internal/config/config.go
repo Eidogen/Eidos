@@ -20,6 +20,7 @@ type Config struct {
 	EIP712      EIP712Config      `yaml:"eip712" json:"eip712"`
 	RateLimit   RateLimitConfig   `yaml:"rate_limit" json:"rate_limit"`
 	WebSocket   WebSocketConfig   `yaml:"websocket" json:"websocket"`
+	Risk        RiskConfig        `yaml:"risk" json:"risk"`
 	Log         LogConfig         `yaml:"log" json:"log"`
 }
 
@@ -109,14 +110,24 @@ type GlobalRateLimit struct {
 
 // WebSocketConfig WebSocket 配置
 type WebSocketConfig struct {
-	ReadBufferSize   int `yaml:"read_buffer_size" json:"read_buffer_size"`
-	WriteBufferSize  int `yaml:"write_buffer_size" json:"write_buffer_size"`
-	PingIntervalSec  int `yaml:"ping_interval" json:"ping_interval"`
-	PongTimeoutSec   int `yaml:"pong_timeout" json:"pong_timeout"`
-	MaxConnections   int `yaml:"max_connections" json:"max_connections"`
-	MaxSubscriptions int `yaml:"max_subscriptions" json:"max_subscriptions"`
-	WriteWaitSec     int `yaml:"write_wait" json:"write_wait"`
-	MaxMessageSize   int `yaml:"max_message_size" json:"max_message_size"`
+	ReadBufferSize    int      `yaml:"read_buffer_size" json:"read_buffer_size"`
+	WriteBufferSize   int      `yaml:"write_buffer_size" json:"write_buffer_size"`
+	PingIntervalSec   int      `yaml:"ping_interval" json:"ping_interval"`
+	PongTimeoutSec    int      `yaml:"pong_timeout" json:"pong_timeout"`
+	MaxConnections    int      `yaml:"max_connections" json:"max_connections"`
+	MaxSubscriptions  int      `yaml:"max_subscriptions" json:"max_subscriptions"`
+	WriteWaitSec      int      `yaml:"write_wait" json:"write_wait"`
+	MaxMessageSize    int      `yaml:"max_message_size" json:"max_message_size"`
+	AllowedOrigins    []string `yaml:"allowed_origins" json:"allowed_origins"`
+	AllowAllOrigins   bool     `yaml:"allow_all_origins" json:"allow_all_origins"`
+	AuthTimeoutSec    int      `yaml:"auth_timeout" json:"auth_timeout"`
+	EnablePrivateAuth bool     `yaml:"enable_private_auth" json:"enable_private_auth"`
+}
+
+// RiskConfig 风控服务配置
+type RiskConfig struct {
+	Enabled  bool `yaml:"enabled" json:"enabled"`
+	FailOpen bool `yaml:"fail_open" json:"fail_open"` // 风控服务不可用时是否放行
 }
 
 // LogConfig 日志配置
@@ -138,6 +149,14 @@ func (c *WebSocketConfig) PongTimeout() time.Duration {
 // WriteWait 返回写超时
 func (c *WebSocketConfig) WriteWait() time.Duration {
 	return time.Duration(c.WriteWaitSec) * time.Second
+}
+
+// AuthTimeout 返回认证超时
+func (c *WebSocketConfig) AuthTimeout() time.Duration {
+	if c.AuthTimeoutSec <= 0 {
+		return 30 * time.Second
+	}
+	return time.Duration(c.AuthTimeoutSec) * time.Second
 }
 
 // Load 加载配置
@@ -212,14 +231,22 @@ func defaultConfig() *Config {
 			},
 		},
 		WebSocket: WebSocketConfig{
-			ReadBufferSize:   1024,
-			WriteBufferSize:  1024,
-			PingIntervalSec:  30,
-			PongTimeoutSec:   10,
-			MaxConnections:   100000,
-			MaxSubscriptions: 50,
-			WriteWaitSec:     10,
-			MaxMessageSize:   4096,
+			ReadBufferSize:    1024,
+			WriteBufferSize:   1024,
+			PingIntervalSec:   30,
+			PongTimeoutSec:    10,
+			MaxConnections:    100000,
+			MaxSubscriptions:  50,
+			WriteWaitSec:      10,
+			MaxMessageSize:    4096,
+			AllowedOrigins:    []string{},
+			AllowAllOrigins:   true, // dev mode: allow all
+			AuthTimeoutSec:    30,
+			EnablePrivateAuth: true,
+		},
+		Risk: RiskConfig{
+			Enabled:  true,
+			FailOpen: false,
 		},
 		Log: LogConfig{
 			Level:  "info",
@@ -290,5 +317,21 @@ func overrideFromEnv(cfg *Config) {
 	// Rate Limit
 	if v := os.Getenv("RATE_LIMIT_ENABLED"); v != "" {
 		cfg.RateLimit.Enabled = strings.ToLower(v) == "true"
+	}
+
+	// Risk
+	if v := os.Getenv("RISK_ENABLED"); v != "" {
+		cfg.Risk.Enabled = strings.ToLower(v) == "true"
+	}
+	if v := os.Getenv("RISK_FAIL_OPEN"); v != "" {
+		cfg.Risk.FailOpen = strings.ToLower(v) == "true"
+	}
+
+	// WebSocket
+	if v := os.Getenv("WS_ALLOW_ALL_ORIGINS"); v != "" {
+		cfg.WebSocket.AllowAllOrigins = strings.ToLower(v) == "true"
+	}
+	if v := os.Getenv("WS_ENABLE_PRIVATE_AUTH"); v != "" {
+		cfg.WebSocket.EnablePrivateAuth = strings.ToLower(v) == "true"
 	}
 }

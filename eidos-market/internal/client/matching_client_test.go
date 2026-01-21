@@ -64,7 +64,7 @@ func (m *mockMatchingServer) HealthCheck(ctx context.Context, req *matchingpb.He
 	}
 	return &matchingpb.HealthCheckResponse{
 		Healthy: true,
-		Markets: map[string]*matchingpb.MarketStatus{
+		Markets: map[string]*matchingpb.MarketHealth{
 			"BTC-USDC": {
 				Market:   "BTC-USDC",
 				Active:   true,

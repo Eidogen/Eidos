@@ -31,6 +31,9 @@ const (
 
 	// 风控相关
 	TopicRiskAlerts = "risk-alerts" // 风控告警 (risk)
+
+	// 死信队列
+	TopicDeadLetter = "dead-letter" // 处理失败的消息
 )
 
 // Message Kafka 消息结构

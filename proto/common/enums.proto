@@ -2,69 +2,242 @@ syntax = "proto3";
 
 package eidos.common.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/proto/common/v1;commonv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/common;commonv1";
 
-// 订单状态
+// ============================================================================
+// Order Related Enums
+// ============================================================================
+
+// OrderStatus represents the lifecycle state of an order
 enum OrderStatus {
-    ORDER_STATUS_UNSPECIFIED = 0;
-    ORDER_STATUS_PENDING = 1;     // 待处理
-    ORDER_STATUS_OPEN = 2;        // 挂单中
-    ORDER_STATUS_PARTIAL = 3;     // 部分成交
-    ORDER_STATUS_FILLED = 4;      // 完全成交
-    ORDER_STATUS_CANCELLED = 5;   // 已取消
-    ORDER_STATUS_EXPIRED = 6;     // 已过期
-    ORDER_STATUS_REJECTED = 7;    // 被拒绝
+    ORDER_STATUS_UNSPECIFIED = 0;  // Default value, should not be used
+    ORDER_STATUS_PENDING = 1;      // Order received, pending validation
+    ORDER_STATUS_OPEN = 2;         // Order is active in the orderbook
+    ORDER_STATUS_PARTIAL = 3;      // Order is partially filled
+    ORDER_STATUS_FILLED = 4;       // Order is completely filled
+    ORDER_STATUS_CANCELLED = 5;    // Order was cancelled by user
+    ORDER_STATUS_EXPIRED = 6;      // Order expired (TTL reached)
+    ORDER_STATUS_REJECTED = 7;     // Order was rejected by system
 }
 
-// 订单方向
+// OrderSide represents the direction of an order
 enum OrderSide {
-    ORDER_SIDE_UNSPECIFIED = 0;
-    ORDER_SIDE_BUY = 1;
-    ORDER_SIDE_SELL = 2;
+    ORDER_SIDE_UNSPECIFIED = 0;  // Default value, should not be used
+    ORDER_SIDE_BUY = 1;          // Buy order (bid)
+    ORDER_SIDE_SELL = 2;         // Sell order (ask)
 }
 
-// 订单类型
+// OrderType represents the type of order
 enum OrderType {
-    ORDER_TYPE_UNSPECIFIED = 0;
-    ORDER_TYPE_LIMIT = 1;         // 限价单
-    ORDER_TYPE_MARKET = 2;        // 市价单
+    ORDER_TYPE_UNSPECIFIED = 0;  // Default value, should not be used
+    ORDER_TYPE_LIMIT = 1;        // Limit order with specified price
+    ORDER_TYPE_MARKET = 2;       // Market order executed at best available price
+    ORDER_TYPE_LIMIT_MAKER = 3;  // Limit order that must be maker (post-only)
+    ORDER_TYPE_STOP_LOSS = 4;    // Stop loss order (triggered when price hits stop)
+    ORDER_TYPE_STOP_LIMIT = 5;   // Stop limit order
+    ORDER_TYPE_TAKE_PROFIT = 6;  // Take profit order
 }
 
-// 时效策略
+// TimeInForce specifies how long an order remains active
 enum TimeInForce {
-    TIME_IN_FORCE_UNSPECIFIED = 0;
-    TIME_IN_FORCE_GTC = 1;        // Good Till Cancel
-    TIME_IN_FORCE_IOC = 2;        // Immediate Or Cancel
-    TIME_IN_FORCE_FOK = 3;        // Fill Or Kill
+    TIME_IN_FORCE_UNSPECIFIED = 0;  // Default value, should not be used
+    TIME_IN_FORCE_GTC = 1;          // Good Till Cancel - remains until filled/cancelled
+    TIME_IN_FORCE_IOC = 2;          // Immediate Or Cancel - fill immediately, cancel remainder
+    TIME_IN_FORCE_FOK = 3;          // Fill Or Kill - fill completely or cancel entirely
+    TIME_IN_FORCE_GTX = 4;          // Good Till Crossing - post-only, reject if would cross
+    TIME_IN_FORCE_GTD = 5;          // Good Till Date - remains until specified expiry
 }
 
-// 结算状态
+// SelfTradePrevention specifies how to handle self-trades
+enum SelfTradePrevention {
+    SELF_TRADE_PREVENTION_UNSPECIFIED = 0;  // Default, no prevention
+    SELF_TRADE_PREVENTION_CANCEL_NEWEST = 1; // Cancel the newer order
+    SELF_TRADE_PREVENTION_CANCEL_OLDEST = 2; // Cancel the older order
+    SELF_TRADE_PREVENTION_CANCEL_BOTH = 3;   // Cancel both orders
+}
+
+// ============================================================================
+// Settlement Related Enums
+// ============================================================================
+
+// SettlementStatus represents the settlement state of a trade
 enum SettlementStatus {
-    SETTLEMENT_STATUS_UNSPECIFIED = 0;
-    SETTLEMENT_STATUS_MATCHED_OFFCHAIN = 1;    // 链下成交
-    SETTLEMENT_STATUS_PENDING = 2;              // 结算待处理
-    SETTLEMENT_STATUS_SUBMITTED = 3;            // 已提交链上
-    SETTLEMENT_STATUS_SETTLED = 4;              // 链上已结算
-    SETTLEMENT_STATUS_FAILED = 5;               // 结算失败
-    SETTLEMENT_STATUS_ROLLED_BACK = 6;          // 已回滚
+    SETTLEMENT_STATUS_UNSPECIFIED = 0;      // Default value, should not be used
+    SETTLEMENT_STATUS_MATCHED_OFFCHAIN = 1;  // Trade matched off-chain, pending settlement
+    SETTLEMENT_STATUS_PENDING = 2;           // Settlement batch created, waiting to submit
+    SETTLEMENT_STATUS_SUBMITTED = 3;         // Settlement tx submitted to chain
+    SETTLEMENT_STATUS_SETTLED = 4;           // Settlement confirmed on-chain
+    SETTLEMENT_STATUS_FAILED = 5;            // Settlement tx failed
+    SETTLEMENT_STATUS_ROLLED_BACK = 6;       // Settlement rolled back to off-chain state
 }
 
-// 充值状态
+// BatchStatus represents the status of a settlement batch
+enum BatchStatus {
+    BATCH_STATUS_UNSPECIFIED = 0;    // Default value
+    BATCH_STATUS_CREATED = 1;        // Batch created
+    BATCH_STATUS_BUILDING = 2;       // Collecting trades into batch
+    BATCH_STATUS_PENDING = 3;        // Ready to submit
+    BATCH_STATUS_SUBMITTED = 4;      // Submitted to chain
+    BATCH_STATUS_CONFIRMING = 5;     // Waiting for confirmations
+    BATCH_STATUS_CONFIRMED = 6;      // Confirmed on chain
+    BATCH_STATUS_FAILED = 7;         // Transaction failed
+    BATCH_STATUS_RETRYING = 8;       // Retrying submission
+}
+
+// ============================================================================
+// Deposit Related Enums
+// ============================================================================
+
+// DepositStatus represents the state of a deposit
 enum DepositStatus {
-    DEPOSIT_STATUS_UNSPECIFIED = 0;
-    DEPOSIT_STATUS_PENDING = 1;    // 待确认
-    DEPOSIT_STATUS_CONFIRMED = 2;  // 已确认
-    DEPOSIT_STATUS_CREDITED = 3;   // 已入账
+    DEPOSIT_STATUS_UNSPECIFIED = 0;  // Default value, should not be used
+    DEPOSIT_STATUS_PENDING = 1;      // Deposit detected, waiting confirmations
+    DEPOSIT_STATUS_CONFIRMED = 2;    // Deposit confirmed on-chain
+    DEPOSIT_STATUS_CREDITED = 3;     // Balance credited to user account
+    DEPOSIT_STATUS_FAILED = 4;       // Deposit processing failed
 }
 
-// 提现状态
+// ============================================================================
+// Withdrawal Related Enums
+// ============================================================================
+
+// WithdrawStatus represents the state of a withdrawal
 enum WithdrawStatus {
-    WITHDRAW_STATUS_UNSPECIFIED = 0;
-    WITHDRAW_STATUS_PENDING = 1;     // 待处理
-    WITHDRAW_STATUS_PROCESSING = 2;  // 处理中
-    WITHDRAW_STATUS_SUBMITTED = 3;   // 已提交
-    WITHDRAW_STATUS_CONFIRMED = 4;   // 已确认
-    WITHDRAW_STATUS_FAILED = 5;      // 失败
-    WITHDRAW_STATUS_CANCELLED = 6;   // 已取消
-    WITHDRAW_STATUS_REJECTED = 7;    // 被拒绝
+    WITHDRAW_STATUS_UNSPECIFIED = 0;  // Default value, should not be used
+    WITHDRAW_STATUS_PENDING = 1;      // Withdrawal request pending
+    WITHDRAW_STATUS_PROCESSING = 2;   // Withdrawal being processed
+    WITHDRAW_STATUS_SUBMITTED = 3;    // Transaction submitted to chain
+    WITHDRAW_STATUS_CONFIRMED = 4;    // Transaction confirmed on-chain
+    WITHDRAW_STATUS_FAILED = 5;       // Withdrawal failed
+    WITHDRAW_STATUS_CANCELLED = 6;    // Withdrawal cancelled by user
+    WITHDRAW_STATUS_REJECTED = 7;     // Withdrawal rejected by system/risk
+}
+
+// ============================================================================
+// Balance Related Enums
+// ============================================================================
+
+// BalanceType represents different types of balance
+enum BalanceType {
+    BALANCE_TYPE_UNSPECIFIED = 0;     // Default value
+    BALANCE_TYPE_SETTLED = 1;         // Settled balance (on-chain confirmed)
+    BALANCE_TYPE_PENDING = 2;         // Pending balance (off-chain matched)
+}
+
+// BalanceChangeType represents the reason for balance change
+enum BalanceChangeType {
+    BALANCE_CHANGE_TYPE_UNSPECIFIED = 0;
+    BALANCE_CHANGE_TYPE_DEPOSIT = 1;          // Deposit credited
+    BALANCE_CHANGE_TYPE_WITHDRAW = 2;         // Withdrawal debited
+    BALANCE_CHANGE_TYPE_WITHDRAW_REFUND = 3;  // Failed withdrawal refunded
+    BALANCE_CHANGE_TYPE_TRADE_DEBIT = 4;      // Trade debit (sell base or buy quote)
+    BALANCE_CHANGE_TYPE_TRADE_CREDIT = 5;     // Trade credit (buy base or sell quote)
+    BALANCE_CHANGE_TYPE_FEE = 6;              // Trading fee
+    BALANCE_CHANGE_TYPE_FREEZE = 7;           // Balance frozen for order
+    BALANCE_CHANGE_TYPE_UNFREEZE = 8;         // Balance unfrozen
+    BALANCE_CHANGE_TYPE_SETTLEMENT = 9;       // Settlement conversion
+    BALANCE_CHANGE_TYPE_ROLLBACK = 10;        // Rollback adjustment
+    BALANCE_CHANGE_TYPE_ADMIN = 11;           // Admin adjustment
+}
+
+// ============================================================================
+// Market Related Enums
+// ============================================================================
+
+// MarketStatus represents the trading status of a market
+enum MarketStatus {
+    MARKET_STATUS_UNSPECIFIED = 0;  // Default value
+    MARKET_STATUS_INACTIVE = 1;     // Market is inactive
+    MARKET_STATUS_ACTIVE = 2;       // Market is active and trading
+    MARKET_STATUS_SUSPENDED = 3;    // Market is temporarily suspended
+    MARKET_STATUS_SETTLING = 4;     // Market is in settlement-only mode
+    MARKET_STATUS_DELISTED = 5;     // Market has been delisted
+}
+
+// KlineInterval represents K-line time intervals
+enum KlineInterval {
+    KLINE_INTERVAL_UNSPECIFIED = 0;
+    KLINE_INTERVAL_1M = 1;   // 1 minute
+    KLINE_INTERVAL_5M = 2;   // 5 minutes
+    KLINE_INTERVAL_15M = 3;  // 15 minutes
+    KLINE_INTERVAL_30M = 4;  // 30 minutes
+    KLINE_INTERVAL_1H = 5;   // 1 hour
+    KLINE_INTERVAL_4H = 6;   // 4 hours
+    KLINE_INTERVAL_1D = 7;   // 1 day
+    KLINE_INTERVAL_1W = 8;   // 1 week
+}
+
+// ============================================================================
+// Risk Related Enums
+// ============================================================================
+
+// RiskLevel represents the severity level of a risk event
+enum RiskLevel {
+    RISK_LEVEL_UNSPECIFIED = 0;
+    RISK_LEVEL_LOW = 1;       // Low risk, informational
+    RISK_LEVEL_MEDIUM = 2;    // Medium risk, warning
+    RISK_LEVEL_HIGH = 3;      // High risk, action required
+    RISK_LEVEL_CRITICAL = 4;  // Critical risk, immediate action
+}
+
+// RiskAction represents the action taken by risk system
+enum RiskAction {
+    RISK_ACTION_UNSPECIFIED = 0;
+    RISK_ACTION_ALLOW = 1;           // Allow the operation
+    RISK_ACTION_REJECT = 2;          // Reject the operation
+    RISK_ACTION_REVIEW = 3;          // Require manual review
+    RISK_ACTION_DELAY = 4;           // Delay the operation
+    RISK_ACTION_LIMIT = 5;           // Apply limits
+    RISK_ACTION_FREEZE_ACCOUNT = 6;  // Freeze user account
+}
+
+// RiskEventType represents types of risk events
+enum RiskEventType {
+    RISK_EVENT_TYPE_UNSPECIFIED = 0;
+    RISK_EVENT_TYPE_ORDER_REJECTED = 1;       // Order rejected by risk
+    RISK_EVENT_TYPE_WITHDRAW_REJECTED = 2;    // Withdrawal rejected by risk
+    RISK_EVENT_TYPE_WITHDRAW_REVIEW = 3;      // Withdrawal requires review
+    RISK_EVENT_TYPE_ACCOUNT_FROZEN = 4;       // Account was frozen
+    RISK_EVENT_TYPE_BLACKLIST_HIT = 5;        // Blacklist match detected
+    RISK_EVENT_TYPE_RATE_LIMIT_HIT = 6;       // Rate limit exceeded
+    RISK_EVENT_TYPE_ANOMALY_DETECTED = 7;     // Anomalous behavior detected
+    RISK_EVENT_TYPE_LARGE_TRANSACTION = 8;    // Large transaction alert
+}
+
+// ============================================================================
+// Reconciliation Related Enums
+// ============================================================================
+
+// ReconciliationStatus represents the status of reconciliation check
+enum ReconciliationStatus {
+    RECONCILIATION_STATUS_UNSPECIFIED = 0;
+    RECONCILIATION_STATUS_MATCHED = 1;       // On-chain matches off-chain
+    RECONCILIATION_STATUS_DISCREPANCY = 2;   // Discrepancy found
+    RECONCILIATION_STATUS_RESOLVED = 3;      // Discrepancy resolved
+    RECONCILIATION_STATUS_IGNORED = 4;       // Discrepancy acknowledged and ignored
+}
+
+// ReconciliationType represents the type of reconciliation
+enum ReconciliationType {
+    RECONCILIATION_TYPE_UNSPECIFIED = 0;
+    RECONCILIATION_TYPE_BALANCE = 1;      // Balance reconciliation
+    RECONCILIATION_TYPE_DEPOSIT = 2;      // Deposit reconciliation
+    RECONCILIATION_TYPE_WITHDRAWAL = 3;   // Withdrawal reconciliation
+    RECONCILIATION_TYPE_SETTLEMENT = 4;   // Settlement reconciliation
+}
+
+// ============================================================================
+// Notification Related Enums
+// ============================================================================
+
+// NotificationType represents the type of notification
+enum NotificationType {
+    NOTIFICATION_TYPE_UNSPECIFIED = 0;
+    NOTIFICATION_TYPE_ORDER_FILLED = 1;       // Order filled notification
+    NOTIFICATION_TYPE_ORDER_CANCELLED = 2;    // Order cancelled notification
+    NOTIFICATION_TYPE_DEPOSIT_CONFIRMED = 3;  // Deposit confirmed
+    NOTIFICATION_TYPE_WITHDRAW_COMPLETE = 4;  // Withdrawal completed
+    NOTIFICATION_TYPE_SETTLEMENT_COMPLETE = 5; // Settlement completed
+    NOTIFICATION_TYPE_RISK_ALERT = 6;         // Risk alert
+    NOTIFICATION_TYPE_SYSTEM = 7;             // System notification
 }

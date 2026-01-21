@@ -45,26 +45,61 @@ func (Admin) TableName() string {
 
 // Permission 权限常量
 const (
-	PermMarketRead   = "market:read"
-	PermMarketWrite  = "market:write"
-	PermUserRead     = "user:read"
-	PermOrderRead    = "order:read"
-	PermOrderWrite   = "order:write"
-	PermStatsRead    = "stats:read"
-	PermConfigRead   = "config:read"
-	PermConfigWrite  = "config:write"
-	PermAuditRead    = "audit:read"
-	PermAdminRead    = "admin:read"
-	PermAdminWrite   = "admin:write"
+	// 交易对管理权限
+	PermMarketRead  = "market:read"
+	PermMarketWrite = "market:write"
+
+	// 用户管理权限
+	PermUserRead  = "user:read"
+	PermUserWrite = "user:write"
+
+	// 订单管理权限
+	PermOrderRead  = "order:read"
+	PermOrderWrite = "order:write"
+
+	// 成交管理权限
+	PermTradeRead = "trade:read"
+
+	// 充值管理权限
+	PermDepositRead = "deposit:read"
+
+	// 提现管理权限
+	PermWithdrawalRead  = "withdrawal:read"
+	PermWithdrawalWrite = "withdrawal:write"
+
+	// 风控管理权限
+	PermRiskRead  = "risk:read"
+	PermRiskWrite = "risk:write"
+
+	// 统计查询权限
+	PermStatsRead = "stats:read"
+
+	// 系统配置权限
+	PermConfigRead  = "config:read"
+	PermConfigWrite = "config:write"
+
+	// 审计日志权限
+	PermAuditRead = "audit:read"
+
+	// 管理员管理权限
+	PermAdminRead  = "admin:read"
+	PermAdminWrite = "admin:write"
+
+	// 服务管理权限
 	PermServiceAdmin = "service:admin"
 )
 
 // RolePermissions 角色权限映射
 var RolePermissions = map[Role][]string{
 	RoleSuperAdmin: {
+		// 全部权限
 		PermMarketRead, PermMarketWrite,
-		PermUserRead,
+		PermUserRead, PermUserWrite,
 		PermOrderRead, PermOrderWrite,
+		PermTradeRead,
+		PermDepositRead,
+		PermWithdrawalRead, PermWithdrawalWrite,
+		PermRiskRead, PermRiskWrite,
 		PermStatsRead,
 		PermConfigRead, PermConfigWrite,
 		PermAuditRead,
@@ -72,19 +107,34 @@ var RolePermissions = map[Role][]string{
 		PermServiceAdmin,
 	},
 	RoleOperator: {
+		// 运营人员权限 - 可以管理用户、订单、提现、风控
 		PermMarketRead, PermMarketWrite,
-		PermUserRead,
+		PermUserRead, PermUserWrite,
 		PermOrderRead, PermOrderWrite,
+		PermTradeRead,
+		PermDepositRead,
+		PermWithdrawalRead, PermWithdrawalWrite,
+		PermRiskRead, PermRiskWrite,
 		PermStatsRead,
 	},
 	RoleSupport: {
+		// 客服人员权限 - 只读查看用户、订单等
 		PermUserRead,
 		PermOrderRead,
+		PermTradeRead,
+		PermDepositRead,
+		PermWithdrawalRead,
+		PermRiskRead,
 	},
 	RoleViewer: {
+		// 只读查看权限
 		PermMarketRead,
 		PermUserRead,
 		PermOrderRead,
+		PermTradeRead,
+		PermDepositRead,
+		PermWithdrawalRead,
+		PermRiskRead,
 		PermStatsRead,
 		PermConfigRead,
 	},

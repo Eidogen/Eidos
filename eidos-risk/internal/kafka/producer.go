@@ -11,10 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	TopicRiskAlerts = "risk-alerts"
-)
-
 // Producer Kafka 生产者
 type Producer struct {
 	producer sarama.SyncProducer

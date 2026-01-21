@@ -11,6 +11,7 @@ const (
 	MsgTypeSubscribe   MessageType = "subscribe"
 	MsgTypeUnsubscribe MessageType = "unsubscribe"
 	MsgTypePing        MessageType = "ping"
+	MsgTypeAuth        MessageType = "auth"
 
 	// 服务端消息类型
 	MsgTypePong     MessageType = "pong"
@@ -24,12 +25,30 @@ const (
 type Channel string
 
 const (
+	// 公开频道
 	ChannelTicker Channel = "ticker"
 	ChannelDepth  Channel = "depth"
 	ChannelKline  Channel = "kline"
 	ChannelTrades Channel = "trades"
-	ChannelOrders Channel = "orders" // 私有频道
+
+	// 私有频道（需要认证）
+	ChannelOrders    Channel = "orders"
+	ChannelBalances  Channel = "balances"
+	ChannelPositions Channel = "positions"
 )
+
+// ErrInvalidSignature signature verification error
+var ErrInvalidSignature = &WSError{Code: 401, Message: "invalid signature"}
+
+// WSError WebSocket error
+type WSError struct {
+	Code    int
+	Message string
+}
+
+func (e *WSError) Error() string {
+	return e.Message
+}
 
 // ClientMessage 客户端消息
 type ClientMessage struct {

@@ -66,20 +66,44 @@ type GRPCClientsConfig struct {
 }
 
 type JobsConfig struct {
-	Reconciliation JobConfig `yaml:"reconciliation" json:"reconciliation"`
-	CleanupOrders  JobConfig `yaml:"cleanup_orders" json:"cleanup_orders"`
-	Archive        JobConfig `yaml:"archive" json:"archive"`
-	StatsAgg       JobConfig `yaml:"stats_agg" json:"stats_agg"`
-	KlineAgg       JobConfig `yaml:"kline_agg" json:"kline_agg"`
-	HealthMonitor  JobConfig `yaml:"health_monitor" json:"health_monitor"`
-	PartitionMgmt  JobConfig `yaml:"partition_mgmt" json:"partition_mgmt"`
-	DataCleanup    JobConfig `yaml:"data_cleanup" json:"data_cleanup"`
+	Reconciliation    JobConfig            `yaml:"reconciliation" json:"reconciliation"`
+	CleanupOrders     JobConfig            `yaml:"cleanup_orders" json:"cleanup_orders"`
+	Archive           JobConfig            `yaml:"archive" json:"archive"`
+	StatsAgg          JobConfig            `yaml:"stats_agg" json:"stats_agg"`
+	KlineAgg          JobConfig            `yaml:"kline_agg" json:"kline_agg"`
+	HealthMonitor     JobConfig            `yaml:"health_monitor" json:"health_monitor"`
+	PartitionMgmt     JobConfig            `yaml:"partition_mgmt" json:"partition_mgmt"`
+	DataCleanup       JobConfig            `yaml:"data_cleanup" json:"data_cleanup"`
+	BalanceScan       BalanceScanJobConfig `yaml:"balance_scan" json:"balance_scan"`
+	SettlementTrigger SettlementJobConfig  `yaml:"settlement_trigger" json:"settlement_trigger"`
 }
 
 type JobConfig struct {
 	Enabled       bool   `yaml:"enabled" json:"enabled"`
 	Cron          string `yaml:"cron" json:"cron"`
 	RetentionDays int    `yaml:"retention_days" json:"retention_days"`
+}
+
+// BalanceScanJobConfig 余额扫描任务配置
+type BalanceScanJobConfig struct {
+	Enabled                bool    `yaml:"enabled" json:"enabled"`
+	Cron                   string  `yaml:"cron" json:"cron"`
+	BatchSize              int     `yaml:"batch_size" json:"batch_size"`
+	CancelThresholdPercent float64 `yaml:"cancel_threshold_percent" json:"cancel_threshold_percent"`
+	MaxConcurrentQueries   int     `yaml:"max_concurrent_queries" json:"max_concurrent_queries"`
+	EnableNotification     bool    `yaml:"enable_notification" json:"enable_notification"`
+}
+
+// SettlementJobConfig 结算触发任务配置
+type SettlementJobConfig struct {
+	Enabled           bool `yaml:"enabled" json:"enabled"`
+	Cron              string `yaml:"cron" json:"cron"`
+	BatchSize         int  `yaml:"batch_size" json:"batch_size"`
+	MinBatchSize      int  `yaml:"min_batch_size" json:"min_batch_size"`
+	MaxWaitTimeMs     int  `yaml:"max_wait_time_ms" json:"max_wait_time_ms"`
+	RetryTimeoutMs    int  `yaml:"retry_timeout_ms" json:"retry_timeout_ms"`
+	MaxRetries        int  `yaml:"max_retries" json:"max_retries"`
+	ConcurrentBatches int  `yaml:"concurrent_batches" json:"concurrent_batches"`
 }
 
 type SchedulerConfig struct {

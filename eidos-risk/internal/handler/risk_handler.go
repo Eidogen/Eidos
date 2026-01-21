@@ -1,28 +1,33 @@
-// Package handler 提供风控服务的 gRPC 处理器
+// Package handler provides risk service gRPC handlers
 package handler
 
 import (
 	"context"
+	"time"
 
-	commonv1 "github.com/eidos-exchange/eidos/proto/common/v1"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
+	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/service"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// RiskHandler 风控服务 gRPC 处理器
+// RiskHandler is the gRPC handler for risk service
 type RiskHandler struct {
 	riskv1.UnimplementedRiskServiceServer
 
-	riskSvc      *service.RiskService
-	blacklistSvc *service.BlacklistService
-	ruleSvc      *service.RuleService
-	eventSvc     *service.EventService
+	riskSvc            *service.RiskService
+	blacklistSvc       *service.BlacklistService
+	ruleSvc            *service.RuleService
+	eventSvc           *service.EventService
+	whitelistSvc       *service.WhitelistService
+	withdrawReviewSvc  *service.WithdrawalReviewService
+	alertSvc           *service.AlertService
 }
 
-// NewRiskHandler 创建风控处理器
+// NewRiskHandler creates a new risk handler
 func NewRiskHandler(
 	riskSvc *service.RiskService,
 	blacklistSvc *service.BlacklistService,
@@ -37,9 +42,28 @@ func NewRiskHandler(
 	}
 }
 
-// CheckOrder 检查下单请求
+// SetWhitelistService sets the whitelist service
+func (h *RiskHandler) SetWhitelistService(svc *service.WhitelistService) {
+	h.whitelistSvc = svc
+}
+
+// SetWithdrawReviewService sets the withdrawal review service
+func (h *RiskHandler) SetWithdrawReviewService(svc *service.WithdrawalReviewService) {
+	h.withdrawReviewSvc = svc
+}
+
+// SetAlertService sets the alert service
+func (h *RiskHandler) SetAlertService(svc *service.AlertService) {
+	h.alertSvc = svc
+}
+
+// ============================================================================
+// Pre-Trade Risk Checks
+// ============================================================================
+
+// CheckOrder validates an order against risk rules
 func (h *RiskHandler) CheckOrder(ctx context.Context, req *riskv1.CheckOrderRequest) (*riskv1.CheckOrderResponse, error) {
-	// 参数验证
+	// Parameter validation
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
 	}
@@ -47,7 +71,7 @@ func (h *RiskHandler) CheckOrder(ctx context.Context, req *riskv1.CheckOrderRequ
 		return nil, status.Error(codes.InvalidArgument, "market is required")
 	}
 
-	// 解析价格和数量
+	// Parse price and amount
 	price, err := decimal.NewFromString(req.Price)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid price format")
@@ -57,7 +81,7 @@ func (h *RiskHandler) CheckOrder(ctx context.Context, req *riskv1.CheckOrderRequ
 		return nil, status.Error(codes.InvalidArgument, "invalid amount format")
 	}
 
-	// 转换订单方向和类型
+	// Convert order side and type
 	side := "BUY"
 	if req.Side == commonv1.OrderSide_ORDER_SIDE_SELL {
 		side = "SELL"
@@ -67,7 +91,7 @@ func (h *RiskHandler) CheckOrder(ctx context.Context, req *riskv1.CheckOrderRequ
 		orderType = "MARKET"
 	}
 
-	// 调用服务层
+	// Call service layer
 	resp, err := h.riskSvc.CheckOrder(ctx, &service.CheckOrderRequest{
 		Wallet:    req.Wallet,
 		Market:    req.Market,
@@ -80,17 +104,24 @@ func (h *RiskHandler) CheckOrder(ctx context.Context, req *riskv1.CheckOrderRequ
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// Build triggered rules list
+	triggeredRules := make([]string, 0)
+	if resp.RejectCode != "" {
+		triggeredRules = append(triggeredRules, resp.RejectCode)
+	}
+
 	return &riskv1.CheckOrderResponse{
-		Approved:     resp.Approved,
-		RejectReason: resp.RejectReason,
-		RejectCode:   resp.RejectCode,
-		Warnings:     resp.Warnings,
+		Approved:       resp.Approved,
+		RejectReason:   resp.RejectReason,
+		RejectCode:     resp.RejectCode,
+		Warnings:       resp.Warnings,
+		TriggeredRules: triggeredRules,
 	}, nil
 }
 
-// CheckWithdraw 检查提现请求
-func (h *RiskHandler) CheckWithdraw(ctx context.Context, req *riskv1.CheckWithdrawRequest) (*riskv1.CheckWithdrawResponse, error) {
-	// 参数验证
+// CheckWithdrawal validates a withdrawal against risk rules
+func (h *RiskHandler) CheckWithdrawal(ctx context.Context, req *riskv1.CheckWithdrawalRequest) (*riskv1.CheckWithdrawalResponse, error) {
+	// Parameter validation
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
 	}
@@ -101,13 +132,13 @@ func (h *RiskHandler) CheckWithdraw(ctx context.Context, req *riskv1.CheckWithdr
 		return nil, status.Error(codes.InvalidArgument, "to_address is required")
 	}
 
-	// 解析金额
+	// Parse amount
 	amount, err := decimal.NewFromString(req.Amount)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid amount format")
 	}
 
-	// 调用服务层
+	// Call service layer
 	resp, err := h.riskSvc.CheckWithdraw(ctx, &service.CheckWithdrawRequest{
 		Wallet:    req.Wallet,
 		Token:     req.Token,
@@ -118,17 +149,65 @@ func (h *RiskHandler) CheckWithdraw(ctx context.Context, req *riskv1.CheckWithdr
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &riskv1.CheckWithdrawResponse{
+	// Build triggered rules list
+	triggeredRules := make([]string, 0)
+	if resp.RejectCode != "" {
+		triggeredRules = append(triggeredRules, resp.RejectCode)
+	}
+
+	return &riskv1.CheckWithdrawalResponse{
 		Approved:            resp.Approved,
 		RejectReason:        resp.RejectReason,
 		RejectCode:          resp.RejectCode,
 		RequireManualReview: resp.RequireManualReview,
+		RiskScore:           int32(resp.RiskScore),
+		TriggeredRules:      triggeredRules,
 	}, nil
 }
 
-// AddToBlacklist 添加到黑名单
+// CheckTransaction validates a generic transaction
+func (h *RiskHandler) CheckTransaction(ctx context.Context, req *riskv1.CheckTransactionRequest) (*riskv1.CheckTransactionResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+
+	// For now, delegate to appropriate check based on tx_type
+	switch req.TxType {
+	case "order":
+		// Convert to order check
+		return &riskv1.CheckTransactionResponse{
+			Approved: true,
+		}, nil
+	case "withdrawal":
+		amount, _ := decimal.NewFromString(req.Amount)
+		resp, err := h.riskSvc.CheckWithdraw(ctx, &service.CheckWithdrawRequest{
+			Wallet:    req.Wallet,
+			Token:     req.Token,
+			Amount:    amount,
+			ToAddress: req.Context["to_address"],
+		})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return &riskv1.CheckTransactionResponse{
+			Approved:     resp.Approved,
+			RejectReason: resp.RejectReason,
+			RejectCode:   resp.RejectCode,
+			RiskScore:    int32(resp.RiskScore),
+		}, nil
+	default:
+		return &riskv1.CheckTransactionResponse{
+			Approved: true,
+		}, nil
+	}
+}
+
+// ============================================================================
+// Blacklist Management
+// ============================================================================
+
+// AddToBlacklist adds a wallet to the blacklist
 func (h *RiskHandler) AddToBlacklist(ctx context.Context, req *riskv1.AddToBlacklistRequest) (*riskv1.AddToBlacklistResponse, error) {
-	// 参数验证
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
 	}
@@ -139,11 +218,21 @@ func (h *RiskHandler) AddToBlacklist(ctx context.Context, req *riskv1.AddToBlack
 		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
 	}
 
+	listType := req.BlacklistType
+	if listType == "" {
+		listType = "full"
+	}
+
+	source := req.Source
+	if source == "" {
+		source = "manual"
+	}
+
 	err := h.blacklistSvc.AddToBlacklist(ctx, &service.AddToBlacklistRequest{
 		Wallet:     req.Wallet,
-		ListType:   "full", // 默认全部限制
+		ListType:   listType,
 		Reason:     req.Reason,
-		Source:     "manual",
+		Source:     source,
 		ExpireAt:   req.ExpireAt,
 		OperatorID: req.OperatorId,
 	})
@@ -159,9 +248,8 @@ func (h *RiskHandler) AddToBlacklist(ctx context.Context, req *riskv1.AddToBlack
 	}, nil
 }
 
-// RemoveFromBlacklist 从黑名单移除
+// RemoveFromBlacklist removes a wallet from the blacklist
 func (h *RiskHandler) RemoveFromBlacklist(ctx context.Context, req *riskv1.RemoveFromBlacklistRequest) (*riskv1.RemoveFromBlacklistResponse, error) {
-	// 参数验证
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
 	}
@@ -186,7 +274,7 @@ func (h *RiskHandler) RemoveFromBlacklist(ctx context.Context, req *riskv1.Remov
 	}, nil
 }
 
-// CheckBlacklist 检查黑名单
+// CheckBlacklist checks if a wallet is blacklisted
 func (h *RiskHandler) CheckBlacklist(ctx context.Context, req *riskv1.CheckBlacklistRequest) (*riskv1.CheckBlacklistResponse, error) {
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
@@ -197,14 +285,22 @@ func (h *RiskHandler) CheckBlacklist(ctx context.Context, req *riskv1.CheckBlack
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	var entry *riskv1.BlacklistEntry
+	if resp.IsBlacklisted {
+		entry = &riskv1.BlacklistEntry{
+			Wallet:   req.Wallet,
+			Reason:   resp.Reason,
+			ExpireAt: resp.ExpireAt,
+		}
+	}
+
 	return &riskv1.CheckBlacklistResponse{
 		IsBlacklisted: resp.IsBlacklisted,
-		Reason:        resp.Reason,
-		ExpireAt:      resp.ExpireAt,
+		Entry:         entry,
 	}, nil
 }
 
-// ListBlacklist 获取黑名单列表
+// ListBlacklist retrieves the blacklist with filters
 func (h *RiskHandler) ListBlacklist(ctx context.Context, req *riskv1.ListBlacklistRequest) (*riskv1.ListBlacklistResponse, error) {
 	page := 1
 	pageSize := 20
@@ -222,15 +318,16 @@ func (h *RiskHandler) ListBlacklist(ctx context.Context, req *riskv1.ListBlackli
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// 转换为 proto 格式
 	pbEntries := make([]*riskv1.BlacklistEntry, len(entries))
 	for i, e := range entries {
 		pbEntries[i] = &riskv1.BlacklistEntry{
-			Wallet:     e.WalletAddress,
-			Reason:     e.Reason,
-			OperatorId: e.CreatedBy,
-			CreatedAt:  e.CreatedAt,
-			ExpireAt:   e.EffectiveUntil,
+			Wallet:        e.WalletAddress,
+			BlacklistType: string(e.ListType),
+			Reason:        e.Reason,
+			Source:        string(e.Source),
+			OperatorId:    e.CreatedBy,
+			CreatedAt:     e.CreatedAt,
+			ExpireAt:      e.EffectiveUntil,
 		}
 	}
 
@@ -242,7 +339,7 @@ func (h *RiskHandler) ListBlacklist(ctx context.Context, req *riskv1.ListBlackli
 	return &riskv1.ListBlacklistResponse{
 		Entries: pbEntries,
 		Pagination: &commonv1.PaginationResponse{
-			Total:      int32(total),
+			Total:      total,
 			Page:       int32(page),
 			PageSize:   int32(pageSize),
 			TotalPages: totalPages,
@@ -250,24 +347,39 @@ func (h *RiskHandler) ListBlacklist(ctx context.Context, req *riskv1.ListBlackli
 	}, nil
 }
 
-// ListRiskRules 获取风控规则列表
+// ============================================================================
+// Risk Rules Management
+// ============================================================================
+
+// ListRiskRules retrieves all risk rules
 func (h *RiskHandler) ListRiskRules(ctx context.Context, req *riskv1.ListRiskRulesRequest) (*riskv1.ListRiskRulesResponse, error) {
 	rules, err := h.ruleSvc.ListRules(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	pbRules := make([]*riskv1.RiskRule, len(rules))
-	for i, r := range rules {
-		pbRules[i] = &riskv1.RiskRule{
+	pbRules := make([]*riskv1.RiskRule, 0, len(rules))
+	for _, r := range rules {
+		// Filter by category if specified
+		if req.Category != "" && r.Type.String() != req.Category {
+			continue
+		}
+		// Filter by enabled status if specified
+		if req.EnabledOnly && !r.IsActive() {
+			continue
+		}
+
+		pbRules = append(pbRules, &riskv1.RiskRule{
 			RuleId:      r.RuleID,
 			Name:        r.Name,
 			Description: r.Description,
 			Category:    r.Type.String(),
 			IsEnabled:   r.IsActive(),
+			Priority:    int32(r.Priority),
 			Params:      make(map[string]string),
 			UpdatedAt:   r.UpdatedAt,
-		}
+			UpdatedBy:   r.UpdatedBy,
+		})
 	}
 
 	return &riskv1.ListRiskRulesResponse{
@@ -275,7 +387,34 @@ func (h *RiskHandler) ListRiskRules(ctx context.Context, req *riskv1.ListRiskRul
 	}, nil
 }
 
-// UpdateRiskRule 更新风控规则
+// GetRiskRule retrieves a specific risk rule
+func (h *RiskHandler) GetRiskRule(ctx context.Context, req *riskv1.GetRiskRuleRequest) (*riskv1.GetRiskRuleResponse, error) {
+	if req.RuleId == "" {
+		return nil, status.Error(codes.InvalidArgument, "rule_id is required")
+	}
+
+	rule, err := h.ruleSvc.GetRule(ctx, req.RuleId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	return &riskv1.GetRiskRuleResponse{
+		Rule: &riskv1.RiskRule{
+			RuleId:      rule.RuleID,
+			Name:        rule.Name,
+			Description: rule.Description,
+			Category:    rule.Type.String(),
+			IsEnabled:   rule.IsActive(),
+			Priority:    int32(rule.Priority),
+			Params:      make(map[string]string),
+			CreatedAt:   rule.CreatedAt,
+			UpdatedAt:   rule.UpdatedAt,
+			UpdatedBy:   rule.UpdatedBy,
+		},
+	}, nil
+}
+
+// UpdateRiskRule updates a risk rule
 func (h *RiskHandler) UpdateRiskRule(ctx context.Context, req *riskv1.UpdateRiskRuleRequest) (*riskv1.UpdateRiskRuleResponse, error) {
 	if req.RuleId == "" {
 		return nil, status.Error(codes.InvalidArgument, "rule_id is required")
@@ -303,7 +442,63 @@ func (h *RiskHandler) UpdateRiskRule(ctx context.Context, req *riskv1.UpdateRisk
 	}, nil
 }
 
-// ListRiskEvents 获取风控事件列表
+// ============================================================================
+// Rate Limiting
+// ============================================================================
+
+// GetRateLimitStatus retrieves rate limit status for a wallet
+func (h *RiskHandler) GetRateLimitStatus(ctx context.Context, req *riskv1.GetRateLimitStatusRequest) (*riskv1.GetRateLimitStatusResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+
+	// Get rate limit info from service
+	counters := make([]*riskv1.RateLimitCounter, 0)
+
+	// Add common counters (would come from rate limit cache in real implementation)
+	counters = append(counters, &riskv1.RateLimitCounter{
+		Name:          "orders_per_second",
+		Current:       0,
+		Limit:         10,
+		WindowSeconds: 1,
+		ResetsAt:      time.Now().Add(1 * time.Second).UnixMilli(),
+	})
+	counters = append(counters, &riskv1.RateLimitCounter{
+		Name:          "orders_per_minute",
+		Current:       0,
+		Limit:         300,
+		WindowSeconds: 60,
+		ResetsAt:      time.Now().Add(60 * time.Second).UnixMilli(),
+	})
+
+	return &riskv1.GetRateLimitStatusResponse{
+		Wallet:    req.Wallet,
+		Counters:  counters,
+		IsLimited: false,
+	}, nil
+}
+
+// ResetRateLimit resets rate limit counters for a wallet
+func (h *RiskHandler) ResetRateLimit(ctx context.Context, req *riskv1.ResetRateLimitRequest) (*riskv1.ResetRateLimitResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+
+	// Reset rate limit in cache (would be implemented in rate limit cache)
+	return &riskv1.ResetRateLimitResponse{
+		Success:       true,
+		CountersReset: 3,
+	}, nil
+}
+
+// ============================================================================
+// Risk Events
+// ============================================================================
+
+// ListRiskEvents retrieves risk events with filters
 func (h *RiskHandler) ListRiskEvents(ctx context.Context, req *riskv1.ListRiskEventsRequest) (*riskv1.ListRiskEventsResponse, error) {
 	page := 1
 	pageSize := 20
@@ -316,9 +511,14 @@ func (h *RiskHandler) ListRiskEvents(ctx context.Context, req *riskv1.ListRiskEv
 		}
 	}
 
+	eventType := ""
+	if req.EventType != commonv1.RiskEventType_RISK_EVENT_TYPE_UNSPECIFIED {
+		eventType = req.EventType.String()
+	}
+
 	events, total, err := h.eventSvc.ListEvents(ctx, &service.ListEventsRequest{
 		Wallet:    req.Wallet,
-		EventType: req.EventType,
+		EventType: eventType,
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		Page:      page,
@@ -333,7 +533,7 @@ func (h *RiskHandler) ListRiskEvents(ctx context.Context, req *riskv1.ListRiskEv
 		pbEvents[i] = &riskv1.RiskEvent{
 			EventId:     e.EventID,
 			Wallet:      e.Wallet,
-			EventType:   e.Type.String(),
+			EventType:   commonv1.RiskEventType(commonv1.RiskEventType_value[e.Type.String()]),
 			RuleId:      e.RuleID,
 			Description: e.Reason,
 			Context:     make(map[string]string),
@@ -349,7 +549,7 @@ func (h *RiskHandler) ListRiskEvents(ctx context.Context, req *riskv1.ListRiskEv
 	return &riskv1.ListRiskEventsResponse{
 		Events: pbEvents,
 		Pagination: &commonv1.PaginationResponse{
-			Total:      int32(total),
+			Total:      total,
 			Page:       int32(page),
 			PageSize:   int32(pageSize),
 			TotalPages: totalPages,
@@ -357,7 +557,56 @@ func (h *RiskHandler) ListRiskEvents(ctx context.Context, req *riskv1.ListRiskEv
 	}, nil
 }
 
-// GetUserLimits 获取用户限额信息
+// GetRiskEvent retrieves a specific risk event
+func (h *RiskHandler) GetRiskEvent(ctx context.Context, req *riskv1.GetRiskEventRequest) (*riskv1.GetRiskEventResponse, error) {
+	if req.EventId == "" {
+		return nil, status.Error(codes.InvalidArgument, "event_id is required")
+	}
+
+	event, err := h.eventSvc.GetEvent(ctx, req.EventId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	return &riskv1.GetRiskEventResponse{
+		Event: &riskv1.RiskEvent{
+			EventId:     event.EventID,
+			Wallet:      event.Wallet,
+			RuleId:      event.RuleID,
+			Description: event.Reason,
+			Context:     make(map[string]string),
+			CreatedAt:   event.CreatedAt,
+		},
+	}, nil
+}
+
+// AcknowledgeRiskEvent acknowledges a risk event
+func (h *RiskHandler) AcknowledgeRiskEvent(ctx context.Context, req *riskv1.AcknowledgeRiskEventRequest) (*riskv1.AcknowledgeRiskEventResponse, error) {
+	if req.EventId == "" {
+		return nil, status.Error(codes.InvalidArgument, "event_id is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+
+	err := h.eventSvc.AcknowledgeEvent(ctx, req.EventId, req.OperatorId, req.Note)
+	if err != nil {
+		return &riskv1.AcknowledgeRiskEventResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &riskv1.AcknowledgeRiskEventResponse{
+		Success: true,
+	}, nil
+}
+
+// ============================================================================
+// User Limits
+// ============================================================================
+
+// GetUserLimits retrieves limits for a user
 func (h *RiskHandler) GetUserLimits(ctx context.Context, req *riskv1.GetUserLimitsRequest) (*riskv1.GetUserLimitsResponse, error) {
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
@@ -368,20 +617,229 @@ func (h *RiskHandler) GetUserLimits(ctx context.Context, req *riskv1.GetUserLimi
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	pbLimits := make([]*riskv1.Limit, len(limits.Limits))
+	pbLimits := make([]*riskv1.UserLimit, len(limits.Limits))
 	for i, l := range limits.Limits {
-		pbLimits[i] = &riskv1.Limit{
+		pbLimits[i] = &riskv1.UserLimit{
 			LimitType:      l.LimitType,
 			Token:          l.Token,
 			MaxValue:       l.MaxValue.String(),
 			UsedValue:      l.UsedValue.String(),
 			RemainingValue: l.RemainingValue.String(),
-			ResetAt:        l.ResetAt,
+			ResetsAt:       l.ResetAt,
+		}
+	}
+
+	// Check VIP status for tier
+	tier := "basic"
+	if h.whitelistSvc != nil {
+		isVIP, _, _ := h.whitelistSvc.CheckVIP(ctx, req.Wallet)
+		if isVIP {
+			tier = "vip"
+		}
+		isMM, _, _ := h.whitelistSvc.CheckMarketMaker(ctx, req.Wallet)
+		if isMM {
+			tier = "market_maker"
 		}
 	}
 
 	return &riskv1.GetUserLimitsResponse{
 		Wallet: limits.Wallet,
 		Limits: pbLimits,
+		Tier:   tier,
+	}, nil
+}
+
+// SetUserLimits sets custom limits for a user
+func (h *RiskHandler) SetUserLimits(ctx context.Context, req *riskv1.SetUserLimitsRequest) (*riskv1.SetUserLimitsResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+
+	// Setting custom limits would involve creating whitelist entries with custom metadata
+	if h.whitelistSvc == nil {
+		return &riskv1.SetUserLimitsResponse{
+			Success:      false,
+			ErrorMessage: "whitelist service not available",
+		}, nil
+	}
+
+	// Create VIP entry with custom limits
+	metadata := &model.WhitelistMetadata{
+		CustomParams: make(map[string]string),
+	}
+	for _, limit := range req.Limits {
+		metadata.CustomParams[limit.LimitType] = limit.MaxValue
+	}
+
+	_, err := h.whitelistSvc.AddVIP(ctx, &service.AddVIPRequest{
+		Wallet:     req.Wallet,
+		Label:      "Custom limits",
+		Remark:     req.Reason,
+		Metadata:   metadata,
+		OperatorID: req.OperatorId,
+	})
+	if err != nil {
+		return &riskv1.SetUserLimitsResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &riskv1.SetUserLimitsResponse{
+		Success: true,
+	}, nil
+}
+
+// ============================================================================
+// Account Actions
+// ============================================================================
+
+// FreezeAccount freezes a user account
+func (h *RiskHandler) FreezeAccount(ctx context.Context, req *riskv1.FreezeAccountRequest) (*riskv1.FreezeAccountResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+
+	freezeType := req.FreezeType
+	if freezeType == "" {
+		freezeType = "full"
+	}
+
+	var expireAt int64
+	if req.DurationSeconds > 0 {
+		expireAt = time.Now().Add(time.Duration(req.DurationSeconds) * time.Second).UnixMilli()
+	}
+
+	err := h.blacklistSvc.AddToBlacklist(ctx, &service.AddToBlacklistRequest{
+		Wallet:     req.Wallet,
+		ListType:   freezeType,
+		Reason:     req.Reason,
+		Source:     "manual",
+		ExpireAt:   expireAt,
+		OperatorID: req.OperatorId,
+	})
+	if err != nil {
+		return &riskv1.FreezeAccountResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &riskv1.FreezeAccountResponse{
+		Success: true,
+	}, nil
+}
+
+// UnfreezeAccount unfreezes a user account
+func (h *RiskHandler) UnfreezeAccount(ctx context.Context, req *riskv1.UnfreezeAccountRequest) (*riskv1.UnfreezeAccountResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+	if req.OperatorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
+	}
+
+	err := h.blacklistSvc.RemoveFromBlacklist(ctx, &service.RemoveFromBlacklistRequest{
+		Wallet:     req.Wallet,
+		Reason:     req.Reason,
+		OperatorID: req.OperatorId,
+	})
+	if err != nil {
+		return &riskv1.UnfreezeAccountResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &riskv1.UnfreezeAccountResponse{
+		Success: true,
+	}, nil
+}
+
+// GetAccountStatus retrieves account risk status
+func (h *RiskHandler) GetAccountStatus(ctx context.Context, req *riskv1.GetAccountStatusRequest) (*riskv1.GetAccountStatusResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+
+	// Check blacklist status
+	blacklistResp, err := h.blacklistSvc.CheckBlacklist(ctx, req.Wallet)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Get recent risk events count
+	events, _, _ := h.eventSvc.ListEvents(ctx, &service.ListEventsRequest{
+		Wallet:    req.Wallet,
+		StartTime: time.Now().Add(-24 * time.Hour).UnixMilli(),
+		Page:      1,
+		Size:      100,
+	})
+
+	// Determine tier
+	tier := "basic"
+	if h.whitelistSvc != nil {
+		isVIP, _, _ := h.whitelistSvc.CheckVIP(ctx, req.Wallet)
+		if isVIP {
+			tier = "vip"
+		}
+		isMM, _, _ := h.whitelistSvc.CheckMarketMaker(ctx, req.Wallet)
+		if isMM {
+			tier = "market_maker"
+		}
+	}
+
+	return &riskv1.GetAccountStatusResponse{
+		Wallet:           req.Wallet,
+		IsFrozen:         blacklistResp.IsBlacklisted,
+		FreezeReason:     blacklistResp.Reason,
+		FreezeExpiresAt:  blacklistResp.ExpireAt,
+		IsBlacklisted:    blacklistResp.IsBlacklisted,
+		RiskScore:        0, // Would be calculated from recent activity
+		Tier:             tier,
+		RecentRiskEvents: int32(len(events)),
+	}, nil
+}
+
+// ============================================================================
+// Risk Statistics
+// ============================================================================
+
+// GetRiskStats retrieves risk statistics
+func (h *RiskHandler) GetRiskStats(ctx context.Context, req *riskv1.GetRiskStatsRequest) (*riskv1.GetRiskStatsResponse, error) {
+	periodHours := req.PeriodHours
+	if periodHours == 0 {
+		periodHours = 24
+	}
+
+	periodStart := time.Now().Add(-time.Duration(periodHours) * time.Hour).UnixMilli()
+	periodEnd := time.Now().UnixMilli()
+
+	// Get event statistics from event service
+	stats, err := h.eventSvc.GetStats(ctx, periodStart, periodEnd)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &riskv1.GetRiskStatsResponse{
+		PeriodStart:             periodStart,
+		PeriodEnd:               periodEnd,
+		OrdersChecked:           stats.OrdersChecked,
+		OrdersRejected:          stats.OrdersRejected,
+		OrderRejectionRate:      stats.OrderRejectionRate,
+		WithdrawalsChecked:      stats.WithdrawalsChecked,
+		WithdrawalsRejected:     stats.WithdrawalsRejected,
+		WithdrawalsReview:       stats.WithdrawalsReview,
+		WithdrawalRejectionRate: stats.WithdrawalRejectionRate,
+		NewBlacklistEntries:     stats.NewBlacklistEntries,
+		AccountsFrozen:          stats.AccountsFrozen,
+		EventsByLevel:           stats.EventsByLevel,
+		EventsByType:            stats.EventsByType,
 	}, nil
 }

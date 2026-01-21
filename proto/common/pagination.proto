@@ -2,18 +2,119 @@ syntax = "proto3";
 
 package eidos.common.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/proto/common/v1;commonv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/common;commonv1";
 
-// 分页请求
+// ============================================================================
+// Pagination Types
+// Standard pagination types for list APIs
+// ============================================================================
+
+// PaginationRequest is the standard pagination input for list APIs
 message PaginationRequest {
-    int32 page = 1;           // 页码，从 1 开始
-    int32 page_size = 2;      // 每页大小，默认 20，最大 100
+    // Page number, 1-indexed (default: 1)
+    // Minimum: 1
+    int32 page = 1;
+
+    // Number of items per page (default: 20, max: 100)
+    // Minimum: 1, Maximum: 100
+    int32 page_size = 2;
 }
 
-// 分页响应
+// PaginationResponse is the standard pagination output for list APIs
 message PaginationResponse {
-    int32 total = 1;          // 总记录数
-    int32 page = 2;           // 当前页码
-    int32 page_size = 3;      // 每页大小
-    int32 total_pages = 4;    // 总页数
+    // Total number of items matching the query
+    int64 total = 1;
+
+    // Current page number (1-indexed)
+    int32 page = 2;
+
+    // Items per page
+    int32 page_size = 3;
+
+    // Total number of pages
+    int32 total_pages = 4;
+
+    // Whether there are more pages after current page
+    bool has_next = 5;
+
+    // Whether there are pages before current page
+    bool has_previous = 6;
+}
+
+// CursorPaginationRequest is cursor-based pagination input
+// Used for large datasets where offset pagination is inefficient
+message CursorPaginationRequest {
+    // Cursor for fetching next page (opaque string)
+    // Empty string for first page
+    string cursor = 1;
+
+    // Number of items to return (default: 20, max: 100)
+    int32 limit = 2;
+
+    // Direction of pagination
+    // FORWARD: fetch items after cursor
+    // BACKWARD: fetch items before cursor
+    CursorDirection direction = 3;
+}
+
+// CursorPaginationResponse is cursor-based pagination output
+message CursorPaginationResponse {
+    // Cursor for fetching next page
+    // Empty string if no more pages
+    string next_cursor = 1;
+
+    // Cursor for fetching previous page
+    // Empty string if at the beginning
+    string previous_cursor = 2;
+
+    // Whether there are more items after current page
+    bool has_next = 3;
+
+    // Whether there are items before current page
+    bool has_previous = 4;
+
+    // Number of items returned in current page
+    int32 count = 5;
+}
+
+// CursorDirection specifies the pagination direction
+enum CursorDirection {
+    // Default: forward pagination
+    CURSOR_DIRECTION_UNSPECIFIED = 0;
+
+    // Fetch items after the cursor
+    CURSOR_DIRECTION_FORWARD = 1;
+
+    // Fetch items before the cursor
+    CURSOR_DIRECTION_BACKWARD = 2;
+}
+
+// SortOrder specifies the sort direction
+enum SortOrder {
+    // Default: ascending
+    SORT_ORDER_UNSPECIFIED = 0;
+
+    // Ascending order (A-Z, 0-9, oldest first)
+    SORT_ORDER_ASC = 1;
+
+    // Descending order (Z-A, 9-0, newest first)
+    SORT_ORDER_DESC = 2;
+}
+
+// SortField specifies a sort field and direction
+message SortField {
+    // Field name to sort by
+    string field = 1;
+
+    // Sort direction
+    SortOrder order = 2;
+}
+
+// TimeRange specifies a time range filter
+message TimeRange {
+    // Start time (Unix milliseconds, inclusive)
+    int64 start_time = 1;
+
+    // End time (Unix milliseconds, exclusive)
+    int64 end_time = 2;
 }

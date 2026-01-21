@@ -271,11 +271,20 @@ func (a *App) initDependencies(ctx context.Context) error {
 	a.wsHub = ws.NewHub(a.logger)
 	a.wsSubscriber = ws.NewSubscriber(a.wsHub, a.redis, a.logger)
 
+	// 初始化风控服务
+	var riskService *service.RiskService
+	if a.cfg.Risk.Enabled && a.riskClient != nil {
+		riskService = service.NewRiskService(a.riskClient, true)
+		a.logger.Info("risk service enabled")
+	} else {
+		a.logger.Warn("risk service disabled or unavailable")
+	}
+
 	// 初始化 Services（适配层）
-	orderService := service.NewOrderService(a.tradingClient)
+	orderService := service.NewOrderServiceWithRisk(a.tradingClient, riskService)
 	balanceService := service.NewBalanceService(a.tradingClient)
 	depositService := service.NewDepositService(a.tradingClient)
-	withdrawalService := service.NewWithdrawalService(a.tradingClient)
+	withdrawalService := service.NewWithdrawalServiceWithRisk(a.tradingClient, riskService)
 	tradeService := service.NewTradeService(a.tradingClient)
 	marketService := service.NewMarketService(a.marketClient)
 	tradingHealthAdapter := service.NewTradingHealthAdapter(a.tradingClient)

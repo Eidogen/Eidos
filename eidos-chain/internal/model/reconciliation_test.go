@@ -17,7 +17,7 @@ func TestReconciliationStatus_Constants(t *testing.T) {
 
 func TestReconciliationRecord_TableName(t *testing.T) {
 	record := ReconciliationRecord{}
-	assert.Equal(t, "eidos_chain_reconciliation_records", record.TableName())
+	assert.Equal(t, "chain_reconciliation_records", record.TableName())
 }
 
 func TestReconciliationRecord_HasDiscrepancy(t *testing.T) {

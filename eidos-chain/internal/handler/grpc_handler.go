@@ -10,6 +10,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	chainv1 "github.com/eidos-exchange/eidos/proto/chain/v1"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -82,7 +83,7 @@ func (h *GRPCHandler) GetSettlementStatus(ctx context.Context, req *chainv1.GetS
 			BlockNumber:  batch.BlockNumber,
 			GasUsed:      batch.GasUsed,
 			GasPrice:     batch.GasPrice,
-			Status:       int32(batch.Status),
+			Status:       commonv1.BatchStatus(batch.Status),
 			ErrorMessage: batch.ErrorMessage,
 			RetryCount:   int32(batch.RetryCount),
 			SubmittedAt:  batch.SubmittedAt,
@@ -126,8 +127,8 @@ func (h *GRPCHandler) RetrySettlement(ctx context.Context, req *chainv1.RetrySet
 // ListSettlementBatches 列出结算批次
 func (h *GRPCHandler) ListSettlementBatches(ctx context.Context, req *chainv1.ListSettlementBatchesRequest) (*chainv1.ListSettlementBatchesResponse, error) {
 	pagination := &repository.Pagination{
-		Page:     int(req.Page),
-		PageSize: int(req.PageSize),
+		Page:     int(req.GetPagination().GetPage()),
+		PageSize: int(req.GetPagination().GetPageSize()),
 	}
 
 	var batches []*model.SettlementBatch
@@ -155,7 +156,7 @@ func (h *GRPCHandler) ListSettlementBatches(ctx context.Context, req *chainv1.Li
 			BlockNumber:  batch.BlockNumber,
 			GasUsed:      batch.GasUsed,
 			GasPrice:     batch.GasPrice,
-			Status:       int32(batch.Status),
+			Status:       commonv1.BatchStatus(batch.Status),
 			ErrorMessage: batch.ErrorMessage,
 			RetryCount:   int32(batch.RetryCount),
 			SubmittedAt:  batch.SubmittedAt,
@@ -164,7 +165,14 @@ func (h *GRPCHandler) ListSettlementBatches(ctx context.Context, req *chainv1.Li
 		}
 	}
 
-	return &chainv1.ListSettlementBatchesResponse{Batches: resp, Total: pagination.Total}, nil
+	return &chainv1.ListSettlementBatchesResponse{
+		Batches: resp,
+		Pagination: &commonv1.PaginationResponse{
+			Page:     int32(pagination.Page),
+			PageSize: int32(pagination.PageSize),
+			Total:    pagination.Total,
+		},
+	}, nil
 }
 
 // ========== Deposit 充值相关 ==========
@@ -192,7 +200,7 @@ func (h *GRPCHandler) GetDepositStatus(ctx context.Context, req *chainv1.GetDepo
 			LogIndex:              int32(record.LogIndex),
 			Confirmations:         int32(record.Confirmations),
 			RequiredConfirmations: int32(record.RequiredConfirmations),
-			Status:                int32(record.Status),
+			Status:                commonv1.DepositStatus(record.Status),
 			CreditedAt:            record.CreditedAt,
 			CreatedAt:             record.CreatedAt,
 		},
@@ -202,8 +210,8 @@ func (h *GRPCHandler) GetDepositStatus(ctx context.Context, req *chainv1.GetDepo
 // ListDeposits 列出充值记录
 func (h *GRPCHandler) ListDeposits(ctx context.Context, req *chainv1.ListDepositsRequest) (*chainv1.ListDepositsResponse, error) {
 	pagination := &repository.Pagination{
-		Page:     int(req.Page),
-		PageSize: int(req.PageSize),
+		Page:     int(req.GetPagination().GetPage()),
+		PageSize: int(req.GetPagination().GetPageSize()),
 	}
 
 	var records []*model.DepositRecord
@@ -237,13 +245,20 @@ func (h *GRPCHandler) ListDeposits(ctx context.Context, req *chainv1.ListDeposit
 			LogIndex:              int32(record.LogIndex),
 			Confirmations:         int32(record.Confirmations),
 			RequiredConfirmations: int32(record.RequiredConfirmations),
-			Status:                int32(record.Status),
+			Status:                commonv1.DepositStatus(record.Status),
 			CreditedAt:            record.CreditedAt,
 			CreatedAt:             record.CreatedAt,
 		}
 	}
 
-	return &chainv1.ListDepositsResponse{Deposits: resp, Total: pagination.Total}, nil
+	return &chainv1.ListDepositsResponse{
+		Deposits: resp,
+		Pagination: &commonv1.PaginationResponse{
+			Page:     int32(pagination.Page),
+			PageSize: int32(pagination.PageSize),
+			Total:    pagination.Total,
+		},
+	}, nil
 }
 
 // ========== Withdrawal 提现相关 ==========
@@ -270,7 +285,7 @@ func (h *GRPCHandler) GetWithdrawalStatus(ctx context.Context, req *chainv1.GetW
 			TxHash:        tx.TxHash,
 			BlockNumber:   tx.BlockNumber,
 			GasUsed:       tx.GasUsed,
-			Status:        int32(tx.Status),
+			Status:        commonv1.WithdrawStatus(tx.Status),
 			ErrorMessage:  tx.ErrorMessage,
 			RetryCount:    int32(tx.RetryCount),
 			SubmittedAt:   tx.SubmittedAt,
@@ -291,8 +306,8 @@ func (h *GRPCHandler) RetryWithdrawal(ctx context.Context, req *chainv1.RetryWit
 // ListPendingWithdrawals 列出待处理提现
 func (h *GRPCHandler) ListPendingWithdrawals(ctx context.Context, req *chainv1.ListPendingWithdrawalsRequest) (*chainv1.ListPendingWithdrawalsResponse, error) {
 	pagination := &repository.Pagination{
-		Page:     int(req.Page),
-		PageSize: int(req.PageSize),
+		Page:     int(req.GetPagination().GetPage()),
+		PageSize: int(req.GetPagination().GetPageSize()),
 	}
 
 	txs, err := h.withdrawalRepo.ListByWallet(ctx, req.WalletAddress, pagination)
@@ -313,7 +328,7 @@ func (h *GRPCHandler) ListPendingWithdrawals(ctx context.Context, req *chainv1.L
 			TxHash:        tx.TxHash,
 			BlockNumber:   tx.BlockNumber,
 			GasUsed:       tx.GasUsed,
-			Status:        int32(tx.Status),
+			Status:        commonv1.WithdrawStatus(tx.Status),
 			ErrorMessage:  tx.ErrorMessage,
 			RetryCount:    int32(tx.RetryCount),
 			SubmittedAt:   tx.SubmittedAt,
@@ -322,7 +337,14 @@ func (h *GRPCHandler) ListPendingWithdrawals(ctx context.Context, req *chainv1.L
 		}
 	}
 
-	return &chainv1.ListPendingWithdrawalsResponse{Withdrawals: resp, Total: pagination.Total}, nil
+	return &chainv1.ListPendingWithdrawalsResponse{
+		Withdrawals: resp,
+		Pagination: &commonv1.PaginationResponse{
+			Page:     int32(pagination.Page),
+			PageSize: int32(pagination.PageSize),
+			Total:    pagination.Total,
+		},
+	}, nil
 }
 
 // ========== Indexer 索引器相关 ==========
@@ -401,8 +423,8 @@ func (h *GRPCHandler) GetReconciliationStatus(ctx context.Context, req *chainv1.
 // ListReconciliationRecords 列出对账记录
 func (h *GRPCHandler) ListReconciliationRecords(ctx context.Context, req *chainv1.ListReconciliationRecordsRequest) (*chainv1.ListReconciliationRecordsResponse, error) {
 	pagination := &repository.Pagination{
-		Page:     int(req.Page),
-		PageSize: int(req.PageSize),
+		Page:     int(req.GetPagination().GetPage()),
+		PageSize: int(req.GetPagination().GetPageSize()),
 	}
 
 	var records []*model.ReconciliationRecord
@@ -410,7 +432,7 @@ func (h *GRPCHandler) ListReconciliationRecords(ctx context.Context, req *chainv
 
 	if req.WalletAddress != "" {
 		records, err = h.reconciliationRepo.ListByWallet(ctx, req.WalletAddress, pagination)
-	} else if req.Status != "" {
+	} else if req.Status != commonv1.ReconciliationStatus_RECONCILIATION_STATUS_UNSPECIFIED {
 		records, err = h.reconciliationRepo.ListByStatus(ctx, model.ReconciliationStatus(req.Status), pagination)
 	} else {
 		records, err = h.reconciliationRepo.ListDiscrepancies(ctx, pagination)
@@ -432,7 +454,7 @@ func (h *GRPCHandler) ListReconciliationRecords(ctx context.Context, req *chainv
 			OffChainFrozen:    record.OffChainFrozen.String(),
 			PendingSettle:     record.PendingSettle.String(),
 			Difference:        record.Difference.String(),
-			Status:            string(record.Status),
+			Status:            modelToProtoReconciliationStatus(record.Status),
 			Resolution:        record.Resolution,
 			ResolvedBy:        record.ResolvedBy,
 			ResolvedAt:        record.ResolvedAt,
@@ -440,7 +462,14 @@ func (h *GRPCHandler) ListReconciliationRecords(ctx context.Context, req *chainv
 		}
 	}
 
-	return &chainv1.ListReconciliationRecordsResponse{Records: resp, Total: pagination.Total}, nil
+	return &chainv1.ListReconciliationRecordsResponse{
+		Records: resp,
+		Pagination: &commonv1.PaginationResponse{
+			Page:     int32(pagination.Page),
+			PageSize: int32(pagination.PageSize),
+			Total:    pagination.Total,
+		},
+	}, nil
 }
 
 // ========== Wallet 热钱包相关 ==========
@@ -471,4 +500,20 @@ func (h *GRPCHandler) GetWalletNonce(ctx context.Context, req *chainv1.GetWallet
 		CurrentNonce:  nonce,
 		PendingCount:  int32(h.nonceManager.GetPendingCount()),
 	}, nil
+}
+
+// modelToProtoReconciliationStatus converts model ReconciliationStatus to proto enum
+func modelToProtoReconciliationStatus(s model.ReconciliationStatus) commonv1.ReconciliationStatus {
+	switch s {
+	case model.ReconciliationStatusOK:
+		return commonv1.ReconciliationStatus_RECONCILIATION_STATUS_MATCHED
+	case model.ReconciliationStatusDiscrepancy:
+		return commonv1.ReconciliationStatus_RECONCILIATION_STATUS_DISCREPANCY
+	case model.ReconciliationStatusResolved:
+		return commonv1.ReconciliationStatus_RECONCILIATION_STATUS_RESOLVED
+	case model.ReconciliationStatusIgnored:
+		return commonv1.ReconciliationStatus_RECONCILIATION_STATUS_IGNORED
+	default:
+		return commonv1.ReconciliationStatus_RECONCILIATION_STATUS_UNSPECIFIED
+	}
 }

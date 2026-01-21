@@ -27,12 +27,12 @@ func TestPendingTxStatus_String(t *testing.T) {
 
 func TestWalletNonce_TableName(t *testing.T) {
 	nonce := WalletNonce{}
-	assert.Equal(t, "eidos_chain_wallet_nonces", nonce.TableName())
+	assert.Equal(t, "chain_wallet_nonces", nonce.TableName())
 }
 
 func TestPendingTx_TableName(t *testing.T) {
 	tx := PendingTx{}
-	assert.Equal(t, "eidos_chain_pending_txs", tx.TableName())
+	assert.Equal(t, "chain_pending_txs", tx.TableName())
 }
 
 func TestPendingTxType_Constants(t *testing.T) {

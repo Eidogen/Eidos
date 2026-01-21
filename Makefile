@@ -1,60 +1,77 @@
 .PHONY: all build test clean proto infra-up infra-down help
 
-# 服务列表
+# Service list
 SERVICES := eidos-api eidos-trading eidos-matching eidos-market eidos-chain eidos-risk eidos-jobs eidos-admin
 
-# Go 参数
+# Go parameters
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
 GOFMT := $(GOCMD) fmt
 GOMOD := $(GOCMD) mod
 
-# Proto 参数
+# Proto parameters
 PROTOC := protoc
 PROTO_DIR := proto
 PROTO_GO_OUT := --go_out=. --go_opt=paths=source_relative
 PROTO_GRPC_OUT := --go-grpc_out=. --go-grpc_opt=paths=source_relative
 
-# 默认目标
+# Default target
 all: proto build
 
 # ========================================
-# 帮助
+# Help
 # ========================================
 help:
-	@echo "Eidos 交易系统 - Makefile 使用指南"
+	@echo "Eidos Trading System - Makefile Guide"
 	@echo ""
-	@echo "基础命令:"
-	@echo "  make build          构建所有服务"
-	@echo "  make test           运行所有测试"
-	@echo "  make clean          清理构建产物"
-	@echo "  make fmt            格式化代码"
-	@echo "  make lint           运行代码检查"
+	@echo "Basic Commands:"
+	@echo "  make build              Build all services"
+	@echo "  make test               Run all unit tests"
+	@echo "  make clean              Clean build artifacts"
+	@echo "  make fmt                Format code"
+	@echo "  make lint               Run code linting"
 	@echo ""
-	@echo "Proto 相关:"
-	@echo "  make proto          生成所有 proto 文件"
-	@echo "  make proto-trading  生成 trading proto"
-	@echo "  make proto-matching 生成 matching proto"
+	@echo "Proto:"
+	@echo "  make proto              Generate all proto files"
+	@echo "  make proto-trading      Generate trading proto"
+	@echo "  make proto-matching     Generate matching proto"
 	@echo ""
-	@echo "基础设施:"
-	@echo "  make infra-up       启动基础设施 (PostgreSQL, Redis, Kafka, etc.)"
-	@echo "  make infra-down     停止基础设施 (数据保留)"
-	@echo "  make infra-clean    停止基础设施并删除所有数据 (慎用!)"
-	@echo "  make infra-logs     查看基础设施日志"
-	@echo "  make infra-status   查看基础设施状态"
+	@echo "Infrastructure:"
+	@echo "  make infra-up           Start infrastructure (PostgreSQL, Redis, Kafka, etc.)"
+	@echo "  make infra-down         Stop infrastructure (data preserved)"
+	@echo "  make infra-clean        Stop infrastructure and delete all data (CAUTION!)"
+	@echo "  make infra-logs         View infrastructure logs"
+	@echo "  make infra-status       View infrastructure status"
 	@echo ""
-	@echo "单服务操作:"
-	@echo "  make build-api      构建 eidos-api"
-	@echo "  make run-api        运行 eidos-api"
-	@echo "  make test-api       测试 eidos-api"
+	@echo "Services:"
+	@echo "  make services-up        Start all application services"
+	@echo "  make services-down      Stop all application services"
+	@echo "  make services-logs      View application services logs"
+	@echo ""
+	@echo "Single Service:"
+	@echo "  make build-api          Build eidos-api"
+	@echo "  make run-api            Run eidos-api locally"
+	@echo "  make test-api           Test eidos-api"
+	@echo ""
+	@echo "Integration Tests:"
+	@echo "  make test-integration   Run all integration tests"
+	@echo "  make test-order-flow    Test order flow"
+	@echo "  make test-deposit-flow  Test deposit flow"
+	@echo "  make test-market-flow   Test market data flow"
+	@echo ""
+	@echo "Development:"
+	@echo "  make dev-up             Start infrastructure + services for local dev"
+	@echo "  make dev-down           Stop all containers"
+	@echo "  make health-check       Check health of all services"
+	@echo "  make verify-data-flow   Verify data flow between services"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build   构建所有 Docker 镜像"
-	@echo "  make docker-push    推送所有 Docker 镜像"
+	@echo "  make docker-build       Build all Docker images"
+	@echo "  make docker-push        Push all Docker images"
 
 # ========================================
-# 构建
+# Build
 # ========================================
 build: $(addprefix build-,$(SERVICES))
 
@@ -63,7 +80,7 @@ build-%:
 	@cd $* && $(GOBUILD) -o bin/$* ./cmd/main.go
 
 # ========================================
-# 测试
+# Unit Tests
 # ========================================
 test: $(addprefix test-,$(SERVICES))
 	@cd eidos-common && $(GOTEST) -v ./...
@@ -78,8 +95,39 @@ test-cover:
 		cd $$svc && $(GOTEST) -v -coverprofile=coverage.out ./... && cd ..; \
 	done
 
+test-cover-html: test-cover
+	@for svc in $(SERVICES); do \
+		if [ -f $$svc/coverage.out ]; then \
+			cd $$svc && $(GOCMD) tool cover -html=coverage.out -o coverage.html && cd ..; \
+		fi \
+	done
+	@echo "Coverage reports generated!"
+
 # ========================================
-# 代码质量
+# Integration Tests
+# ========================================
+test-integration:
+	@echo "Running all integration tests..."
+	@cd tests/integration && $(GOTEST) -v -timeout 10m ./...
+
+test-order-flow:
+	@echo "Running order flow integration tests..."
+	@cd tests/integration && $(GOTEST) -v -timeout 5m -run TestOrderFlowSuite ./...
+
+test-deposit-flow:
+	@echo "Running deposit flow integration tests..."
+	@cd tests/integration && $(GOTEST) -v -timeout 5m -run TestDepositFlowSuite ./...
+
+test-withdrawal-flow:
+	@echo "Running withdrawal flow integration tests..."
+	@cd tests/integration && $(GOTEST) -v -timeout 5m -run TestWithdrawalFlowSuite ./...
+
+test-market-flow:
+	@echo "Running market data flow integration tests..."
+	@cd tests/integration && $(GOTEST) -v -timeout 5m -run TestMarketDataFlowSuite ./...
+
+# ========================================
+# Code Quality
 # ========================================
 fmt:
 	@for svc in $(SERVICES) eidos-common; do \
@@ -93,13 +141,16 @@ lint:
 		cd $$svc && golangci-lint run ./... && cd ..; \
 	done
 
-# ========================================
-# Proto 生成
-# ========================================
-# Proto 文件和生成的 Go 文件统一放在 proto 文件夹下
-# 使用 module 模式，输出路径由 go_package 决定
+vet:
+	@for svc in $(SERVICES) eidos-common; do \
+		echo "Vetting $$svc..."; \
+		cd $$svc && $(GOCMD) vet ./... && cd ..; \
+	done
 
-proto: proto-clean proto-common proto-trading proto-matching proto-market proto-chain proto-risk proto-jobs proto-admin
+# ========================================
+# Proto Generation
+# ========================================
+proto: proto-clean proto-common proto-kafka proto-trading proto-matching proto-market proto-chain proto-risk proto-jobs proto-admin proto-settlement
 	@echo "All proto files generated successfully!"
 
 proto-clean:
@@ -117,6 +168,20 @@ proto-common:
 		$(PROTO_DIR)/common/pagination.proto \
 		$(PROTO_DIR)/common/response.proto
 	@echo "Common proto generated!"
+
+proto-kafka:
+	@echo "Generating kafka proto..."
+	@if [ -f $(PROTO_DIR)/common/kafka.proto ]; then \
+		$(PROTOC) \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			-I /opt/homebrew/include \
+			-I $(PROTO_DIR) \
+			$(PROTO_DIR)/common/kafka.proto; \
+		echo "Kafka proto generated!"; \
+	else \
+		echo "Kafka proto not found, skipping..."; \
+	fi
 
 proto-trading:
 	@echo "Generating trading proto..."
@@ -226,14 +291,30 @@ proto-admin:
 		echo "Admin proto not found, skipping..."; \
 	fi
 
+proto-settlement:
+	@echo "Generating settlement proto..."
+	@if [ -f $(PROTO_DIR)/settlement/v1/settlement.proto ]; then \
+		$(PROTOC) \
+			--go_out=. \
+			--go_opt=module=github.com/eidos-exchange/eidos \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/eidos-exchange/eidos \
+			-I /opt/homebrew/include \
+			-I $(PROTO_DIR) \
+			$(PROTO_DIR)/settlement/v1/settlement.proto; \
+		echo "Settlement proto generated!"; \
+	else \
+		echo "Settlement proto not found, skipping..."; \
+	fi
+
 # ========================================
-# 基础设施
+# Infrastructure
 # ========================================
 infra-up:
 	@echo "Starting infrastructure..."
-	docker-compose up -d postgres timescaledb redis kafka nacos prometheus grafana
+	docker-compose up -d postgres timescaledb redis kafka kafka-init nacos prometheus grafana
 	@echo "Waiting for services to be ready..."
-	@sleep 10
+	@sleep 15
 	@echo "Infrastructure is ready!"
 	@echo "  PostgreSQL:   localhost:5432"
 	@echo "  TimescaleDB:  localhost:5433"
@@ -249,7 +330,7 @@ infra-down:
 	@echo "Infrastructure stopped. Data is preserved in Docker volumes."
 
 infra-logs:
-	docker-compose logs -f
+	docker-compose logs -f postgres timescaledb redis kafka nacos
 
 infra-clean:
 	@echo "WARNING: This will delete all data in Docker volumes!"
@@ -260,8 +341,70 @@ infra-clean:
 infra-status:
 	docker-compose ps
 
+infra-kafka-ui:
+	@echo "Starting Kafka UI..."
+	docker-compose --profile debug up -d kafka-ui
+	@echo "Kafka UI available at http://localhost:8090"
+
 # ========================================
-# 单服务运行
+# Application Services
+# ========================================
+services-up:
+	@echo "Starting all application services..."
+	docker-compose --profile services up -d
+	@echo "Services started!"
+	@echo "  API Gateway:     http://localhost:8080"
+	@echo "  Trading (gRPC):  localhost:50051"
+	@echo "  Matching (gRPC): localhost:50052"
+	@echo "  Market (gRPC):   localhost:50053"
+	@echo "  Chain (gRPC):    localhost:50054"
+	@echo "  Risk (gRPC):     localhost:50055"
+	@echo "  Jobs (gRPC):     localhost:50056"
+	@echo "  Admin:           http://localhost:8088"
+
+services-down:
+	@echo "Stopping all application services..."
+	docker-compose --profile services down
+	@echo "Services stopped."
+
+services-logs:
+	docker-compose --profile services logs -f
+
+services-restart:
+	@echo "Restarting all application services..."
+	docker-compose --profile services restart
+	@echo "Services restarted."
+
+# ========================================
+# Development Environment
+# ========================================
+dev-up: infra-up
+	@echo ""
+	@echo "Development infrastructure is ready!"
+	@echo "Run 'make run-<service>' to start a service locally"
+	@echo "Or run 'make services-up' to start all services in Docker"
+
+dev-down:
+	@echo "Stopping all containers..."
+	docker-compose --profile services --profile debug down
+	@echo "All containers stopped."
+
+dev-clean: infra-clean
+	@echo "Development environment cleaned!"
+
+# ========================================
+# Health Checks & Verification
+# ========================================
+health-check:
+	@echo "Running health check..."
+	@./scripts/health_check.sh
+
+verify-data-flow:
+	@echo "Verifying data flow..."
+	@./scripts/verify_data_flow.sh
+
+# ========================================
+# Single Service Run (Local Development)
 # ========================================
 run-%:
 	@echo "Running $*..."
@@ -274,16 +417,22 @@ docker-build: $(addprefix docker-build-,$(SERVICES))
 
 docker-build-%:
 	@echo "Building Docker image for $*..."
-	@cd $* && docker build -t $*:latest -f Dockerfile ..
+	docker build -t eidos/$*:latest -f $*/Dockerfile .
 
 docker-push: $(addprefix docker-push-,$(SERVICES))
 
 docker-push-%:
 	@echo "Pushing Docker image for $*..."
-	docker push $*:latest
+	docker push eidos/$*:latest
+
+docker-tag:
+	@echo "Tagging Docker images with version $(VERSION)..."
+	@for svc in $(SERVICES); do \
+		docker tag eidos/$$svc:latest eidos/$$svc:$(VERSION); \
+	done
 
 # ========================================
-# 清理
+# Clean
 # ========================================
 clean:
 	@for svc in $(SERVICES); do \
@@ -292,28 +441,88 @@ clean:
 		rm -f $$svc/coverage.out $$svc/coverage.html; \
 	done
 	@find proto -name "*.pb.go" -delete 2>/dev/null || true
+	@rm -rf tests/integration/coverage.out
+
+clean-all: clean infra-clean
+	@echo "All artifacts cleaned!"
 
 # ========================================
-# 依赖管理
+# Dependency Management
 # ========================================
 mod-tidy:
-	@for svc in $(SERVICES) eidos-common; do \
-		echo "Tidying $$svc..."; \
-		cd $$svc && $(GOMOD) tidy && cd ..; \
+	@for svc in $(SERVICES) eidos-common proto; do \
+		if [ -d $$svc ]; then \
+			echo "Tidying $$svc..."; \
+			cd $$svc && $(GOMOD) tidy && cd ..; \
+		fi \
 	done
+	@cd tests/integration && $(GOMOD) tidy
 
 mod-download:
-	@for svc in $(SERVICES) eidos-common; do \
-		echo "Downloading deps for $$svc..."; \
-		cd $$svc && $(GOMOD) download && cd ..; \
+	@for svc in $(SERVICES) eidos-common proto; do \
+		if [ -d $$svc ]; then \
+			echo "Downloading deps for $$svc..."; \
+			cd $$svc && $(GOMOD) download && cd ..; \
+		fi \
+	done
+
+mod-verify:
+	@for svc in $(SERVICES) eidos-common proto; do \
+		if [ -d $$svc ]; then \
+			echo "Verifying deps for $$svc..."; \
+			cd $$svc && $(GOMOD) verify && cd ..; \
+		fi \
 	done
 
 # ========================================
-# 工具安装
+# Tool Installation
 # ========================================
 install-tools:
 	@echo "Installing development tools..."
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/grpc-ecosystem/grpc-health-probe@latest
 	@echo "Tools installed successfully!"
+
+# ========================================
+# Database
+# ========================================
+db-migrate:
+	@echo "Running database migrations..."
+	@echo "TODO: Add migration command"
+
+db-seed:
+	@echo "Seeding database with test data..."
+	@echo "TODO: Add seed command"
+
+db-reset:
+	@echo "Resetting database..."
+	@echo "TODO: Add reset command"
+
+# ========================================
+# Quick Commands
+# ========================================
+up: infra-up services-up
+	@echo "Eidos Trading System is up and running!"
+
+down: services-down infra-down
+	@echo "Eidos Trading System stopped."
+
+restart: down up
+	@echo "Eidos Trading System restarted."
+
+logs:
+	docker-compose logs -f
+
+ps:
+	docker-compose ps
+
+# ========================================
+# CI/CD
+# ========================================
+ci-test: lint vet test
+	@echo "CI tests passed!"
+
+ci-build: proto build docker-build
+	@echo "CI build complete!"

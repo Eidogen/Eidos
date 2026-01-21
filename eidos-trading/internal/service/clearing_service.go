@@ -44,11 +44,6 @@ type clearingService struct {
 	asyncTasks           *AsyncTaskManager    // 异步任务管理器
 }
 
-// SettlementPublisher 结算消息发布接口
-type SettlementPublisher interface {
-	PublishSettlementTradeFromResult(ctx context.Context, tradeID, market, makerWallet, takerWallet, makerOrderID, takerOrderID string, price, amount, quoteAmount, makerFee, takerFee decimal.Decimal, makerIsBuyer bool, matchedAt int64) error
-}
-
 // NewClearingService 创建清算服务
 func NewClearingService(
 	db *gorm.DB,

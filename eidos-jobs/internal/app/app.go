@@ -422,9 +422,10 @@ func (a *App) registerJobs() {
 
 	// 6. 数据归档任务
 	if a.cfg.Jobs.Archive.Enabled {
+		archiveProvider := client.NewArchiveDataProvider(a.db, nil)
 		archiveJob := jobs.NewArchiveDataJob(
 			a.archiveRepo,
-			&jobs.MockArchiveDataProvider{}, // TODO: 替换为实际的数据提供者
+			archiveProvider,
 			model.ArchivableTables,
 		)
 		a.scheduler.RegisterJob(archiveJob, scheduler.JobConfig{
@@ -450,6 +451,67 @@ func (a *App) registerJobs() {
 		partitionJob := jobs.NewPartitionManageJob(a.db, jobs.DefaultPartitionTables)
 		a.scheduler.RegisterJob(partitionJob, scheduler.JobConfig{
 			Cron:    a.getJobCron(scheduler.JobNamePartitionManage, a.cfg.Jobs.PartitionMgmt.Cron),
+			Enabled: true,
+		})
+	}
+
+	// 9. 余额扫描取消订单任务
+	if a.cfg.Jobs.BalanceScan.Enabled {
+		var balanceScanProvider jobs.BalanceScanDataProvider = &jobs.MockBalanceScanDataProvider{}
+		if a.chainClient != nil && a.tradingClient != nil {
+			balanceScanProvider = client.NewBalanceScanDataProvider(a.chainClient, a.tradingClient)
+		}
+		balanceScanConfig := &jobs.BalanceScanConfig{
+			BatchSize:              a.cfg.Jobs.BalanceScan.BatchSize,
+			CancelThresholdPercent: a.cfg.Jobs.BalanceScan.CancelThresholdPercent,
+			MaxConcurrentQueries:   a.cfg.Jobs.BalanceScan.MaxConcurrentQueries,
+			EnableNotification:     a.cfg.Jobs.BalanceScan.EnableNotification,
+		}
+		if balanceScanConfig.BatchSize <= 0 {
+			balanceScanConfig.BatchSize = jobs.DefaultBalanceScanConfig.BatchSize
+		}
+		if balanceScanConfig.MaxConcurrentQueries <= 0 {
+			balanceScanConfig.MaxConcurrentQueries = jobs.DefaultBalanceScanConfig.MaxConcurrentQueries
+		}
+		balanceScanJob := jobs.NewBalanceScanJob(balanceScanProvider, balanceScanConfig)
+		a.scheduler.RegisterJob(balanceScanJob, scheduler.JobConfig{
+			Cron:    a.getJobCron(scheduler.JobNameBalanceScan, a.cfg.Jobs.BalanceScan.Cron),
+			Enabled: true,
+		})
+	}
+
+	// 10. 结算触发任务
+	if a.cfg.Jobs.SettlementTrigger.Enabled {
+		var settlementProvider jobs.SettlementDataProvider = &jobs.MockSettlementDataProvider{}
+		if a.chainClient != nil && a.tradingClient != nil {
+			settlementProvider = client.NewSettlementDataProvider(a.chainClient, a.tradingClient)
+		}
+		settlementConfig := &jobs.SettlementConfig{
+			BatchSize:         a.cfg.Jobs.SettlementTrigger.BatchSize,
+			MinBatchSize:      a.cfg.Jobs.SettlementTrigger.MinBatchSize,
+			MaxWaitTime:       time.Duration(a.cfg.Jobs.SettlementTrigger.MaxWaitTimeMs) * time.Millisecond,
+			RetryTimeout:      time.Duration(a.cfg.Jobs.SettlementTrigger.RetryTimeoutMs) * time.Millisecond,
+			MaxRetries:        a.cfg.Jobs.SettlementTrigger.MaxRetries,
+			ConcurrentBatches: a.cfg.Jobs.SettlementTrigger.ConcurrentBatches,
+		}
+		if settlementConfig.BatchSize <= 0 {
+			settlementConfig.BatchSize = jobs.DefaultSettlementConfig.BatchSize
+		}
+		if settlementConfig.MinBatchSize <= 0 {
+			settlementConfig.MinBatchSize = jobs.DefaultSettlementConfig.MinBatchSize
+		}
+		if settlementConfig.MaxWaitTime <= 0 {
+			settlementConfig.MaxWaitTime = jobs.DefaultSettlementConfig.MaxWaitTime
+		}
+		if settlementConfig.RetryTimeout <= 0 {
+			settlementConfig.RetryTimeout = jobs.DefaultSettlementConfig.RetryTimeout
+		}
+		if settlementConfig.MaxRetries <= 0 {
+			settlementConfig.MaxRetries = jobs.DefaultSettlementConfig.MaxRetries
+		}
+		settlementJob := jobs.NewSettlementTriggerJob(settlementProvider, settlementConfig)
+		a.scheduler.RegisterJob(settlementJob, scheduler.JobConfig{
+			Cron:    a.getJobCron(scheduler.JobNameSettlementTrigger, a.cfg.Jobs.SettlementTrigger.Cron),
 			Enabled: true,
 		})
 	}

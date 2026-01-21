@@ -3,6 +3,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/dto"
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,7 @@ func ErrorWithData(c *gin.Context, err *dto.BizError, data interface{}) {
 
 // RateLimitError 返回限流错误响应
 func RateLimitError(c *gin.Context, limit int, window string, retryAfter int) {
-	c.Header("Retry-After", string(rune(retryAfter)))
+	c.Header("Retry-After", strconv.Itoa(retryAfter))
 	c.JSON(http.StatusTooManyRequests, dto.NewRateLimitResponse(limit, window, retryAfter))
 }
 

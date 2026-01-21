@@ -34,16 +34,23 @@ func NewSubscriber(hub *Hub, redis *redis.Client, logger *zap.Logger) *Subscribe
 
 // Start 启动订阅
 func (s *Subscriber) Start(ctx context.Context) error {
-	// 订阅所有市场频道
-	// TODO: 动态订阅，根据 Hub 中实际订阅情况
-	patterns := []string{
+	// 订阅公开行情频道
+	publicPatterns := []string{
 		"eidos:ticker:*",
 		"eidos:depth:*",
 		"eidos:kline:*",
 		"eidos:trades:*",
 	}
 
-	pubsub := s.redis.PSubscribe(ctx, patterns...)
+	// 订阅私有频道
+	privatePatterns := []string{
+		"eidos:orders:*",
+		"eidos:balances:*",
+		"eidos:positions:*",
+	}
+
+	allPatterns := append(publicPatterns, privatePatterns...)
+	pubsub := s.redis.PSubscribe(ctx, allPatterns...)
 
 	go func() {
 		defer pubsub.Close()
@@ -63,7 +70,7 @@ func (s *Subscriber) Start(ctx context.Context) error {
 		}
 	}()
 
-	s.logger.Info("subscriber started", zap.Strings("patterns", patterns))
+	s.logger.Info("subscriber started", zap.Strings("patterns", allPatterns))
 	return nil
 }
 
@@ -75,6 +82,7 @@ func (s *Subscriber) Stop() {
 // handleMessage 处理 Redis 消息
 func (s *Subscriber) handleMessage(msg *redis.Message) {
 	// 解析频道: eidos:{channel}:{market}[:interval]
+	// 或私有频道: eidos:{channel}:{wallet}
 	parts := strings.Split(msg.Channel, ":")
 	if len(parts) < 3 {
 		metrics.RecordRedisMessage(msg.Channel, false, "invalid_format")
@@ -83,9 +91,10 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 	}
 
 	channelType := parts[1]
-	market := parts[2]
+	target := parts[2] // market for public, wallet for private
 
 	var channel Channel
+	var isPrivate bool
 	switch channelType {
 	case "ticker":
 		channel = ChannelTicker
@@ -95,6 +104,15 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 		channel = ChannelKline
 	case "trades":
 		channel = ChannelTrades
+	case "orders":
+		channel = ChannelOrders
+		isPrivate = true
+	case "balances":
+		channel = ChannelBalances
+		isPrivate = true
+	case "positions":
+		channel = ChannelPositions
+		isPrivate = true
 	default:
 		metrics.RecordRedisMessage(channelType, false, "unknown_channel")
 		s.logger.Warn("unknown channel type", zap.String("type", channelType))
@@ -116,8 +134,16 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 	metrics.RecordRedisMessage(channelType, true, "")
 
 	// 广播到 Hub
-	serverMsg := NewUpdateMessage(channel, market, data, time.Now().UnixMilli())
-	s.hub.Broadcast(channel, market, serverMsg)
+	timestamp := time.Now().UnixMilli()
+	serverMsg := NewUpdateMessage(channel, target, data, timestamp)
+
+	if isPrivate {
+		// 私有频道：使用钱包地址作为 target
+		s.hub.BroadcastPrivate(channel, target, serverMsg)
+	} else {
+		// 公开频道：使用市场作为 target
+		s.hub.Broadcast(channel, target, serverMsg)
+	}
 }
 
 // PublishTicker 发布 Ticker 更新（用于测试）
@@ -154,4 +180,42 @@ func (s *Subscriber) PublishTrade(ctx context.Context, market string, trade *Tra
 		return err
 	}
 	return s.redis.Publish(ctx, "eidos:trades:"+market, data).Err()
+}
+
+// PublishOrderUpdate 发布订单更新（私有频道）
+func (s *Subscriber) PublishOrderUpdate(ctx context.Context, wallet string, order *OrderData) error {
+	data, err := json.Marshal(order)
+	if err != nil {
+		return err
+	}
+	return s.redis.Publish(ctx, "eidos:orders:"+strings.ToLower(wallet), data).Err()
+}
+
+// PublishBalanceUpdate 发布余额更新（私有频道）
+func (s *Subscriber) PublishBalanceUpdate(ctx context.Context, wallet string, balance *BalanceData) error {
+	data, err := json.Marshal(balance)
+	if err != nil {
+		return err
+	}
+	return s.redis.Publish(ctx, "eidos:balances:"+strings.ToLower(wallet), data).Err()
+}
+
+// BalanceData 余额数据（私有频道）
+type BalanceData struct {
+	Wallet    string `json:"wallet"`
+	Token     string `json:"token"`
+	Available string `json:"available"`
+	Locked    string `json:"locked"`
+	Total     string `json:"total"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+// PositionData 仓位数据（私有频道，预留）
+type PositionData struct {
+	Wallet    string `json:"wallet"`
+	Market    string `json:"market"`
+	Size      string `json:"size"`
+	Side      string `json:"side"`
+	EntryPrice string `json:"entry_price"`
+	UpdatedAt int64  `json:"updated_at"`
 }

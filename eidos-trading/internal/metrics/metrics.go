@@ -347,3 +347,77 @@ func IncTotalOpenOrders() {
 func DecTotalOpenOrders() {
 	TotalOpenOrdersGauge.Dec()
 }
+
+// ========== Kafka Retry Metrics ==========
+
+var (
+	// KafkaRetryTotal Kafka 消息重试计数
+	KafkaRetryTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "eidos",
+			Subsystem: "trading",
+			Name:      "kafka_retry_total",
+			Help:      "Kafka 消息重试总数，按 topic 和状态分组",
+		},
+		[]string{"topic", "status"},
+	)
+
+	// KafkaDeadLetterTotal 死信消息计数
+	KafkaDeadLetterTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "eidos",
+			Subsystem: "trading",
+			Name:      "kafka_dead_letter_total",
+			Help:      "死信队列消息总数，按原始 topic 分组",
+		},
+		[]string{"original_topic"},
+	)
+
+	// BalanceMonitorRunTotal 余额监控运行计数
+	BalanceMonitorRunTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "eidos",
+			Subsystem: "trading",
+			Name:      "balance_monitor_runs_total",
+			Help:      "余额监控运行总次数",
+		},
+	)
+
+	// BalanceMonitorIssuesTotal 余额监控发现问题的钱包数
+	BalanceMonitorIssuesTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "eidos",
+			Subsystem: "trading",
+			Name:      "balance_monitor_issues_total",
+			Help:      "余额监控发现余额不足问题的钱包总数",
+		},
+	)
+
+	// BalanceMonitorCancelledTotal 因余额不足取消的订单数
+	BalanceMonitorCancelledTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "eidos",
+			Subsystem: "trading",
+			Name:      "balance_monitor_cancelled_total",
+			Help:      "因余额不足被取消的订单总数",
+		},
+	)
+)
+
+// RecordKafkaRetry 记录 Kafka 消息重试
+// status 取值: retry, success, non_retryable, max_retries_exceeded
+func RecordKafkaRetry(topic, status string) {
+	KafkaRetryTotal.WithLabelValues(topic, status).Inc()
+}
+
+// RecordKafkaDeadLetter 记录死信消息
+func RecordKafkaDeadLetter(originalTopic string) {
+	KafkaDeadLetterTotal.WithLabelValues(originalTopic).Inc()
+}
+
+// RecordBalanceMonitorRun 记录余额监控运行
+func RecordBalanceMonitorRun(walletsWithIssues, ordersCancelled int) {
+	BalanceMonitorRunTotal.Inc()
+	BalanceMonitorIssuesTotal.Add(float64(walletsWithIssues))
+	BalanceMonitorCancelledTotal.Add(float64(ordersCancelled))
+}

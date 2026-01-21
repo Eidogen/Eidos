@@ -137,7 +137,7 @@ func TestKline_Clone(t *testing.T) {
 
 func TestKline_TableName(t *testing.T) {
 	k := Kline{}
-	assert.Equal(t, "eidos_market_klines", k.TableName())
+	assert.Equal(t, "market_klines", k.TableName())
 }
 
 // ============ Depth Tests ============
@@ -424,7 +424,7 @@ func TestMarket_Clone(t *testing.T) {
 
 func TestMarket_TableName(t *testing.T) {
 	m := Market{}
-	assert.Equal(t, "eidos_market_markets", m.TableName())
+	assert.Equal(t, "market_markets", m.TableName())
 }
 
 // ============ Trade Tests ============
@@ -470,7 +470,7 @@ func TestTrade_Clone(t *testing.T) {
 
 func TestTrade_TableName(t *testing.T) {
 	tr := Trade{}
-	assert.Equal(t, "eidos_market_trades", tr.TableName())
+	assert.Equal(t, "market_trades", tr.TableName())
 }
 
 func TestTradeEvent_ToTrade(t *testing.T) {

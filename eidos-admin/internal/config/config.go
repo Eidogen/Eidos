@@ -35,6 +35,7 @@ type GRPCClientsConfig struct {
 	Market   string `yaml:"market" json:"market"`
 	Chain    string `yaml:"chain" json:"chain"`
 	Risk     string `yaml:"risk" json:"risk"`
+	Jobs     string `yaml:"jobs" json:"jobs"`
 }
 
 type JWTConfig struct {

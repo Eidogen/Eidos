@@ -38,7 +38,7 @@ func TestBalanceRepository_GetByWalletToken_Success(t *testing.T) {
 		1, now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "balances"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "trading_balances"\."id" LIMIT \$3`).
 		WithArgs(wallet, token, 1).
 		WillReturnRows(rows)
 
@@ -61,7 +61,7 @@ func TestBalanceRepository_GetByWalletToken_NotFound(t *testing.T) {
 	wallet := "0x1234567890123456789012345678901234567890"
 	token := "USDT"
 
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "balances"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "trading_balances"\."id" LIMIT \$3`).
 		WithArgs(wallet, token, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -87,7 +87,7 @@ func TestBalanceRepository_ListByWallet_Success(t *testing.T) {
 		2, wallet, "ETH", "10", "1", "5", "0.5", "5.5", 1, now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1`).
 		WithArgs(wallet).
 		WillReturnRows(rows)
 
@@ -110,7 +110,7 @@ func TestBalanceRepository_Freeze_Success(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(100)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Freeze(ctx, wallet, token, amount, true)
@@ -129,7 +129,7 @@ func TestBalanceRepository_Freeze_InsufficientBalance(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(100)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	err := repo.Freeze(ctx, wallet, token, amount, true)
@@ -148,7 +148,7 @@ func TestBalanceRepository_Freeze_FromPending(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(100)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Freeze(ctx, wallet, token, amount, false) // fromSettled = false
@@ -167,7 +167,7 @@ func TestBalanceRepository_Unfreeze_Success(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(50)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Unfreeze(ctx, wallet, token, amount, true)
@@ -186,7 +186,7 @@ func TestBalanceRepository_Unfreeze_ToPending(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(50)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Unfreeze(ctx, wallet, token, amount, false) // toSettled = false
@@ -210,12 +210,12 @@ func TestBalanceRepository_Credit_Success(t *testing.T) {
 	rows := sqlmock.NewRows(balanceColumns()).AddRow(
 		1, wallet, token, "1000", "100", "500", "50", "550", 1, now, now, "", "",
 	)
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "balances"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "trading_balances"\."id" LIMIT \$3`).
 		WithArgs(wallet, token, 1).
 		WillReturnRows(rows)
 
 	// Credit 更新
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Credit(ctx, wallet, token, amount, true)
@@ -239,12 +239,12 @@ func TestBalanceRepository_Credit_ToPending(t *testing.T) {
 	rows := sqlmock.NewRows(balanceColumns()).AddRow(
 		1, wallet, token, "1000", "100", "500", "50", "550", 1, now, now, "", "",
 	)
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "balances"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "trading_balances"\."id" LIMIT \$3`).
 		WithArgs(wallet, token, 1).
 		WillReturnRows(rows)
 
 	// Credit 更新到 pending
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Credit(ctx, wallet, token, amount, false)
@@ -263,7 +263,7 @@ func TestBalanceRepository_Debit_Success(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(50)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Debit(ctx, wallet, token, amount, true)
@@ -282,7 +282,7 @@ func TestBalanceRepository_Debit_InsufficientBalance(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(50)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	err := repo.Debit(ctx, wallet, token, amount, true)
@@ -301,7 +301,7 @@ func TestBalanceRepository_Settle_Success(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(100)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.Settle(ctx, wallet, token, amount)
@@ -320,7 +320,7 @@ func TestBalanceRepository_Settle_InsufficientBalance(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(100)
 
-	mock.ExpectExec(`UPDATE balances`).
+	mock.ExpectExec(`UPDATE trading_balances`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	err := repo.Settle(ctx, wallet, token, amount)
@@ -433,7 +433,7 @@ func TestBalanceRepository_GetByWalletTokenForUpdate_Success(t *testing.T) {
 		1, wallet, token, "1000", "100", "500", "50", "550", 1, now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "balances"\."id" LIMIT \$3 FOR UPDATE`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_balances" WHERE wallet = \$1 AND token = \$2 ORDER BY "trading_balances"\."id" LIMIT \$3 FOR UPDATE`).
 		WithArgs(wallet, token, 1).
 		WillReturnRows(rows)
 
@@ -462,7 +462,7 @@ func TestBalanceRepository_CreateBalanceLog_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`INSERT INTO "balance_logs"`).
+	mock.ExpectQuery(`INSERT INTO "trading_balance_logs"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -488,7 +488,7 @@ func TestBalanceRepository_GetFeeAccount_Success(t *testing.T) {
 		1, bucketID, token, "1000.000000000000000000", 1, now, now,
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "fee_accounts" WHERE bucket_id = \$1 AND token = \$2 ORDER BY "fee_accounts"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_fee_accounts" WHERE bucket_id = \$1 AND token = \$2 ORDER BY "trading_fee_accounts"\."id" LIMIT \$3`).
 		WithArgs(bucketID, token, 1).
 		WillReturnRows(rows)
 
@@ -511,7 +511,7 @@ func TestBalanceRepository_CreditFeeAccount_Success(t *testing.T) {
 	token := "USDT"
 	amount := decimal.NewFromFloat(10)
 
-	mock.ExpectExec(`UPDATE fee_accounts`).
+	mock.ExpectExec(`UPDATE trading_fee_accounts`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.CreditFeeAccount(ctx, bucketID, token, amount)

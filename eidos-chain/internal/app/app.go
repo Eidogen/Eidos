@@ -355,6 +355,7 @@ func (a *App) initGRPC() {
 		a.blockchainClient,
 		a.reconciliationRepo,
 		nil, // TODO: 配置 BalanceProvider (需要连接 eidos-trading)
+		nil, // 使用默认配置
 	)
 
 	// 创建 gRPC Handler 并注册服务

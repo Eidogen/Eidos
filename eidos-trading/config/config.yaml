@@ -1,21 +1,26 @@
 service:
   name: eidos-trading
   grpc_port: 50051
-  http_port: 8080
-  env: dev
+  http_port: 8081
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  enabled: true
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
   username: ${NACOS_USERNAME:}
   password: ${NACOS_PASSWORD:}
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Database Configuration
 database:
-  host: ${POSTGRES_HOST:postgres}
+  host: ${POSTGRES_HOST:localhost}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_trading}
   user: ${POSTGRES_USER:eidos}
@@ -23,23 +28,49 @@ database:
   max_open_conns: 100
   max_idle_conns: 10
   conn_max_lifetime_minutes: 60
+  ssl_mode: disable
+  timezone: UTC
 
+# Redis Configuration
 redis:
-  host: ${REDIS_HOST:redis}
+  host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
+  min_idle_conns: 10
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# Kafka Configuration
 kafka:
-  enabled: true
+  enabled: ${KAFKA_ENABLED:true}
   brokers:
-    - ${KAFKA_BROKERS:kafka:9092}
+    - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-trading
+  client_id: eidos-trading
+  consumer:
+    topics:
+      - matching-results
+      - settlement-results
+    auto_offset_reset: earliest
+    max_poll_records: 500
+  producer:
+    topics:
+      orders: orders
+      cancels: cancel-requests
+      settlements: settlement-requests
+    compression: lz4
+    batch_size: 1000
+    linger_ms: 10
+    required_acks: -1
 
+# Node Configuration
 node:
   id: ${NODE_ID:1}
 
+# EIP-712 Configuration
 eip712:
   domain:
     name: EidosExchange
@@ -47,19 +78,35 @@ eip712:
     chain_id: ${CHAIN_ID:31337}
     verifying_contract: ${CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
 
-log:
-  level: ${LOG_LEVEL:info}
-  format: json
+# gRPC Client Configuration
+grpc_clients:
+  matching:
+    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
+    timeout_ms: 5000
+    max_retry: 3
+  risk:
+    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    timeout_ms: 5000
+    max_retry: 3
+  chain:
+    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
+    timeout_ms: 5000
+    max_retry: 3
 
+# Matching Engine Integration
 matching:
-  enabled: false
+  enabled: ${MATCHING_ENABLED:true}
   addr: ${MATCHING_ADDR:localhost:50052}
+  timeout_ms: 5000
 
+# Risk Control
 risk_control:
+  enabled: ${RISK_ENABLED:true}
   user_pending_limit: 100000
   global_pending_limit: 10000000
   max_open_orders_per_user: 100
 
+# Background Workers
 worker:
   order_expiry:
     enabled: true
@@ -70,6 +117,7 @@ worker:
     check_interval_sec: 300
     batch_size: 100
 
+# Outbox Pattern Configuration
 outbox:
   relay_interval_ms: 100
   batch_size: 100
@@ -77,6 +125,7 @@ outbox:
   cleanup_interval_ms: 3600000
   retention_ms: 86400000
 
+# Market Configuration
 markets:
   - market: ETH-USDT
     base_token: ETH
@@ -91,6 +140,7 @@ markets:
     taker_fee_rate: 0.002
     status: 1
 
+# Token Configuration
 tokens:
   - symbol: ETH
     name: Ethereum
@@ -100,3 +150,20 @@ tokens:
     name: Tether USD
     decimals: 6
     address: "0x0000000000000000000000000000000000000001"
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9091
+  path: /metrics
+
+# Logging Configuration
+log:
+  level: ${LOG_LEVEL:info}
+  format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

@@ -420,3 +420,319 @@ func RecordGRPCRequest(method, code string, latencySeconds float64) {
 func RecordChannelOverflow(market, channel string) {
 	ChannelOverflow.WithLabelValues(market, channel).Inc()
 }
+
+// =============================================================================
+// 新增性能指标
+// =============================================================================
+
+var (
+	// ========== 撮合延迟详细指标 ==========
+
+	// MatchLatencyMicroseconds 撮合延迟（微秒级别，更精确）
+	MatchLatencyMicroseconds = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "match_latency_microseconds",
+			Help:      "Time taken for a single match operation in microseconds",
+			Buckets:   []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000}, // 1µs ~ 10ms
+		},
+		[]string{"market"},
+	)
+
+	// OrderProcessLatencyMicroseconds 订单处理延迟（微秒级）
+	OrderProcessLatencyMicroseconds = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "order_process_latency_microseconds",
+			Help:      "Order processing latency in microseconds",
+			Buckets:   []float64{10, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 50000}, // 10µs ~ 50ms
+		},
+		[]string{"market", "order_type"},
+	)
+
+	// EndToEndLatency 端到端延迟（从消息到达到处理完成）
+	EndToEndLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "end_to_end_latency_milliseconds",
+			Help:      "End-to-end latency from message arrival to completion in milliseconds",
+			Buckets:   []float64{0.1, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500}, // 0.1ms ~ 500ms
+		},
+		[]string{"market", "operation"}, // operation: order, cancel
+	)
+
+	// ========== 订单簿深度详细指标 ==========
+
+	// OrderBookBidVolume 买单总量
+	OrderBookBidVolume = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orderbook_bid_volume",
+			Help:      "Total volume of bid orders in orderbook",
+		},
+		[]string{"market"},
+	)
+
+	// OrderBookAskVolume 卖单总量
+	OrderBookAskVolume = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orderbook_ask_volume",
+			Help:      "Total volume of ask orders in orderbook",
+		},
+		[]string{"market"},
+	)
+
+	// OrderBookMidPrice 中间价
+	OrderBookMidPrice = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orderbook_mid_price",
+			Help:      "Mid price of orderbook",
+		},
+		[]string{"market"},
+	)
+
+	// OrderBookImbalance 订单簿不平衡度 (买量-卖量)/(买量+卖量)
+	OrderBookImbalance = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orderbook_imbalance",
+			Help:      "Order book imbalance ratio (-1 to 1)",
+		},
+		[]string{"market"},
+	)
+
+	// TopOfBookQuantity 最优价位数量
+	TopOfBookQuantity = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "top_of_book_quantity",
+			Help:      "Quantity at top of book",
+		},
+		[]string{"market", "side"},
+	)
+
+	// ========== 吞吐量指标 ==========
+
+	// OrdersPerSecond 每秒订单数
+	OrdersPerSecond = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orders_per_second",
+			Help:      "Current orders per second throughput",
+		},
+		[]string{"market"},
+	)
+
+	// TradesPerSecond 每秒成交数
+	TradesPerSecond = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "trades_per_second",
+			Help:      "Current trades per second throughput",
+		},
+		[]string{"market"},
+	)
+
+	// MessagesPerSecond 每秒消息处理数
+	MessagesPerSecond = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "messages_per_second",
+			Help:      "Current messages per second throughput",
+		},
+		[]string{"type"}, // type: orders, cancels, trades
+	)
+
+	// ========== 内存指标 ==========
+
+	// OrderBookMemoryBytes 订单簿内存占用
+	OrderBookMemoryBytes = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "orderbook_memory_bytes",
+			Help:      "Estimated memory usage of orderbook in bytes",
+		},
+		[]string{"market"},
+	)
+
+	// ChannelBufferUsage 通道缓冲区使用率
+	ChannelBufferUsage = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "channel_buffer_usage_percent",
+			Help:      "Channel buffer usage percentage",
+		},
+		[]string{"market", "channel"},
+	)
+
+	// ========== HA 指标 ==========
+
+	// LeaderElectionState Leader 选举状态
+	LeaderElectionState = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "leader_election_state",
+			Help:      "Leader election state (0=follower, 1=candidate, 2=leader)",
+		},
+		[]string{"node_id"},
+	)
+
+	// FailoverCount 故障转移次数
+	FailoverCount = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "failover_total",
+			Help:      "Total number of failovers",
+		},
+		[]string{"node_id"},
+	)
+
+	// HeartbeatLatency 心跳延迟
+	HeartbeatLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "heartbeat_latency_milliseconds",
+			Help:      "Heartbeat round-trip latency in milliseconds",
+			Buckets:   []float64{1, 5, 10, 25, 50, 100, 250, 500},
+		},
+		[]string{"node_id"},
+	)
+
+	// ========== 价格源指标 ==========
+
+	// IndexPriceUpdateLatency 指数价格更新延迟
+	IndexPriceUpdateLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "index_price_update_latency_milliseconds",
+			Help:      "Index price update latency in milliseconds",
+			Buckets:   []float64{1, 5, 10, 50, 100, 500, 1000},
+		},
+		[]string{"market", "source"},
+	)
+
+	// IndexPriceDeviation 指数价格偏差
+	IndexPriceDeviation = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "index_price_deviation_percent",
+			Help:      "Index price deviation from last trade price in percent",
+		},
+		[]string{"market"},
+	)
+
+	// PriceSourceHealth 价格源健康状态
+	PriceSourceHealth = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "price_source_healthy",
+			Help:      "Price source health status (1=healthy, 0=unhealthy)",
+		},
+		[]string{"source"},
+	)
+)
+
+// RecordMatchLatencyMicros 记录撮合延迟（微秒）
+func RecordMatchLatencyMicros(market string, latencyMicros float64) {
+	MatchLatencyMicroseconds.WithLabelValues(market).Observe(latencyMicros)
+}
+
+// RecordOrderProcessLatencyMicros 记录订单处理延迟（微秒）
+func RecordOrderProcessLatencyMicros(market, orderType string, latencyMicros float64) {
+	OrderProcessLatencyMicroseconds.WithLabelValues(market, orderType).Observe(latencyMicros)
+}
+
+// RecordEndToEndLatency 记录端到端延迟
+func RecordEndToEndLatency(market, operation string, latencyMs float64) {
+	EndToEndLatency.WithLabelValues(market, operation).Observe(latencyMs)
+}
+
+// UpdateOrderBookVolumeMetrics 更新订单簿量指标
+func UpdateOrderBookVolumeMetrics(market string, bidVolume, askVolume, midPrice, imbalance float64) {
+	OrderBookBidVolume.WithLabelValues(market).Set(bidVolume)
+	OrderBookAskVolume.WithLabelValues(market).Set(askVolume)
+	OrderBookMidPrice.WithLabelValues(market).Set(midPrice)
+	OrderBookImbalance.WithLabelValues(market).Set(imbalance)
+}
+
+// UpdateTopOfBookMetrics 更新最优价位指标
+func UpdateTopOfBookMetrics(market string, bidQty, askQty float64) {
+	TopOfBookQuantity.WithLabelValues(market, "bid").Set(bidQty)
+	TopOfBookQuantity.WithLabelValues(market, "ask").Set(askQty)
+}
+
+// UpdateThroughputMetrics 更新吞吐量指标
+func UpdateThroughputMetrics(market string, ordersPerSec, tradesPerSec float64) {
+	OrdersPerSecond.WithLabelValues(market).Set(ordersPerSec)
+	TradesPerSecond.WithLabelValues(market).Set(tradesPerSec)
+}
+
+// UpdateMessageThroughput 更新消息吞吐量
+func UpdateMessageThroughput(msgType string, perSec float64) {
+	MessagesPerSecond.WithLabelValues(msgType).Set(perSec)
+}
+
+// UpdateOrderBookMemory 更新订单簿内存占用
+func UpdateOrderBookMemory(market string, bytes int64) {
+	OrderBookMemoryBytes.WithLabelValues(market).Set(float64(bytes))
+}
+
+// UpdateChannelBufferUsage 更新通道缓冲区使用率
+func UpdateChannelBufferUsage(market, channel string, usagePercent float64) {
+	ChannelBufferUsage.WithLabelValues(market, channel).Set(usagePercent)
+}
+
+// SetLeaderState 设置 Leader 状态
+func SetLeaderState(nodeID string, state int) {
+	LeaderElectionState.WithLabelValues(nodeID).Set(float64(state))
+}
+
+// RecordFailover 记录故障转移
+func RecordFailover(nodeID string) {
+	FailoverCount.WithLabelValues(nodeID).Inc()
+}
+
+// RecordHeartbeatLatency 记录心跳延迟
+func RecordHeartbeatLatency(nodeID string, latencyMs float64) {
+	HeartbeatLatency.WithLabelValues(nodeID).Observe(latencyMs)
+}
+
+// RecordIndexPriceUpdate 记录指数价格更新
+func RecordIndexPriceUpdate(market, source string, latencyMs float64) {
+	IndexPriceUpdateLatency.WithLabelValues(market, source).Observe(latencyMs)
+}
+
+// UpdateIndexPriceDeviation 更新指数价格偏差
+func UpdateIndexPriceDeviation(market string, deviationPercent float64) {
+	IndexPriceDeviation.WithLabelValues(market).Set(deviationPercent)
+}
+
+// SetPriceSourceHealth 设置价格源健康状态
+func SetPriceSourceHealth(source string, healthy bool) {
+	val := 0.0
+	if healthy {
+		val = 1.0
+	}
+	PriceSourceHealth.WithLabelValues(source).Set(val)
+}

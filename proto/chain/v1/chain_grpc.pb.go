@@ -19,50 +19,71 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChainService_GetSettlementStatus_FullMethodName       = "/eidos.chain.v1.ChainService/GetSettlementStatus"
-	ChainService_RetrySettlement_FullMethodName           = "/eidos.chain.v1.ChainService/RetrySettlement"
-	ChainService_ListSettlementBatches_FullMethodName     = "/eidos.chain.v1.ChainService/ListSettlementBatches"
+	ChainService_GetIndexerStatus_FullMethodName          = "/eidos.chain.v1.ChainService/GetIndexerStatus"
+	ChainService_GetBlockHeight_FullMethodName            = "/eidos.chain.v1.ChainService/GetBlockHeight"
 	ChainService_GetDepositStatus_FullMethodName          = "/eidos.chain.v1.ChainService/GetDepositStatus"
 	ChainService_ListDeposits_FullMethodName              = "/eidos.chain.v1.ChainService/ListDeposits"
 	ChainService_GetWithdrawalStatus_FullMethodName       = "/eidos.chain.v1.ChainService/GetWithdrawalStatus"
-	ChainService_RetryWithdrawal_FullMethodName           = "/eidos.chain.v1.ChainService/RetryWithdrawal"
 	ChainService_ListPendingWithdrawals_FullMethodName    = "/eidos.chain.v1.ChainService/ListPendingWithdrawals"
-	ChainService_GetIndexerStatus_FullMethodName          = "/eidos.chain.v1.ChainService/GetIndexerStatus"
-	ChainService_GetBlockHeight_FullMethodName            = "/eidos.chain.v1.ChainService/GetBlockHeight"
+	ChainService_RetryWithdrawal_FullMethodName           = "/eidos.chain.v1.ChainService/RetryWithdrawal"
+	ChainService_GetSettlementStatus_FullMethodName       = "/eidos.chain.v1.ChainService/GetSettlementStatus"
+	ChainService_ListSettlementBatches_FullMethodName     = "/eidos.chain.v1.ChainService/ListSettlementBatches"
+	ChainService_RetrySettlement_FullMethodName           = "/eidos.chain.v1.ChainService/RetrySettlement"
 	ChainService_TriggerReconciliation_FullMethodName     = "/eidos.chain.v1.ChainService/TriggerReconciliation"
 	ChainService_GetReconciliationStatus_FullMethodName   = "/eidos.chain.v1.ChainService/GetReconciliationStatus"
 	ChainService_ListReconciliationRecords_FullMethodName = "/eidos.chain.v1.ChainService/ListReconciliationRecords"
+	ChainService_GetReconciliationReport_FullMethodName   = "/eidos.chain.v1.ChainService/GetReconciliationReport"
 	ChainService_GetWalletBalance_FullMethodName          = "/eidos.chain.v1.ChainService/GetWalletBalance"
 	ChainService_GetWalletNonce_FullMethodName            = "/eidos.chain.v1.ChainService/GetWalletNonce"
+	ChainService_GetChainStatus_FullMethodName            = "/eidos.chain.v1.ChainService/GetChainStatus"
 )
 
 // ChainServiceClient is the client API for ChainService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// ChainService 链上服务
+// ChainService provides on-chain related functionality including:
+// - Chain indexer status and management
+// - Deposit tracking
+// - Withdrawal execution
+// - Settlement batch management
+// - Reconciliation
+// - Hot wallet management
 type ChainServiceClient interface {
-	// Settlement 结算相关
-	GetSettlementStatus(ctx context.Context, in *GetSettlementStatusRequest, opts ...grpc.CallOption) (*GetSettlementStatusResponse, error)
-	RetrySettlement(ctx context.Context, in *RetrySettlementRequest, opts ...grpc.CallOption) (*RetrySettlementResponse, error)
-	ListSettlementBatches(ctx context.Context, in *ListSettlementBatchesRequest, opts ...grpc.CallOption) (*ListSettlementBatchesResponse, error)
-	// Deposit 充值相关
-	GetDepositStatus(ctx context.Context, in *GetDepositStatusRequest, opts ...grpc.CallOption) (*GetDepositStatusResponse, error)
-	ListDeposits(ctx context.Context, in *ListDepositsRequest, opts ...grpc.CallOption) (*ListDepositsResponse, error)
-	// Withdrawal 提现相关
-	GetWithdrawalStatus(ctx context.Context, in *GetWithdrawalStatusRequest, opts ...grpc.CallOption) (*GetWithdrawalStatusResponse, error)
-	RetryWithdrawal(ctx context.Context, in *RetryWithdrawalRequest, opts ...grpc.CallOption) (*RetryWithdrawalResponse, error)
-	ListPendingWithdrawals(ctx context.Context, in *ListPendingWithdrawalsRequest, opts ...grpc.CallOption) (*ListPendingWithdrawalsResponse, error)
-	// Indexer 索引器相关
+	// GetIndexerStatus retrieves the status of the chain indexer
 	GetIndexerStatus(ctx context.Context, in *GetIndexerStatusRequest, opts ...grpc.CallOption) (*GetIndexerStatusResponse, error)
+	// GetBlockHeight retrieves the current block height
 	GetBlockHeight(ctx context.Context, in *GetBlockHeightRequest, opts ...grpc.CallOption) (*GetBlockHeightResponse, error)
-	// Reconciliation 对账相关
+	// GetDepositStatus retrieves status of a deposit
+	GetDepositStatus(ctx context.Context, in *GetDepositStatusRequest, opts ...grpc.CallOption) (*GetDepositStatusResponse, error)
+	// ListDeposits retrieves deposits with filters
+	ListDeposits(ctx context.Context, in *ListDepositsRequest, opts ...grpc.CallOption) (*ListDepositsResponse, error)
+	// GetWithdrawalStatus retrieves status of a withdrawal transaction
+	GetWithdrawalStatus(ctx context.Context, in *GetWithdrawalStatusRequest, opts ...grpc.CallOption) (*GetWithdrawalStatusResponse, error)
+	// ListPendingWithdrawals retrieves pending withdrawal transactions
+	ListPendingWithdrawals(ctx context.Context, in *ListPendingWithdrawalsRequest, opts ...grpc.CallOption) (*ListPendingWithdrawalsResponse, error)
+	// RetryWithdrawal retries a failed withdrawal
+	RetryWithdrawal(ctx context.Context, in *RetryWithdrawalRequest, opts ...grpc.CallOption) (*RetryWithdrawalResponse, error)
+	// GetSettlementStatus retrieves status of a settlement batch
+	GetSettlementStatus(ctx context.Context, in *GetSettlementStatusRequest, opts ...grpc.CallOption) (*GetSettlementStatusResponse, error)
+	// ListSettlementBatches retrieves settlement batches with filters
+	ListSettlementBatches(ctx context.Context, in *ListSettlementBatchesRequest, opts ...grpc.CallOption) (*ListSettlementBatchesResponse, error)
+	// RetrySettlement retries a failed settlement batch
+	RetrySettlement(ctx context.Context, in *RetrySettlementRequest, opts ...grpc.CallOption) (*RetrySettlementResponse, error)
+	// TriggerReconciliation triggers a reconciliation check
 	TriggerReconciliation(ctx context.Context, in *TriggerReconciliationRequest, opts ...grpc.CallOption) (*TriggerReconciliationResponse, error)
+	// GetReconciliationStatus retrieves status of a reconciliation task
 	GetReconciliationStatus(ctx context.Context, in *GetReconciliationStatusRequest, opts ...grpc.CallOption) (*GetReconciliationStatusResponse, error)
+	// ListReconciliationRecords retrieves reconciliation records
 	ListReconciliationRecords(ctx context.Context, in *ListReconciliationRecordsRequest, opts ...grpc.CallOption) (*ListReconciliationRecordsResponse, error)
-	// Wallet 热钱包相关
+	// GetReconciliationReport retrieves a reconciliation summary report
+	GetReconciliationReport(ctx context.Context, in *GetReconciliationReportRequest, opts ...grpc.CallOption) (*GetReconciliationReportResponse, error)
+	// GetWalletBalance retrieves the hot wallet balance
 	GetWalletBalance(ctx context.Context, in *GetWalletBalanceRequest, opts ...grpc.CallOption) (*GetWalletBalanceResponse, error)
+	// GetWalletNonce retrieves the current nonce for the hot wallet
 	GetWalletNonce(ctx context.Context, in *GetWalletNonceRequest, opts ...grpc.CallOption) (*GetWalletNonceResponse, error)
+	// GetChainStatus retrieves overall chain service status
+	GetChainStatus(ctx context.Context, in *GetChainStatusRequest, opts ...grpc.CallOption) (*GetChainStatusResponse, error)
 }
 
 type chainServiceClient struct {
@@ -73,30 +94,20 @@ func NewChainServiceClient(cc grpc.ClientConnInterface) ChainServiceClient {
 	return &chainServiceClient{cc}
 }
 
-func (c *chainServiceClient) GetSettlementStatus(ctx context.Context, in *GetSettlementStatusRequest, opts ...grpc.CallOption) (*GetSettlementStatusResponse, error) {
+func (c *chainServiceClient) GetIndexerStatus(ctx context.Context, in *GetIndexerStatusRequest, opts ...grpc.CallOption) (*GetIndexerStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetSettlementStatusResponse)
-	err := c.cc.Invoke(ctx, ChainService_GetSettlementStatus_FullMethodName, in, out, cOpts...)
+	out := new(GetIndexerStatusResponse)
+	err := c.cc.Invoke(ctx, ChainService_GetIndexerStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chainServiceClient) RetrySettlement(ctx context.Context, in *RetrySettlementRequest, opts ...grpc.CallOption) (*RetrySettlementResponse, error) {
+func (c *chainServiceClient) GetBlockHeight(ctx context.Context, in *GetBlockHeightRequest, opts ...grpc.CallOption) (*GetBlockHeightResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrySettlementResponse)
-	err := c.cc.Invoke(ctx, ChainService_RetrySettlement_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chainServiceClient) ListSettlementBatches(ctx context.Context, in *ListSettlementBatchesRequest, opts ...grpc.CallOption) (*ListSettlementBatchesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSettlementBatchesResponse)
-	err := c.cc.Invoke(ctx, ChainService_ListSettlementBatches_FullMethodName, in, out, cOpts...)
+	out := new(GetBlockHeightResponse)
+	err := c.cc.Invoke(ctx, ChainService_GetBlockHeight_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -133,16 +144,6 @@ func (c *chainServiceClient) GetWithdrawalStatus(ctx context.Context, in *GetWit
 	return out, nil
 }
 
-func (c *chainServiceClient) RetryWithdrawal(ctx context.Context, in *RetryWithdrawalRequest, opts ...grpc.CallOption) (*RetryWithdrawalResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetryWithdrawalResponse)
-	err := c.cc.Invoke(ctx, ChainService_RetryWithdrawal_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *chainServiceClient) ListPendingWithdrawals(ctx context.Context, in *ListPendingWithdrawalsRequest, opts ...grpc.CallOption) (*ListPendingWithdrawalsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListPendingWithdrawalsResponse)
@@ -153,20 +154,40 @@ func (c *chainServiceClient) ListPendingWithdrawals(ctx context.Context, in *Lis
 	return out, nil
 }
 
-func (c *chainServiceClient) GetIndexerStatus(ctx context.Context, in *GetIndexerStatusRequest, opts ...grpc.CallOption) (*GetIndexerStatusResponse, error) {
+func (c *chainServiceClient) RetryWithdrawal(ctx context.Context, in *RetryWithdrawalRequest, opts ...grpc.CallOption) (*RetryWithdrawalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetIndexerStatusResponse)
-	err := c.cc.Invoke(ctx, ChainService_GetIndexerStatus_FullMethodName, in, out, cOpts...)
+	out := new(RetryWithdrawalResponse)
+	err := c.cc.Invoke(ctx, ChainService_RetryWithdrawal_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chainServiceClient) GetBlockHeight(ctx context.Context, in *GetBlockHeightRequest, opts ...grpc.CallOption) (*GetBlockHeightResponse, error) {
+func (c *chainServiceClient) GetSettlementStatus(ctx context.Context, in *GetSettlementStatusRequest, opts ...grpc.CallOption) (*GetSettlementStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetBlockHeightResponse)
-	err := c.cc.Invoke(ctx, ChainService_GetBlockHeight_FullMethodName, in, out, cOpts...)
+	out := new(GetSettlementStatusResponse)
+	err := c.cc.Invoke(ctx, ChainService_GetSettlementStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainServiceClient) ListSettlementBatches(ctx context.Context, in *ListSettlementBatchesRequest, opts ...grpc.CallOption) (*ListSettlementBatchesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSettlementBatchesResponse)
+	err := c.cc.Invoke(ctx, ChainService_ListSettlementBatches_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainServiceClient) RetrySettlement(ctx context.Context, in *RetrySettlementRequest, opts ...grpc.CallOption) (*RetrySettlementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetrySettlementResponse)
+	err := c.cc.Invoke(ctx, ChainService_RetrySettlement_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +224,16 @@ func (c *chainServiceClient) ListReconciliationRecords(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *chainServiceClient) GetReconciliationReport(ctx context.Context, in *GetReconciliationReportRequest, opts ...grpc.CallOption) (*GetReconciliationReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetReconciliationReportResponse)
+	err := c.cc.Invoke(ctx, ChainService_GetReconciliationReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chainServiceClient) GetWalletBalance(ctx context.Context, in *GetWalletBalanceRequest, opts ...grpc.CallOption) (*GetWalletBalanceResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetWalletBalanceResponse)
@@ -223,33 +254,62 @@ func (c *chainServiceClient) GetWalletNonce(ctx context.Context, in *GetWalletNo
 	return out, nil
 }
 
+func (c *chainServiceClient) GetChainStatus(ctx context.Context, in *GetChainStatusRequest, opts ...grpc.CallOption) (*GetChainStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetChainStatusResponse)
+	err := c.cc.Invoke(ctx, ChainService_GetChainStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChainServiceServer is the server API for ChainService service.
 // All implementations must embed UnimplementedChainServiceServer
 // for forward compatibility.
 //
-// ChainService 链上服务
+// ChainService provides on-chain related functionality including:
+// - Chain indexer status and management
+// - Deposit tracking
+// - Withdrawal execution
+// - Settlement batch management
+// - Reconciliation
+// - Hot wallet management
 type ChainServiceServer interface {
-	// Settlement 结算相关
-	GetSettlementStatus(context.Context, *GetSettlementStatusRequest) (*GetSettlementStatusResponse, error)
-	RetrySettlement(context.Context, *RetrySettlementRequest) (*RetrySettlementResponse, error)
-	ListSettlementBatches(context.Context, *ListSettlementBatchesRequest) (*ListSettlementBatchesResponse, error)
-	// Deposit 充值相关
-	GetDepositStatus(context.Context, *GetDepositStatusRequest) (*GetDepositStatusResponse, error)
-	ListDeposits(context.Context, *ListDepositsRequest) (*ListDepositsResponse, error)
-	// Withdrawal 提现相关
-	GetWithdrawalStatus(context.Context, *GetWithdrawalStatusRequest) (*GetWithdrawalStatusResponse, error)
-	RetryWithdrawal(context.Context, *RetryWithdrawalRequest) (*RetryWithdrawalResponse, error)
-	ListPendingWithdrawals(context.Context, *ListPendingWithdrawalsRequest) (*ListPendingWithdrawalsResponse, error)
-	// Indexer 索引器相关
+	// GetIndexerStatus retrieves the status of the chain indexer
 	GetIndexerStatus(context.Context, *GetIndexerStatusRequest) (*GetIndexerStatusResponse, error)
+	// GetBlockHeight retrieves the current block height
 	GetBlockHeight(context.Context, *GetBlockHeightRequest) (*GetBlockHeightResponse, error)
-	// Reconciliation 对账相关
+	// GetDepositStatus retrieves status of a deposit
+	GetDepositStatus(context.Context, *GetDepositStatusRequest) (*GetDepositStatusResponse, error)
+	// ListDeposits retrieves deposits with filters
+	ListDeposits(context.Context, *ListDepositsRequest) (*ListDepositsResponse, error)
+	// GetWithdrawalStatus retrieves status of a withdrawal transaction
+	GetWithdrawalStatus(context.Context, *GetWithdrawalStatusRequest) (*GetWithdrawalStatusResponse, error)
+	// ListPendingWithdrawals retrieves pending withdrawal transactions
+	ListPendingWithdrawals(context.Context, *ListPendingWithdrawalsRequest) (*ListPendingWithdrawalsResponse, error)
+	// RetryWithdrawal retries a failed withdrawal
+	RetryWithdrawal(context.Context, *RetryWithdrawalRequest) (*RetryWithdrawalResponse, error)
+	// GetSettlementStatus retrieves status of a settlement batch
+	GetSettlementStatus(context.Context, *GetSettlementStatusRequest) (*GetSettlementStatusResponse, error)
+	// ListSettlementBatches retrieves settlement batches with filters
+	ListSettlementBatches(context.Context, *ListSettlementBatchesRequest) (*ListSettlementBatchesResponse, error)
+	// RetrySettlement retries a failed settlement batch
+	RetrySettlement(context.Context, *RetrySettlementRequest) (*RetrySettlementResponse, error)
+	// TriggerReconciliation triggers a reconciliation check
 	TriggerReconciliation(context.Context, *TriggerReconciliationRequest) (*TriggerReconciliationResponse, error)
+	// GetReconciliationStatus retrieves status of a reconciliation task
 	GetReconciliationStatus(context.Context, *GetReconciliationStatusRequest) (*GetReconciliationStatusResponse, error)
+	// ListReconciliationRecords retrieves reconciliation records
 	ListReconciliationRecords(context.Context, *ListReconciliationRecordsRequest) (*ListReconciliationRecordsResponse, error)
-	// Wallet 热钱包相关
+	// GetReconciliationReport retrieves a reconciliation summary report
+	GetReconciliationReport(context.Context, *GetReconciliationReportRequest) (*GetReconciliationReportResponse, error)
+	// GetWalletBalance retrieves the hot wallet balance
 	GetWalletBalance(context.Context, *GetWalletBalanceRequest) (*GetWalletBalanceResponse, error)
+	// GetWalletNonce retrieves the current nonce for the hot wallet
 	GetWalletNonce(context.Context, *GetWalletNonceRequest) (*GetWalletNonceResponse, error)
+	// GetChainStatus retrieves overall chain service status
+	GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusResponse, error)
 	mustEmbedUnimplementedChainServiceServer()
 }
 
@@ -260,14 +320,11 @@ type ChainServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedChainServiceServer struct{}
 
-func (UnimplementedChainServiceServer) GetSettlementStatus(context.Context, *GetSettlementStatusRequest) (*GetSettlementStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSettlementStatus not implemented")
+func (UnimplementedChainServiceServer) GetIndexerStatus(context.Context, *GetIndexerStatusRequest) (*GetIndexerStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetIndexerStatus not implemented")
 }
-func (UnimplementedChainServiceServer) RetrySettlement(context.Context, *RetrySettlementRequest) (*RetrySettlementResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RetrySettlement not implemented")
-}
-func (UnimplementedChainServiceServer) ListSettlementBatches(context.Context, *ListSettlementBatchesRequest) (*ListSettlementBatchesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListSettlementBatches not implemented")
+func (UnimplementedChainServiceServer) GetBlockHeight(context.Context, *GetBlockHeightRequest) (*GetBlockHeightResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockHeight not implemented")
 }
 func (UnimplementedChainServiceServer) GetDepositStatus(context.Context, *GetDepositStatusRequest) (*GetDepositStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDepositStatus not implemented")
@@ -278,17 +335,20 @@ func (UnimplementedChainServiceServer) ListDeposits(context.Context, *ListDeposi
 func (UnimplementedChainServiceServer) GetWithdrawalStatus(context.Context, *GetWithdrawalStatusRequest) (*GetWithdrawalStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWithdrawalStatus not implemented")
 }
-func (UnimplementedChainServiceServer) RetryWithdrawal(context.Context, *RetryWithdrawalRequest) (*RetryWithdrawalResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RetryWithdrawal not implemented")
-}
 func (UnimplementedChainServiceServer) ListPendingWithdrawals(context.Context, *ListPendingWithdrawalsRequest) (*ListPendingWithdrawalsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListPendingWithdrawals not implemented")
 }
-func (UnimplementedChainServiceServer) GetIndexerStatus(context.Context, *GetIndexerStatusRequest) (*GetIndexerStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetIndexerStatus not implemented")
+func (UnimplementedChainServiceServer) RetryWithdrawal(context.Context, *RetryWithdrawalRequest) (*RetryWithdrawalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryWithdrawal not implemented")
 }
-func (UnimplementedChainServiceServer) GetBlockHeight(context.Context, *GetBlockHeightRequest) (*GetBlockHeightResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBlockHeight not implemented")
+func (UnimplementedChainServiceServer) GetSettlementStatus(context.Context, *GetSettlementStatusRequest) (*GetSettlementStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSettlementStatus not implemented")
+}
+func (UnimplementedChainServiceServer) ListSettlementBatches(context.Context, *ListSettlementBatchesRequest) (*ListSettlementBatchesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSettlementBatches not implemented")
+}
+func (UnimplementedChainServiceServer) RetrySettlement(context.Context, *RetrySettlementRequest) (*RetrySettlementResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetrySettlement not implemented")
 }
 func (UnimplementedChainServiceServer) TriggerReconciliation(context.Context, *TriggerReconciliationRequest) (*TriggerReconciliationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerReconciliation not implemented")
@@ -299,11 +359,17 @@ func (UnimplementedChainServiceServer) GetReconciliationStatus(context.Context, 
 func (UnimplementedChainServiceServer) ListReconciliationRecords(context.Context, *ListReconciliationRecordsRequest) (*ListReconciliationRecordsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListReconciliationRecords not implemented")
 }
+func (UnimplementedChainServiceServer) GetReconciliationReport(context.Context, *GetReconciliationReportRequest) (*GetReconciliationReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetReconciliationReport not implemented")
+}
 func (UnimplementedChainServiceServer) GetWalletBalance(context.Context, *GetWalletBalanceRequest) (*GetWalletBalanceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWalletBalance not implemented")
 }
 func (UnimplementedChainServiceServer) GetWalletNonce(context.Context, *GetWalletNonceRequest) (*GetWalletNonceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWalletNonce not implemented")
+}
+func (UnimplementedChainServiceServer) GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChainStatus not implemented")
 }
 func (UnimplementedChainServiceServer) mustEmbedUnimplementedChainServiceServer() {}
 func (UnimplementedChainServiceServer) testEmbeddedByValue()                      {}
@@ -326,56 +392,38 @@ func RegisterChainServiceServer(s grpc.ServiceRegistrar, srv ChainServiceServer)
 	s.RegisterService(&ChainService_ServiceDesc, srv)
 }
 
-func _ChainService_GetSettlementStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetSettlementStatusRequest)
+func _ChainService_GetIndexerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetIndexerStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChainServiceServer).GetSettlementStatus(ctx, in)
+		return srv.(ChainServiceServer).GetIndexerStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChainService_GetSettlementStatus_FullMethodName,
+		FullMethod: ChainService_GetIndexerStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).GetSettlementStatus(ctx, req.(*GetSettlementStatusRequest))
+		return srv.(ChainServiceServer).GetIndexerStatus(ctx, req.(*GetIndexerStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainService_RetrySettlement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RetrySettlementRequest)
+func _ChainService_GetBlockHeight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBlockHeightRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChainServiceServer).RetrySettlement(ctx, in)
+		return srv.(ChainServiceServer).GetBlockHeight(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChainService_RetrySettlement_FullMethodName,
+		FullMethod: ChainService_GetBlockHeight_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).RetrySettlement(ctx, req.(*RetrySettlementRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ChainService_ListSettlementBatches_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSettlementBatchesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChainServiceServer).ListSettlementBatches(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChainService_ListSettlementBatches_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).ListSettlementBatches(ctx, req.(*ListSettlementBatchesRequest))
+		return srv.(ChainServiceServer).GetBlockHeight(ctx, req.(*GetBlockHeightRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -434,24 +482,6 @@ func _ChainService_GetWithdrawalStatus_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainService_RetryWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RetryWithdrawalRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChainServiceServer).RetryWithdrawal(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChainService_RetryWithdrawal_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).RetryWithdrawal(ctx, req.(*RetryWithdrawalRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ChainService_ListPendingWithdrawals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListPendingWithdrawalsRequest)
 	if err := dec(in); err != nil {
@@ -470,38 +500,74 @@ func _ChainService_ListPendingWithdrawals_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainService_GetIndexerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetIndexerStatusRequest)
+func _ChainService_RetryWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryWithdrawalRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChainServiceServer).GetIndexerStatus(ctx, in)
+		return srv.(ChainServiceServer).RetryWithdrawal(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChainService_GetIndexerStatus_FullMethodName,
+		FullMethod: ChainService_RetryWithdrawal_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).GetIndexerStatus(ctx, req.(*GetIndexerStatusRequest))
+		return srv.(ChainServiceServer).RetryWithdrawal(ctx, req.(*RetryWithdrawalRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainService_GetBlockHeight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBlockHeightRequest)
+func _ChainService_GetSettlementStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSettlementStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChainServiceServer).GetBlockHeight(ctx, in)
+		return srv.(ChainServiceServer).GetSettlementStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChainService_GetBlockHeight_FullMethodName,
+		FullMethod: ChainService_GetSettlementStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainServiceServer).GetBlockHeight(ctx, req.(*GetBlockHeightRequest))
+		return srv.(ChainServiceServer).GetSettlementStatus(ctx, req.(*GetSettlementStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainService_ListSettlementBatches_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSettlementBatchesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainServiceServer).ListSettlementBatches(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainService_ListSettlementBatches_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainServiceServer).ListSettlementBatches(ctx, req.(*ListSettlementBatchesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainService_RetrySettlement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetrySettlementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainServiceServer).RetrySettlement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainService_RetrySettlement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainServiceServer).RetrySettlement(ctx, req.(*RetrySettlementRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -560,6 +626,24 @@ func _ChainService_ListReconciliationRecords_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChainService_GetReconciliationReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetReconciliationReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainServiceServer).GetReconciliationReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainService_GetReconciliationReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainServiceServer).GetReconciliationReport(ctx, req.(*GetReconciliationReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChainService_GetWalletBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetWalletBalanceRequest)
 	if err := dec(in); err != nil {
@@ -596,6 +680,24 @@ func _ChainService_GetWalletNonce_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChainService_GetChainStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChainStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainServiceServer).GetChainStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainService_GetChainStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainServiceServer).GetChainStatus(ctx, req.(*GetChainStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChainService_ServiceDesc is the grpc.ServiceDesc for ChainService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -604,16 +706,12 @@ var ChainService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ChainServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetSettlementStatus",
-			Handler:    _ChainService_GetSettlementStatus_Handler,
+			MethodName: "GetIndexerStatus",
+			Handler:    _ChainService_GetIndexerStatus_Handler,
 		},
 		{
-			MethodName: "RetrySettlement",
-			Handler:    _ChainService_RetrySettlement_Handler,
-		},
-		{
-			MethodName: "ListSettlementBatches",
-			Handler:    _ChainService_ListSettlementBatches_Handler,
+			MethodName: "GetBlockHeight",
+			Handler:    _ChainService_GetBlockHeight_Handler,
 		},
 		{
 			MethodName: "GetDepositStatus",
@@ -628,20 +726,24 @@ var ChainService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChainService_GetWithdrawalStatus_Handler,
 		},
 		{
-			MethodName: "RetryWithdrawal",
-			Handler:    _ChainService_RetryWithdrawal_Handler,
-		},
-		{
 			MethodName: "ListPendingWithdrawals",
 			Handler:    _ChainService_ListPendingWithdrawals_Handler,
 		},
 		{
-			MethodName: "GetIndexerStatus",
-			Handler:    _ChainService_GetIndexerStatus_Handler,
+			MethodName: "RetryWithdrawal",
+			Handler:    _ChainService_RetryWithdrawal_Handler,
 		},
 		{
-			MethodName: "GetBlockHeight",
-			Handler:    _ChainService_GetBlockHeight_Handler,
+			MethodName: "GetSettlementStatus",
+			Handler:    _ChainService_GetSettlementStatus_Handler,
+		},
+		{
+			MethodName: "ListSettlementBatches",
+			Handler:    _ChainService_ListSettlementBatches_Handler,
+		},
+		{
+			MethodName: "RetrySettlement",
+			Handler:    _ChainService_RetrySettlement_Handler,
 		},
 		{
 			MethodName: "TriggerReconciliation",
@@ -656,12 +758,20 @@ var ChainService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChainService_ListReconciliationRecords_Handler,
 		},
 		{
+			MethodName: "GetReconciliationReport",
+			Handler:    _ChainService_GetReconciliationReport_Handler,
+		},
+		{
 			MethodName: "GetWalletBalance",
 			Handler:    _ChainService_GetWalletBalance_Handler,
 		},
 		{
 			MethodName: "GetWalletNonce",
 			Handler:    _ChainService_GetWalletNonce_Handler,
+		},
+		{
+			MethodName: "GetChainStatus",
+			Handler:    _ChainService_GetChainStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

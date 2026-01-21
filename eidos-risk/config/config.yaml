@@ -1,16 +1,26 @@
 service:
   name: eidos-risk
   grpc_port: 50055
-  http_port: 8080
-  env: dev
+  http_port: 8084
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:postgres}
+  host: ${POSTGRES_HOST:localhost}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_risk}
   user: ${POSTGRES_USER:eidos}
@@ -18,27 +28,113 @@ postgres:
   max_connections: 30
   max_idle_conns: 10
   conn_max_lifetime: 3600
+  ssl_mode: disable
+  timezone: UTC
 
+# Redis Configuration
 redis:
   addresses:
-    - ${REDIS_ADDR:redis:6379}
+    - ${REDIS_ADDR:localhost:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 50
+  min_idle_conns: 10
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# Kafka Configuration
 kafka:
+  enabled: ${KAFKA_ENABLED:true}
   brokers:
-    - ${KAFKA_BROKERS:kafka:9092}
+    - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-risk
   client_id: eidos-risk
+  consumer:
+    topics:
+      - trade-events
+      - balance-updates
+    auto_offset_reset: earliest
+    max_poll_records: 500
+  producer:
+    topics:
+      risk_alerts: risk-alerts
+      risk_events: risk-events
+    compression: lz4
+    batch_size: 500
+    linger_ms: 10
+    required_acks: -1
 
+# gRPC Client Configuration
+grpc_clients:
+  trading:
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    timeout_ms: 5000
+    max_retry: 3
+  chain:
+    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
+    timeout_ms: 5000
+    max_retry: 3
+
+# Risk Limits Configuration
 risk:
   limits:
-    daily_withdraw: "100000"        # 单用户每日提现上限
-    single_order: "50000"           # 单笔订单上限
-    pending_settle: "10000"         # 待结算余额上限
-    system_pending_settle: "1000000" # 系统待结算上限
+    daily_withdraw: "100000"        # Per user daily withdrawal limit
+    single_order: "50000"           # Single order limit
+    pending_settle: "10000"         # Per user pending settlement limit
+    system_pending_settle: "1000000" # System-wide pending settlement limit
+    max_position_value: "500000"    # Max position value per user
+    max_leverage: "10"              # Maximum leverage
 
+  # Rate Limits
+  rate_limits:
+    orders_per_minute: 100
+    withdrawals_per_hour: 10
+    api_calls_per_minute: 1000
+
+  # Alert Thresholds
+  alerts:
+    balance_deviation_percent: 1.0
+    pending_settle_warning_percent: 80
+    position_warning_percent: 90
+
+  # Blacklist/Whitelist
+  blacklist:
+    enabled: true
+    check_interval_sec: 60
+
+# Fraud Detection
+fraud_detection:
+  enabled: ${FRAUD_DETECTION_ENABLED:true}
+  rules:
+    - name: rapid_withdrawals
+      threshold: 5
+      window_minutes: 10
+    - name: large_single_trade
+      threshold_usd: 100000
+    - name: unusual_trading_pattern
+      enabled: true
+
+# Circuit Breaker
+circuit_breaker:
+  enabled: true
+  failure_threshold: 5
+  recovery_timeout_sec: 60
+  half_open_requests: 3
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9094
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

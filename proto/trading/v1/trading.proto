@@ -5,472 +5,1091 @@ package eidos.trading.v1;
 option go_package = "github.com/eidos-exchange/eidos/proto/trading/v1;tradingv1";
 
 import "google/protobuf/empty.proto";
+import "common/enums.proto";
 
-// TradingService 交易服务
-// 提供订单、余额、成交、充提等核心交易功能
+// ============================================================================
+// TradingService - Core Trading API
+// ============================================================================
+
+// TradingService provides the core trading functionality including:
+// - Order management (create, cancel, query)
+// - Balance management (query, freeze/unfreeze)
+// - Trade history
+// - Deposit/Withdrawal operations
 service TradingService {
-  // ========== 订单接口 ==========
+    // ========== Order Operations ==========
 
-  // CreateOrder 创建订单
-  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+    // PrepareOrder prepares an order for signing
+    // Returns EIP-712 typed data for client to sign
+    rpc PrepareOrder(PrepareOrderRequest) returns (PrepareOrderResponse);
 
-  // CancelOrder 取消订单
-  rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty);
+    // CreateOrder creates a new order (limit or market)
+    // Returns the created order with initial status
+    rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
 
-  // GetOrder 获取订单详情
-  rpc GetOrder(GetOrderRequest) returns (Order);
+    // CancelOrder cancels an active order
+    // Only orders with status OPEN or PARTIAL can be cancelled
+    rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty);
 
-  // ListOrders 获取订单列表
-  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+    // BatchCancelOrders cancels multiple orders at once
+    // Supports filtering by market and side
+    rpc BatchCancelOrders(BatchCancelOrdersRequest) returns (BatchCancelOrdersResponse);
 
-  // ListOpenOrders 获取活跃订单
-  rpc ListOpenOrders(ListOpenOrdersRequest) returns (ListOrdersResponse);
+    // GetOrder retrieves order details by order ID
+    rpc GetOrder(GetOrderRequest) returns (Order);
 
-  // ========== 余额接口 ==========
+    // ListOrders retrieves orders with optional filters
+    rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
 
-  // GetBalance 获取单个代币余额
-  rpc GetBalance(GetBalanceRequest) returns (Balance);
+    // ListOpenOrders retrieves all active orders for a wallet
+    rpc ListOpenOrders(ListOpenOrdersRequest) returns (ListOrdersResponse);
 
-  // GetBalances 获取所有余额
-  rpc GetBalances(GetBalancesRequest) returns (GetBalancesResponse);
+    // ========== Balance Operations ==========
 
-  // GetBalanceLogs 获取余额流水
-  rpc GetBalanceLogs(GetBalanceLogsRequest) returns (GetBalanceLogsResponse);
+    // GetBalance retrieves balance for a specific token
+    rpc GetBalance(GetBalanceRequest) returns (Balance);
 
-  // ========== 成交接口 ==========
+    // GetBalances retrieves all token balances for a wallet
+    rpc GetBalances(GetBalancesRequest) returns (GetBalancesResponse);
 
-  // GetTrade 获取成交详情
-  rpc GetTrade(GetTradeRequest) returns (Trade);
+    // GetBalanceLogs retrieves balance change history
+    rpc GetBalanceLogs(GetBalanceLogsRequest) returns (GetBalanceLogsResponse);
 
-  // ListTrades 获取成交列表
-  rpc ListTrades(ListTradesRequest) returns (ListTradesResponse);
+    // ========== Trade Operations ==========
 
-  // ListTradesByOrder 获取订单相关成交
-  rpc ListTradesByOrder(ListTradesByOrderRequest) returns (ListTradesResponse);
+    // GetTrade retrieves trade details by trade ID
+    rpc GetTrade(GetTradeRequest) returns (Trade);
 
-  // ========== 充值接口 ==========
+    // ListTrades retrieves trade history with optional filters
+    rpc ListTrades(ListTradesRequest) returns (ListTradesResponse);
 
-  // GetDeposit 获取充值详情
-  rpc GetDeposit(GetDepositRequest) returns (Deposit);
+    // ListTradesByOrder retrieves all trades for a specific order
+    rpc ListTradesByOrder(ListTradesByOrderRequest) returns (ListTradesResponse);
 
-  // ListDeposits 获取充值列表
-  rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
+    // ========== Deposit Operations ==========
 
-  // ========== 提现接口 ==========
+    // GetDeposit retrieves deposit details by deposit ID
+    rpc GetDeposit(GetDepositRequest) returns (Deposit);
 
-  // CreateWithdrawal 创建提现
-  rpc CreateWithdrawal(CreateWithdrawalRequest) returns (CreateWithdrawalResponse);
+    // ListDeposits retrieves deposit history with optional filters
+    rpc ListDeposits(ListDepositsRequest) returns (ListDepositsResponse);
 
-  // CancelWithdrawal 取消提现
-  rpc CancelWithdrawal(CancelWithdrawalRequest) returns (google.protobuf.Empty);
+    // ========== Withdrawal Operations ==========
 
-  // GetWithdrawal 获取提现详情
-  rpc GetWithdrawal(GetWithdrawalRequest) returns (Withdrawal);
+    // CreateWithdrawal creates a new withdrawal request
+    // Requires sufficient available balance
+    rpc CreateWithdrawal(CreateWithdrawalRequest) returns (CreateWithdrawalResponse);
 
-  // ListWithdrawals 获取提现列表
-  rpc ListWithdrawals(ListWithdrawalsRequest) returns (ListWithdrawalsResponse);
+    // CancelWithdrawal cancels a pending withdrawal
+    // Only withdrawals with status PENDING can be cancelled
+    rpc CancelWithdrawal(CancelWithdrawalRequest) returns (google.protobuf.Empty);
 
-  // ========== 内部接口 (服务间调用) ==========
+    // GetWithdrawal retrieves withdrawal details by withdrawal ID
+    rpc GetWithdrawal(GetWithdrawalRequest) returns (Withdrawal);
 
-  // ProcessTradeResult 处理撮合结果
-  rpc ProcessTradeResult(ProcessTradeResultRequest) returns (google.protobuf.Empty);
+    // ListWithdrawals retrieves withdrawal history with optional filters
+    rpc ListWithdrawals(ListWithdrawalsRequest) returns (ListWithdrawalsResponse);
 
-  // ProcessDepositEvent 处理充值事件
-  rpc ProcessDepositEvent(ProcessDepositEventRequest) returns (google.protobuf.Empty);
+    // ========== Internal Service APIs ==========
+    // These APIs are for internal service-to-service communication only
 
-  // ConfirmSettlement 确认结算
-  rpc ConfirmSettlement(ConfirmSettlementRequest) returns (google.protobuf.Empty);
+    // ProcessTradeResult processes a trade result from matching engine
+    // Called by Settlement Service after trade matching
+    rpc ProcessTradeResult(ProcessTradeResultRequest) returns (google.protobuf.Empty);
+
+    // ProcessDepositEvent processes a deposit event from chain indexer
+    // Called by Chain Service when deposit is detected
+    rpc ProcessDepositEvent(ProcessDepositEventRequest) returns (google.protobuf.Empty);
+
+    // ConfirmSettlement confirms on-chain settlement of trades
+    // Called by Chain Service when settlement tx is confirmed
+    rpc ConfirmSettlement(ConfirmSettlementRequest) returns (google.protobuf.Empty);
+
+    // RollbackSettlement rolls back a failed settlement
+    // Called when on-chain settlement fails
+    rpc RollbackSettlement(RollbackSettlementRequest) returns (google.protobuf.Empty);
 }
 
-// ========== 订单相关消息 ==========
+// ============================================================================
+// Order Messages
+// ============================================================================
 
-// OrderSide 订单方向
-enum OrderSide {
-  ORDER_SIDE_UNSPECIFIED = 0;
-  ORDER_SIDE_BUY = 1;
-  ORDER_SIDE_SELL = 2;
-}
-
-// OrderType 订单类型
-enum OrderType {
-  ORDER_TYPE_UNSPECIFIED = 0;
-  ORDER_TYPE_LIMIT = 1;
-  ORDER_TYPE_MARKET = 2;
-}
-
-// OrderStatus 订单状态
-enum OrderStatus {
-  ORDER_STATUS_UNSPECIFIED = 0;
-  ORDER_STATUS_PENDING = 1;
-  ORDER_STATUS_OPEN = 2;
-  ORDER_STATUS_PARTIAL = 3;
-  ORDER_STATUS_FILLED = 4;
-  ORDER_STATUS_CANCELLED = 5;
-  ORDER_STATUS_EXPIRED = 6;
-  ORDER_STATUS_REJECTED = 7;
-}
-
-// TimeInForce 订单有效期类型
-enum TimeInForce {
-  TIME_IN_FORCE_UNSPECIFIED = 0;
-  TIME_IN_FORCE_GTC = 1;  // Good Till Cancel
-  TIME_IN_FORCE_IOC = 2;  // Immediate Or Cancel
-  TIME_IN_FORCE_FOK = 3;  // Fill Or Kill
-}
-
-// Order 订单
+// Order represents a trading order with full details
 message Order {
-  string order_id = 1;
-  string wallet = 2;
-  string market = 3;
-  OrderSide side = 4;
-  OrderType type = 5;
-  string price = 6;           // decimal string
-  string amount = 7;          // decimal string
-  string filled_amount = 8;   // decimal string
-  string filled_quote = 9;    // decimal string
-  string remaining_amount = 10; // decimal string
-  string avg_price = 11;      // decimal string
-  OrderStatus status = 12;
-  TimeInForce time_in_force = 13;
-  uint64 nonce = 14;
-  string client_order_id = 15;
-  int64 expire_at = 16;
-  string reject_reason = 17;
-  int64 created_at = 18;
-  int64 updated_at = 19;
+    // Unique order identifier (UUID)
+    string order_id = 1;
+
+    // User wallet address (0x...)
+    string wallet = 2;
+
+    // Trading pair symbol (e.g., "BTC-USDC")
+    string market = 3;
+
+    // Order direction
+    eidos.common.v1.OrderSide side = 4;
+
+    // Order type
+    eidos.common.v1.OrderType type = 5;
+
+    // Order price (decimal string, empty for market orders)
+    string price = 6;
+
+    // Order amount in base token (decimal string)
+    string amount = 7;
+
+    // Filled amount in base token (decimal string)
+    string filled_amount = 8;
+
+    // Filled amount in quote token (decimal string)
+    string filled_quote = 9;
+
+    // Remaining amount in base token (decimal string)
+    string remaining_amount = 10;
+
+    // Average fill price (decimal string, "0" if no fills)
+    string avg_price = 11;
+
+    // Current order status
+    eidos.common.v1.OrderStatus status = 12;
+
+    // Time in force policy
+    eidos.common.v1.TimeInForce time_in_force = 13;
+
+    // Self-trade prevention mode
+    eidos.common.v1.SelfTradePrevention self_trade_prevention = 14;
+
+    // User-provided nonce for signature
+    uint64 nonce = 15;
+
+    // Client-provided order ID for idempotency
+    string client_order_id = 16;
+
+    // Order expiry timestamp (Unix milliseconds, 0 = no expiry)
+    int64 expire_at = 17;
+
+    // Rejection reason (only set if status = REJECTED)
+    string reject_reason = 18;
+
+    // Rejection code (only set if status = REJECTED)
+    string reject_code = 19;
+
+    // Number of trades that filled this order
+    int32 trade_count = 20;
+
+    // Total fee paid (decimal string)
+    string total_fee = 21;
+
+    // Fee token symbol
+    string fee_token = 22;
+
+    // Order creation timestamp (Unix milliseconds)
+    int64 created_at = 23;
+
+    // Last update timestamp (Unix milliseconds)
+    int64 updated_at = 24;
 }
 
+// CreateOrderRequest is the request to create a new order
 message CreateOrderRequest {
-  string wallet = 1;
-  string market = 2;
-  OrderSide side = 3;
-  OrderType type = 4;
-  string price = 5;           // decimal string
-  string amount = 6;          // decimal string
-  uint64 nonce = 7;
-  bytes signature = 8;
-  string client_order_id = 9; // optional
-  int64 expire_at = 10;       // optional
-  TimeInForce time_in_force = 11; // optional, default GTC
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol (required)
+    string market = 2;
+
+    // Order direction (required)
+    eidos.common.v1.OrderSide side = 3;
+
+    // Order type (required)
+    eidos.common.v1.OrderType type = 4;
+
+    // Order price (required for limit orders, ignored for market orders)
+    // Format: decimal string (e.g., "50000.50")
+    string price = 5;
+
+    // Order amount in base token (required)
+    // Format: decimal string (e.g., "1.5")
+    string amount = 6;
+
+    // Order amount in quote token (optional, for market buy orders)
+    // When set, the order will buy as much base token as possible with this quote amount
+    // Mutually exclusive with 'amount' for market buy orders
+    string quote_amount = 7;
+
+    // User-provided nonce for signature (required)
+    uint64 nonce = 8;
+
+    // EIP-712 signature (required)
+    bytes signature = 9;
+
+    // Client-provided order ID for idempotency (optional)
+    // Max 36 characters
+    string client_order_id = 10;
+
+    // Order expiry timestamp in Unix milliseconds (optional)
+    // 0 or unset means no expiry (only for GTC orders)
+    int64 expire_at = 11;
+
+    // Time in force policy (optional, defaults to GTC)
+    eidos.common.v1.TimeInForce time_in_force = 12;
+
+    // Self-trade prevention mode (optional)
+    eidos.common.v1.SelfTradePrevention self_trade_prevention = 13;
+
+    // Maximum slippage for market orders in basis points (optional)
+    // e.g., 50 = 0.5%, 100 = 1%
+    // Only applicable for market orders, ignored for limit orders
+    // 0 means no slippage protection (default)
+    uint32 max_slippage_bps = 14;
+
+    // Minimum fill amount for IOC orders (optional)
+    // Order will be rejected if initial fill is less than this amount
+    // Only applicable for IOC orders
+    string min_fill_amount = 15;
+
+    // Post-only flag (optional)
+    // If true, order will be rejected if it would immediately match
+    // Only applicable for limit orders
+    bool post_only = 16;
+
+    // Reduce-only flag (optional, for future use)
+    // If true, order can only reduce position
+    bool reduce_only = 17;
 }
 
+// CreateOrderResponse is the response after creating an order
 message CreateOrderResponse {
-  Order order = 1;
+    // The created order with initial status
+    Order order = 1;
 }
 
+// CancelOrderRequest is the request to cancel an order
 message CancelOrderRequest {
-  string wallet = 1;
-  string order_id = 2;
+    // User wallet address (required for verification)
+    string wallet = 1;
+
+    // Order ID to cancel (required)
+    string order_id = 2;
 }
 
+// BatchCancelOrdersRequest is the request to cancel multiple orders
+message BatchCancelOrdersRequest {
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol (optional, cancel all markets if empty)
+    string market = 2;
+
+    // Order side filter (optional, cancel both sides if unspecified)
+    eidos.common.v1.OrderSide side = 3;
+
+    // Specific order IDs to cancel (optional)
+    // If provided, only these orders will be cancelled
+    // If empty, all matching orders will be cancelled
+    repeated string order_ids = 4;
+}
+
+// BatchCancelOrdersResponse is the response after batch cancel
+message BatchCancelOrdersResponse {
+    // Number of orders successfully cancelled
+    int32 cancelled_count = 1;
+
+    // Number of orders that failed to cancel
+    int32 failed_count = 2;
+
+    // Details of failed cancellations
+    repeated CancelFailure failures = 3;
+}
+
+// CancelFailure describes why an order cancellation failed
+message CancelFailure {
+    // Order ID that failed to cancel
+    string order_id = 1;
+
+    // Error code
+    string error_code = 2;
+
+    // Error message
+    string error_message = 3;
+}
+
+// GetOrderRequest is the request to get order details
 message GetOrderRequest {
-  string order_id = 1;
+    // Order ID to retrieve
+    string order_id = 1;
 }
 
+// ListOrdersRequest is the request to list orders with filters
 message ListOrdersRequest {
-  string wallet = 1;
-  string market = 2;          // optional filter
-  OrderSide side = 3;         // optional filter
-  OrderType type = 4;         // optional filter
-  repeated OrderStatus statuses = 5; // optional filter
-  int64 start_time = 6;       // optional filter
-  int64 end_time = 7;         // optional filter
-  int32 page = 8;
-  int32 page_size = 9;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol filter (optional)
+    string market = 2;
+
+    // Order side filter (optional)
+    eidos.common.v1.OrderSide side = 3;
+
+    // Order type filter (optional)
+    eidos.common.v1.OrderType type = 4;
+
+    // Order status filters (optional)
+    // If empty, returns all statuses
+    repeated eidos.common.v1.OrderStatus statuses = 5;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 6;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 7;
+
+    // Page number (1-indexed, default 1)
+    int32 page = 8;
+
+    // Page size (default 20, max 100)
+    int32 page_size = 9;
 }
 
+// ListOrdersResponse is the response containing orders
 message ListOrdersResponse {
-  repeated Order orders = 1;
-  int64 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+    // List of orders
+    repeated Order orders = 1;
+
+    // Total number of matching orders
+    int64 total = 2;
+
+    // Current page number
+    int32 page = 3;
+
+    // Page size
+    int32 page_size = 4;
 }
 
+// ListOpenOrdersRequest is the request to list active orders
 message ListOpenOrdersRequest {
-  string wallet = 1;
-  string market = 2; // optional
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol filter (optional)
+    string market = 2;
+
+    // Order side filter (optional)
+    eidos.common.v1.OrderSide side = 3;
 }
 
-// ========== 余额相关消息 ==========
+// ============================================================================
+// Balance Messages
+// ============================================================================
 
+// Balance represents a user's token balance
 message Balance {
-  string wallet = 1;
-  string token = 2;
-  string settled_available = 3;   // decimal string
-  string settled_frozen = 4;      // decimal string
-  string pending_available = 5;   // decimal string
-  string pending_frozen = 6;      // decimal string
-  string total_available = 7;     // decimal string (settled + pending available)
-  string total = 8;               // decimal string (all)
-  string withdrawable = 9;        // decimal string (settled_available)
-  int64 updated_at = 10;
+    // User wallet address
+    string wallet = 1;
+
+    // Token symbol
+    string token = 2;
+
+    // Settled available balance (on-chain confirmed, not frozen)
+    string settled_available = 3;
+
+    // Settled frozen balance (on-chain confirmed, frozen for orders)
+    string settled_frozen = 4;
+
+    // Pending available balance (off-chain matched, not frozen)
+    string pending_available = 5;
+
+    // Pending frozen balance (off-chain matched, frozen for orders)
+    string pending_frozen = 6;
+
+    // Total available balance (settled + pending available)
+    string total_available = 7;
+
+    // Total balance (all categories)
+    string total = 8;
+
+    // Withdrawable balance (only settled_available can be withdrawn)
+    string withdrawable = 9;
+
+    // Pending deposit amount (detected but not yet confirmed)
+    string pending_deposit = 10;
+
+    // Pending withdrawal amount (requested but not yet confirmed)
+    string pending_withdrawal = 11;
+
+    // Last update timestamp (Unix milliseconds)
+    int64 updated_at = 12;
 }
 
+// GetBalanceRequest is the request to get a specific token balance
 message GetBalanceRequest {
-  string wallet = 1;
-  string token = 2;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Token symbol (required)
+    string token = 2;
 }
 
+// GetBalancesRequest is the request to get all balances
 message GetBalancesRequest {
-  string wallet = 1;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Hide zero balances (optional, default false)
+    bool hide_zero = 2;
 }
 
+// GetBalancesResponse is the response containing all balances
 message GetBalancesResponse {
-  repeated Balance balances = 1;
+    // List of token balances
+    repeated Balance balances = 1;
 }
 
-// BalanceLogType 余额流水类型
-enum BalanceLogType {
-  BALANCE_LOG_TYPE_UNSPECIFIED = 0;
-  BALANCE_LOG_TYPE_DEPOSIT = 1;
-  BALANCE_LOG_TYPE_WITHDRAW = 2;
-  BALANCE_LOG_TYPE_FREEZE = 3;
-  BALANCE_LOG_TYPE_UNFREEZE = 4;
-  BALANCE_LOG_TYPE_TRADE = 5;
-  BALANCE_LOG_TYPE_FEE = 6;
-  BALANCE_LOG_TYPE_SETTLEMENT = 7;
-  BALANCE_LOG_TYPE_ROLLBACK = 8;
-  BALANCE_LOG_TYPE_WITHDRAW_REFUND = 9;
-}
-
+// BalanceLog represents a balance change record
 message BalanceLog {
-  int64 id = 1;
-  string wallet = 2;
-  string token = 3;
-  BalanceLogType type = 4;
-  string amount = 5;          // decimal string
-  string balance_before = 6;  // decimal string
-  string balance_after = 7;   // decimal string
-  string order_id = 8;
-  string trade_id = 9;
-  string tx_hash = 10;
-  string remark = 11;
-  int64 created_at = 12;
+    // Log entry ID
+    int64 id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Change type
+    eidos.common.v1.BalanceChangeType type = 4;
+
+    // Change amount (decimal string, can be negative)
+    string amount = 5;
+
+    // Balance before change (decimal string)
+    string balance_before = 6;
+
+    // Balance after change (decimal string)
+    string balance_after = 7;
+
+    // Available balance before change (decimal string)
+    string available_before = 8;
+
+    // Available balance after change (decimal string)
+    string available_after = 9;
+
+    // Related order ID (optional)
+    string order_id = 10;
+
+    // Related trade ID (optional)
+    string trade_id = 11;
+
+    // Related transaction hash (optional)
+    string tx_hash = 12;
+
+    // Additional remark
+    string remark = 13;
+
+    // Creation timestamp (Unix milliseconds)
+    int64 created_at = 14;
 }
 
+// GetBalanceLogsRequest is the request to get balance history
 message GetBalanceLogsRequest {
-  string wallet = 1;
-  string token = 2;           // optional filter
-  BalanceLogType type = 3;    // optional filter
-  string order_id = 4;        // optional filter
-  int64 start_time = 5;
-  int64 end_time = 6;
-  int32 page = 7;
-  int32 page_size = 8;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Token symbol filter (optional)
+    string token = 2;
+
+    // Change type filter (optional)
+    eidos.common.v1.BalanceChangeType type = 3;
+
+    // Related order ID filter (optional)
+    string order_id = 4;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 5;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 6;
+
+    // Page number (1-indexed, default 1)
+    int32 page = 7;
+
+    // Page size (default 20, max 100)
+    int32 page_size = 8;
 }
 
+// GetBalanceLogsResponse is the response containing balance logs
 message GetBalanceLogsResponse {
-  repeated BalanceLog logs = 1;
-  int64 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+    // List of balance logs
+    repeated BalanceLog logs = 1;
+
+    // Total number of matching logs
+    int64 total = 2;
+
+    // Current page number
+    int32 page = 3;
+
+    // Page size
+    int32 page_size = 4;
 }
 
-// ========== 成交相关消息 ==========
+// ============================================================================
+// Trade Messages
+// ============================================================================
 
-// SettlementStatus 结算状态
-enum SettlementStatus {
-  SETTLEMENT_STATUS_UNSPECIFIED = 0;
-  SETTLEMENT_STATUS_MATCHED_OFFCHAIN = 1;
-  SETTLEMENT_STATUS_PENDING = 2;
-  SETTLEMENT_STATUS_SUBMITTED = 3;
-  SETTLEMENT_STATUS_SETTLED_ONCHAIN = 4;
-  SETTLEMENT_STATUS_FAILED = 5;
-  SETTLEMENT_STATUS_ROLLED_BACK = 6;
-}
-
+// Trade represents a completed trade
 message Trade {
-  string trade_id = 1;
-  string market = 2;
-  string maker_order_id = 3;
-  string taker_order_id = 4;
-  string maker_wallet = 5;
-  string taker_wallet = 6;
-  string price = 7;           // decimal string
-  string amount = 8;          // decimal string
-  string quote_amount = 9;    // decimal string
-  string maker_fee = 10;      // decimal string
-  string taker_fee = 11;      // decimal string
-  string fee_token = 12;
-  OrderSide maker_side = 13;
-  SettlementStatus settlement_status = 14;
-  string batch_id = 15;
-  string tx_hash = 16;
-  int64 matched_at = 17;
-  int64 settled_at = 18;
+    // Unique trade identifier
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker order ID
+    string maker_order_id = 3;
+
+    // Taker order ID
+    string taker_order_id = 4;
+
+    // Maker wallet address
+    string maker_wallet = 5;
+
+    // Taker wallet address
+    string taker_wallet = 6;
+
+    // Trade execution price (decimal string)
+    string price = 7;
+
+    // Trade amount in base token (decimal string)
+    string amount = 8;
+
+    // Trade amount in quote token (decimal string)
+    string quote_amount = 9;
+
+    // Maker fee amount (decimal string)
+    string maker_fee = 10;
+
+    // Taker fee amount (decimal string)
+    string taker_fee = 11;
+
+    // Fee token symbol
+    string fee_token = 12;
+
+    // Maker order side (indicates which side was maker)
+    eidos.common.v1.OrderSide maker_side = 13;
+
+    // Settlement status
+    eidos.common.v1.SettlementStatus settlement_status = 14;
+
+    // Settlement batch ID (set when added to batch)
+    string batch_id = 15;
+
+    // Settlement transaction hash (set when confirmed)
+    string tx_hash = 16;
+
+    // Trade match timestamp (Unix milliseconds)
+    int64 matched_at = 17;
+
+    // Settlement timestamp (Unix milliseconds, 0 if not settled)
+    int64 settled_at = 18;
 }
 
+// GetTradeRequest is the request to get trade details
 message GetTradeRequest {
-  string trade_id = 1;
+    // Trade ID to retrieve
+    string trade_id = 1;
 }
 
+// ListTradesRequest is the request to list trades with filters
 message ListTradesRequest {
-  string wallet = 1;
-  string market = 2;          // optional filter
-  SettlementStatus settlement_status = 3; // optional filter
-  int64 start_time = 4;
-  int64 end_time = 5;
-  int32 page = 6;
-  int32 page_size = 7;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol filter (optional)
+    string market = 2;
+
+    // Settlement status filter (optional)
+    eidos.common.v1.SettlementStatus settlement_status = 3;
+
+    // Order side filter - trades where user was this side (optional)
+    eidos.common.v1.OrderSide side = 4;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 5;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 6;
+
+    // Page number (1-indexed, default 1)
+    int32 page = 7;
+
+    // Page size (default 20, max 100)
+    int32 page_size = 8;
 }
 
+// ListTradesResponse is the response containing trades
 message ListTradesResponse {
-  repeated Trade trades = 1;
-  int64 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+    // List of trades
+    repeated Trade trades = 1;
+
+    // Total number of matching trades
+    int64 total = 2;
+
+    // Current page number
+    int32 page = 3;
+
+    // Page size
+    int32 page_size = 4;
 }
 
+// ListTradesByOrderRequest is the request to get trades for an order
 message ListTradesByOrderRequest {
-  string order_id = 1;
+    // Order ID to get trades for
+    string order_id = 1;
 }
 
-// ========== 充值相关消息 ==========
+// ============================================================================
+// Deposit Messages
+// ============================================================================
 
-// DepositStatus 充值状态
-enum DepositStatus {
-  DEPOSIT_STATUS_UNSPECIFIED = 0;
-  DEPOSIT_STATUS_PENDING = 1;
-  DEPOSIT_STATUS_CONFIRMED = 2;
-  DEPOSIT_STATUS_CREDITED = 3;
-}
-
+// Deposit represents a deposit record
 message Deposit {
-  string deposit_id = 1;
-  string wallet = 2;
-  string token = 3;
-  string amount = 4;          // decimal string
-  string tx_hash = 5;
-  uint32 log_index = 6;
-  int64 block_num = 7;
-  DepositStatus status = 8;
-  int64 detected_at = 9;
-  int64 confirmed_at = 10;
-  int64 credited_at = 11;
-  int64 created_at = 12;
+    // Unique deposit identifier
+    string deposit_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Deposit amount (decimal string)
+    string amount = 4;
+
+    // On-chain transaction hash
+    string tx_hash = 5;
+
+    // Log index within transaction
+    uint32 log_index = 6;
+
+    // Block number
+    int64 block_num = 7;
+
+    // Current deposit status
+    eidos.common.v1.DepositStatus status = 8;
+
+    // Current confirmations
+    int32 confirmations = 9;
+
+    // Required confirmations
+    int32 required_confirmations = 10;
+
+    // Detection timestamp (Unix milliseconds)
+    int64 detected_at = 11;
+
+    // Confirmation timestamp (Unix milliseconds, 0 if not confirmed)
+    int64 confirmed_at = 12;
+
+    // Credit timestamp (Unix milliseconds, 0 if not credited)
+    int64 credited_at = 13;
+
+    // Record creation timestamp (Unix milliseconds)
+    int64 created_at = 14;
 }
 
+// GetDepositRequest is the request to get deposit details
 message GetDepositRequest {
-  string deposit_id = 1;
+    // Deposit ID to retrieve
+    string deposit_id = 1;
 }
 
+// ListDepositsRequest is the request to list deposits with filters
 message ListDepositsRequest {
-  string wallet = 1;
-  string token = 2;           // optional filter
-  DepositStatus status = 3;   // optional filter
-  int64 start_time = 4;
-  int64 end_time = 5;
-  int32 page = 6;
-  int32 page_size = 7;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Token symbol filter (optional)
+    string token = 2;
+
+    // Deposit status filter (optional)
+    eidos.common.v1.DepositStatus status = 3;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 4;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 5;
+
+    // Page number (1-indexed, default 1)
+    int32 page = 6;
+
+    // Page size (default 20, max 100)
+    int32 page_size = 7;
 }
 
+// ListDepositsResponse is the response containing deposits
 message ListDepositsResponse {
-  repeated Deposit deposits = 1;
-  int64 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+    // List of deposits
+    repeated Deposit deposits = 1;
+
+    // Total number of matching deposits
+    int64 total = 2;
+
+    // Current page number
+    int32 page = 3;
+
+    // Page size
+    int32 page_size = 4;
 }
 
-// ========== 提现相关消息 ==========
+// ============================================================================
+// Withdrawal Messages
+// ============================================================================
 
-// WithdrawStatus 提现状态
-enum WithdrawStatus {
-  WITHDRAW_STATUS_UNSPECIFIED = 0;
-  WITHDRAW_STATUS_PENDING = 1;
-  WITHDRAW_STATUS_PROCESSING = 2;
-  WITHDRAW_STATUS_SUBMITTED = 3;
-  WITHDRAW_STATUS_CONFIRMED = 4;
-  WITHDRAW_STATUS_FAILED = 5;
-  WITHDRAW_STATUS_CANCELLED = 6;
-  WITHDRAW_STATUS_REJECTED = 7;
-}
-
+// Withdrawal represents a withdrawal record
 message Withdrawal {
-  string withdraw_id = 1;
-  string wallet = 2;
-  string token = 3;
-  string amount = 4;          // decimal string
-  string to_address = 5;
-  uint64 nonce = 6;
-  WithdrawStatus status = 7;
-  string tx_hash = 8;
-  string reject_reason = 9;
-  int64 submitted_at = 10;
-  int64 confirmed_at = 11;
-  int64 refunded_at = 12;
-  int64 created_at = 13;
+    // Unique withdrawal identifier
+    string withdraw_id = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Token symbol
+    string token = 3;
+
+    // Withdrawal amount (decimal string)
+    string amount = 4;
+
+    // Fee amount (decimal string)
+    string fee = 5;
+
+    // Net amount after fee (decimal string)
+    string net_amount = 6;
+
+    // Destination address
+    string to_address = 7;
+
+    // User-provided nonce
+    uint64 nonce = 8;
+
+    // Current withdrawal status
+    eidos.common.v1.WithdrawStatus status = 9;
+
+    // On-chain transaction hash (set when submitted)
+    string tx_hash = 10;
+
+    // Block number (set when confirmed)
+    int64 block_num = 11;
+
+    // Rejection reason (only set if status = REJECTED)
+    string reject_reason = 12;
+
+    // Rejection code (only set if status = REJECTED)
+    string reject_code = 13;
+
+    // Request timestamp (Unix milliseconds)
+    int64 requested_at = 14;
+
+    // Submission timestamp (Unix milliseconds, 0 if not submitted)
+    int64 submitted_at = 15;
+
+    // Confirmation timestamp (Unix milliseconds, 0 if not confirmed)
+    int64 confirmed_at = 16;
+
+    // Refund timestamp (Unix milliseconds, 0 if not refunded)
+    int64 refunded_at = 17;
+
+    // Record creation timestamp (Unix milliseconds)
+    int64 created_at = 18;
 }
 
+// CreateWithdrawalRequest is the request to create a withdrawal
 message CreateWithdrawalRequest {
-  string wallet = 1;
-  string token = 2;
-  string amount = 3;          // decimal string
-  string to_address = 4;
-  uint64 nonce = 5;
-  bytes signature = 6;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Token symbol (required)
+    string token = 2;
+
+    // Withdrawal amount (required)
+    // Format: decimal string (e.g., "100.5")
+    string amount = 3;
+
+    // Destination address (required)
+    string to_address = 4;
+
+    // User-provided nonce (required)
+    uint64 nonce = 5;
+
+    // EIP-712 signature (required)
+    bytes signature = 6;
 }
 
+// CreateWithdrawalResponse is the response after creating withdrawal
 message CreateWithdrawalResponse {
-  Withdrawal withdrawal = 1;
+    // The created withdrawal with initial status
+    Withdrawal withdrawal = 1;
 }
 
+// CancelWithdrawalRequest is the request to cancel a withdrawal
 message CancelWithdrawalRequest {
-  string wallet = 1;
-  string withdraw_id = 2;
+    // User wallet address (required for verification)
+    string wallet = 1;
+
+    // Withdrawal ID to cancel (required)
+    string withdraw_id = 2;
 }
 
+// GetWithdrawalRequest is the request to get withdrawal details
 message GetWithdrawalRequest {
-  string withdraw_id = 1;
+    // Withdrawal ID to retrieve
+    string withdraw_id = 1;
 }
 
+// ListWithdrawalsRequest is the request to list withdrawals with filters
 message ListWithdrawalsRequest {
-  string wallet = 1;
-  string token = 2;           // optional filter
-  WithdrawStatus status = 3;  // optional filter
-  int64 start_time = 4;
-  int64 end_time = 5;
-  int32 page = 6;
-  int32 page_size = 7;
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Token symbol filter (optional)
+    string token = 2;
+
+    // Withdrawal status filter (optional)
+    eidos.common.v1.WithdrawStatus status = 3;
+
+    // Start time filter (Unix milliseconds, optional)
+    int64 start_time = 4;
+
+    // End time filter (Unix milliseconds, optional)
+    int64 end_time = 5;
+
+    // Page number (1-indexed, default 1)
+    int32 page = 6;
+
+    // Page size (default 20, max 100)
+    int32 page_size = 7;
 }
 
+// ListWithdrawalsResponse is the response containing withdrawals
 message ListWithdrawalsResponse {
-  repeated Withdrawal withdrawals = 1;
-  int64 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+    // List of withdrawals
+    repeated Withdrawal withdrawals = 1;
+
+    // Total number of matching withdrawals
+    int64 total = 2;
+
+    // Current page number
+    int32 page = 3;
+
+    // Page size
+    int32 page_size = 4;
 }
 
-// ========== 内部接口消息 ==========
+// ============================================================================
+// Internal Service Messages
+// ============================================================================
 
+// ProcessTradeResultRequest is sent by matching engine after a trade
 message ProcessTradeResultRequest {
-  string trade_id = 1;
-  string market = 2;
-  string maker_order_id = 3;
-  string taker_order_id = 4;
-  string maker_wallet = 5;
-  string taker_wallet = 6;
-  string price = 7;
-  string amount = 8;
-  string quote_amount = 9;
-  string maker_fee = 10;
-  string taker_fee = 11;
-  string fee_token = 12;
-  OrderSide maker_side = 13;
-  int64 matched_at = 14;
+    // Unique trade identifier
+    string trade_id = 1;
+
+    // Trading pair symbol
+    string market = 2;
+
+    // Maker order ID
+    string maker_order_id = 3;
+
+    // Taker order ID
+    string taker_order_id = 4;
+
+    // Maker wallet address
+    string maker_wallet = 5;
+
+    // Taker wallet address
+    string taker_wallet = 6;
+
+    // Trade execution price (decimal string)
+    string price = 7;
+
+    // Trade amount in base token (decimal string)
+    string amount = 8;
+
+    // Trade amount in quote token (decimal string)
+    string quote_amount = 9;
+
+    // Maker fee amount (decimal string)
+    string maker_fee = 10;
+
+    // Taker fee amount (decimal string)
+    string taker_fee = 11;
+
+    // Fee token symbol
+    string fee_token = 12;
+
+    // Maker order side
+    eidos.common.v1.OrderSide maker_side = 13;
+
+    // Whether maker order is fully filled
+    bool maker_filled = 14;
+
+    // Whether taker order is fully filled
+    bool taker_filled = 15;
+
+    // Trade match timestamp (Unix milliseconds)
+    int64 matched_at = 16;
+
+    // Matching engine sequence number
+    uint64 sequence = 17;
 }
 
+// ProcessDepositEventRequest is sent by chain indexer on deposit detection
 message ProcessDepositEventRequest {
-  string tx_hash = 1;
-  uint32 log_index = 2;
-  int64 block_num = 3;
-  string wallet = 4;
-  string token = 5;
-  string amount = 6;
-  int64 detected_at = 7;
+    // On-chain transaction hash
+    string tx_hash = 1;
+
+    // Log index within transaction
+    uint32 log_index = 2;
+
+    // Block number
+    int64 block_num = 3;
+
+    // User wallet address
+    string wallet = 4;
+
+    // Token symbol
+    string token = 5;
+
+    // Token contract address
+    string token_address = 6;
+
+    // Deposit amount (decimal string)
+    string amount = 7;
+
+    // Detection timestamp (Unix milliseconds)
+    int64 detected_at = 8;
 }
 
+// ConfirmSettlementRequest is sent when settlement is confirmed on-chain
 message ConfirmSettlementRequest {
-  string batch_id = 1;
-  string tx_hash = 2;
+    // Settlement batch ID
+    string batch_id = 1;
+
+    // On-chain transaction hash
+    string tx_hash = 2;
+
+    // Block number
+    int64 block_num = 3;
+
+    // Trade IDs in the batch
+    repeated string trade_ids = 4;
+
+    // Confirmation timestamp (Unix milliseconds)
+    int64 confirmed_at = 5;
+}
+
+// RollbackSettlementRequest is sent when settlement fails on-chain
+message RollbackSettlementRequest {
+    // Settlement batch ID
+    string batch_id = 1;
+
+    // Trade IDs to rollback
+    repeated string trade_ids = 2;
+
+    // Error message from chain
+    string error_message = 3;
+
+    // Error code
+    string error_code = 4;
+
+    // Rollback timestamp (Unix milliseconds)
+    int64 rolled_back_at = 5;
+}
+
+// ============================================================================
+// PrepareOrder Messages (for EIP-712 signing flow)
+// ============================================================================
+
+// PrepareOrderRequest is the request to prepare an order for signing
+message PrepareOrderRequest {
+    // User wallet address (required)
+    string wallet = 1;
+
+    // Trading pair symbol (required)
+    string market = 2;
+
+    // Order direction (required)
+    eidos.common.v1.OrderSide side = 3;
+
+    // Order type (required)
+    eidos.common.v1.OrderType type = 4;
+
+    // Order price (required for limit orders)
+    string price = 5;
+
+    // Order amount in base token (required)
+    string amount = 6;
+
+    // Time in force policy (optional, defaults to GTC)
+    eidos.common.v1.TimeInForce time_in_force = 7;
+
+    // Client-provided order ID (optional)
+    string client_order_id = 8;
+}
+
+// PrepareOrderResponse is the response with EIP-712 typed data for signing
+message PrepareOrderResponse {
+    // Unique order identifier (UUID)
+    string order_id = 1;
+
+    // Nonce for the order (used in signature)
+    uint64 nonce = 2;
+
+    // Order expiry timestamp (Unix milliseconds)
+    int64 expires_at = 3;
+
+    // EIP-712 typed data for client to sign
+    EIP712TypedData typed_data = 4;
+}
+
+// EIP712TypedData represents the EIP-712 typed data structure
+message EIP712TypedData {
+    // Type definitions
+    map<string, EIP712TypeList> types = 1;
+
+    // Primary type name
+    string primary_type = 2;
+
+    // Domain separator
+    EIP712Domain domain = 3;
+
+    // Message to sign
+    map<string, string> message = 4;
+}
+
+// EIP712TypeList is a list of type definitions
+message EIP712TypeList {
+    repeated EIP712Type types = 1;
+}
+
+// EIP712Type is a single type definition
+message EIP712Type {
+    // Field name
+    string name = 1;
+
+    // Field type
+    string type = 2;
+}
+
+// EIP712Domain is the EIP-712 domain separator
+message EIP712Domain {
+    // Domain name
+    string name = 1;
+
+    // Domain version
+    string version = 2;
+
+    // Chain ID
+    int64 chain_id = 3;
+
+    // Verifying contract address
+    string verifying_contract = 4;
 }

@@ -269,7 +269,7 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID string, oldS
 // UpdateFilled 更新成交信息 (原子操作)
 func (r *orderRepository) UpdateFilled(ctx context.Context, orderID string, filledAmount, filledQuote string, newStatus model.OrderStatus) error {
 	// 使用原生 SQL 进行原子更新
-	sql := `UPDATE orders
+	sql := `UPDATE trading_orders
 			SET filled_amount = filled_amount + ?,
 				filled_quote = filled_quote + ?,
 				status = ?,

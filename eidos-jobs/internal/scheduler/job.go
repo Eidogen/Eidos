@@ -96,14 +96,16 @@ func (j BaseJob) UseWatchdog() bool {
 
 // JobNames 任务名称常量
 const (
-	JobNameReconciliation  = "reconciliation"
-	JobNameCleanupOrders   = "cleanup-orders"
-	JobNameArchiveData     = "archive-data"
-	JobNameStatsAgg        = "stats-agg"
-	JobNameKlineAgg        = "kline-agg"
-	JobNameHealthMonitor   = "health-monitor"
-	JobNamePartitionManage = "partition-manage"
-	JobNameDataCleanup     = "data-cleanup"
+	JobNameReconciliation     = "reconciliation"
+	JobNameCleanupOrders      = "cleanup-orders"
+	JobNameArchiveData        = "archive-data"
+	JobNameStatsAgg           = "stats-agg"
+	JobNameKlineAgg           = "kline-agg"
+	JobNameHealthMonitor      = "health-monitor"
+	JobNamePartitionManage    = "partition-manage"
+	JobNameDataCleanup        = "data-cleanup"
+	JobNameBalanceScan        = "balance-scan"
+	JobNameSettlementTrigger  = "settlement-trigger"
 )
 
 // DefaultJobConfigs 默认任务配置
@@ -160,5 +162,17 @@ var DefaultJobConfigs = map[string]struct {
 		Timeout:     30 * time.Minute,
 		LockTTL:     35 * time.Minute,
 		UseWatchdog: true,
+	},
+	JobNameBalanceScan: {
+		Cron:        "0 */5 * * * *",    // 每5分钟
+		Timeout:     4 * time.Minute,
+		LockTTL:     5 * time.Minute,
+		UseWatchdog: false,
+	},
+	JobNameSettlementTrigger: {
+		Cron:        "0 */1 * * * *",    // 每1分钟
+		Timeout:     50 * time.Second,
+		LockTTL:     1 * time.Minute,
+		UseWatchdog: false,
 	},
 }

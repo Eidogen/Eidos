@@ -381,10 +381,14 @@ func (m *Matcher) updateLastPrice(price decimal.Decimal, timestamp int64) {
 }
 
 // UpdateIndexPrice 更新外部指数价格
-// TODO: 由外部价格服务调用
 func (m *Matcher) UpdateIndexPrice(price decimal.Decimal) {
 	m.indexPrice = price
 	m.indexPriceAt = time.Now().UnixNano()
+}
+
+// UpdateConfig 更新配置 (热更新)
+func (m *Matcher) UpdateConfig(cfg *MarketConfig) {
+	m.config = cfg
 }
 
 // GetLastPrice 获取最新成交价

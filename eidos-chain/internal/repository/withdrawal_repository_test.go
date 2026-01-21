@@ -34,7 +34,7 @@ func TestWithdrawalTxStatus_String(t *testing.T) {
 // TestWithdrawalTx_TableName 测试表名
 func TestWithdrawalTx_TableName(t *testing.T) {
 	tx := &model.WithdrawalTx{}
-	assert.Equal(t, "eidos_chain_withdrawal_txs", tx.TableName())
+	assert.Equal(t, "chain_withdrawal_txs", tx.TableName())
 }
 
 // TestWithdrawalTx_Fields 测试 WithdrawalTx 字段

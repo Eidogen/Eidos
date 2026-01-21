@@ -33,7 +33,7 @@ func TestDepositRecordStatus_String(t *testing.T) {
 // TestDepositRecord_TableName 测试表名
 func TestDepositRecord_TableName(t *testing.T) {
 	record := &model.DepositRecord{}
-	assert.Equal(t, "eidos_chain_deposit_records", record.TableName())
+	assert.Equal(t, "chain_deposit_records", record.TableName())
 }
 
 // TestDepositRecord_Fields 测试 DepositRecord 字段

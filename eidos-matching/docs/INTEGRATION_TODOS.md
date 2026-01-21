@@ -361,22 +361,110 @@ eidos-matching 暴露以下指标：
 
 以下是 eidos-matching 代码中标记的 TODO 项：
 
-| 文件 | 位置 | 说明 |
-|-----|------|------|
-| `internal/kafka/consumer.go` | L148 | 记录错误日志 |
-| `internal/kafka/consumer.go` | L156 | 解析错误发送到死信队列 |
-| `internal/kafka/consumer.go` | L163 | 订单处理错误策略 |
-| `internal/kafka/consumer.go` | L259 | 提交失败记录 |
-| `internal/kafka/consumer.go` | L286-290 | 实现 SeekToOffset |
-| `internal/app/app.go` | L179 | 集成日志系统 |
-| `internal/app/app.go` | L223-239 | 各处错误记录 |
-| `internal/app/app.go` | L350 | 两阶段快照确认 |
-| `internal/app/app.go` | L378-381 | 引擎启动前恢复订单簿 |
+| 文件 | 位置 | 说明 | 状态 |
+|-----|------|------|------|
+| `internal/kafka/consumer.go` | L148 | 记录错误日志 | 待完成 |
+| `internal/kafka/consumer.go` | L156 | 解析错误发送到死信队列 | 待完成 |
+| `internal/kafka/consumer.go` | L163 | 订单处理错误策略 | 待完成 |
+| `internal/kafka/consumer.go` | L259 | 提交失败记录 | 待完成 |
+| `internal/kafka/consumer.go` | L286-290 | 实现 SeekToOffset | 待完成 |
 
 **优先级排序：**
 1. 高优先级：死信队列、错误重试策略
 2. 中优先级：日志集成、SeekToOffset 实现
 3. 低优先级：两阶段快照完善
+
+### 10.2 已完成的功能 (v2.0.0)
+
+以下功能已在本版本中完成：
+
+| 功能 | 文件 | 说明 |
+|-----|------|------|
+| **市场配置热加载** | `internal/config/nacos_loader.go` | 从 Nacos 动态加载市场配置，支持不停机添加/更新交易对 |
+| **外部指数价格** | `internal/price/index_price.go` | 多数据源聚合的指数价格管理器，支持中位数/加权平均聚合 |
+| **Kafka 消息发送** | `internal/engine/manager.go` | 完善的 trade-results, orderbook-updates, order-updates 发送 |
+| **错误处理** | `internal/engine/manager.go` | CollectTrades/CollectUpdates/CollectCancels 带重试的错误处理 |
+| **Leader 选举** | `internal/ha/leader_election.go` | 基于 Redis 的 Leader 选举机制 |
+| **Standby 模式** | `internal/ha/standby_manager.go` | 支持主备切换和状态同步 |
+| **性能指标** | `internal/metrics/metrics.go` | 撮合延迟、订单簿深度、吞吐量等完整指标 |
+
+#### 10.2.1 市场配置热加载
+
+- 支持从 Nacos 配置中心动态加载市场配置
+- 配置变更回调机制，自动处理新增/更新/删除市场
+- 轮询和监听两种模式
+- 配置验证和错误处理
+
+使用方式：
+```yaml
+# Nacos 配置 DataID: eidos-matching-markets
+{
+  "markets": [
+    {
+      "symbol": "BTC-USDC",
+      "base_token": "BTC",
+      "quote_token": "USDC",
+      "price_decimals": 8,
+      "size_decimals": 8,
+      "min_size": "0.0001",
+      "tick_size": "0.01",
+      "maker_fee_rate": "0.0005",
+      "taker_fee_rate": "0.001",
+      "max_slippage": "0.05"
+    }
+  ]
+}
+```
+
+#### 10.2.2 外部指数价格
+
+- 支持多数据源聚合（中位数、加权平均、最优数据源）
+- 异常价格过滤（偏离阈值检测）
+- 价格置信度计算
+- 可扩展的数据源接口
+
+配置示例：
+```yaml
+index_price:
+  enabled: true
+  update_interval: 1s
+  stale_threshold: 30s
+  aggregation_method: median
+  min_valid_sources: 1
+  deviation_threshold: "0.1"
+```
+
+#### 10.2.3 高可用故障转移
+
+- 基于 Redis 的 Leader 选举
+- 毫秒级故障检测和切换
+- Standby 节点状态同步
+- 故障转移指标监控
+
+配置示例：
+```yaml
+ha:
+  enabled: true
+  heartbeat_interval: 100ms
+  failover_timeout: 500ms
+```
+
+#### 10.2.4 新增 Prometheus 指标
+
+| 指标名 | 类型 | 说明 |
+|-------|------|------|
+| `eidos_matching_match_latency_microseconds` | Histogram | 撮合延迟（微秒级） |
+| `eidos_matching_order_process_latency_microseconds` | Histogram | 订单处理延迟 |
+| `eidos_matching_end_to_end_latency_milliseconds` | Histogram | 端到端延迟 |
+| `eidos_matching_orderbook_bid_volume` | Gauge | 买单总量 |
+| `eidos_matching_orderbook_ask_volume` | Gauge | 卖单总量 |
+| `eidos_matching_orderbook_mid_price` | Gauge | 中间价 |
+| `eidos_matching_orderbook_imbalance` | Gauge | 订单簿不平衡度 |
+| `eidos_matching_orders_per_second` | Gauge | 每秒订单数 |
+| `eidos_matching_trades_per_second` | Gauge | 每秒成交数 |
+| `eidos_matching_leader_election_state` | Gauge | Leader 状态 |
+| `eidos_matching_failover_total` | Counter | 故障转移次数 |
+| `eidos_matching_index_price_deviation_percent` | Gauge | 指数价格偏差 |
 
 ---
 
@@ -385,3 +473,4 @@ eidos-matching 暴露以下指标：
 | 日期 | 版本 | 变更内容 |
 |-----|------|---------|
 | 2024-01-01 | v1.0.0 | 初始版本 |
+| 2024-01-20 | v2.0.0 | 新增市场配置热加载、外部指数价格、高可用故障转移、完整性能指标 |

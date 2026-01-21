@@ -61,13 +61,13 @@ func TestSettlementBatchStatus_String(t *testing.T) {
 // TestSettlementBatch_TableName 测试表名
 func TestSettlementBatch_TableName(t *testing.T) {
 	batch := &model.SettlementBatch{}
-	assert.Equal(t, "eidos_chain_settlement_batches", batch.TableName())
+	assert.Equal(t, "chain_settlement_batches", batch.TableName())
 }
 
 // TestSettlementRollbackLog_TableName 测试表名
 func TestSettlementRollbackLog_TableName(t *testing.T) {
 	log := &model.SettlementRollbackLog{}
-	assert.Equal(t, "eidos_chain_settlement_rollback_logs", log.TableName())
+	assert.Equal(t, "chain_settlement_rollback_logs", log.TableName())
 }
 
 // TestSettlementBatch_Fields 测试 SettlementBatch 字段

@@ -1,0 +1,1476 @@
+openapi: 3.0.3
+info:
+  title: Eidos Exchange API
+  description: |
+    Eidos Exchange REST API documentation.
+
+    ## Authentication
+    All private endpoints require EIP-712 signature authentication.
+
+    Authorization header format:
+    ```
+    Authorization: EIP712 {wallet}:{timestamp}:{signature}
+    ```
+
+    ## Rate Limiting
+    - Per IP: 1000 requests/minute
+    - Per Wallet (queries): 100 requests/second
+    - Per Wallet (orders): 10 requests/second
+    - Per Wallet (withdrawals): 1 request/second
+
+    ## WebSocket
+    WebSocket endpoint: `wss://api.eidos.exchange/ws`
+
+    ### Public Channels
+    - ticker: Real-time ticker updates
+    - depth: Order book depth
+    - kline: K-line/candlestick data
+    - trades: Recent trades
+
+    ### Private Channels (requires authentication)
+    - orders: Order updates
+    - balances: Balance updates
+
+  version: 1.0.0
+  contact:
+    name: Eidos Exchange
+    url: https://eidos.exchange
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.eidos.exchange/api/v1
+    description: Production server
+  - url: https://testnet-api.eidos.exchange/api/v1
+    description: Testnet server
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Market Data
+    description: Public market data endpoints
+  - name: Orders
+    description: Order management (requires authentication)
+  - name: Account
+    description: Account information (requires authentication)
+  - name: Deposit
+    description: Deposit information (requires authentication)
+  - name: Withdrawal
+    description: Withdrawal management (requires authentication)
+
+paths:
+  /markets:
+    get:
+      tags:
+        - Market Data
+      summary: Get all trading pairs
+      description: Returns list of all available trading pairs with their configurations
+      operationId: listMarkets
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketsResponse'
+
+  /ticker/{market}:
+    get:
+      tags:
+        - Market Data
+      summary: Get 24h ticker
+      description: Returns 24-hour price change statistics for a trading pair
+      operationId: getTicker
+      parameters:
+        - $ref: '#/components/parameters/MarketParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TickerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tickers:
+    get:
+      tags:
+        - Market Data
+      summary: Get all tickers
+      description: Returns 24-hour price change statistics for all trading pairs
+      operationId: listTickers
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TickersResponse'
+
+  /depth/{market}:
+    get:
+      tags:
+        - Market Data
+      summary: Get order book depth
+      description: Returns order book depth for a trading pair
+      operationId: getDepth
+      parameters:
+        - $ref: '#/components/parameters/MarketParam'
+        - name: limit
+          in: query
+          description: Number of price levels (default 20, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepthResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /klines/{market}:
+    get:
+      tags:
+        - Market Data
+      summary: Get K-line/candlestick data
+      description: Returns K-line data for a trading pair
+      operationId: getKlines
+      parameters:
+        - $ref: '#/components/parameters/MarketParam'
+        - name: interval
+          in: query
+          required: true
+          description: K-line interval
+          schema:
+            type: string
+            enum: [1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 3d, 1w, 1M]
+        - name: start_time
+          in: query
+          description: Start time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: end_time
+          in: query
+          description: End time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Number of K-lines (default 500, max 1000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 500
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KlinesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /trades/{market}/recent:
+    get:
+      tags:
+        - Market Data
+      summary: Get recent trades
+      description: Returns recent trades for a trading pair
+      operationId: getRecentTrades
+      parameters:
+        - $ref: '#/components/parameters/MarketParam'
+        - name: limit
+          in: query
+          description: Number of trades (default 100, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecentTradesResponse'
+
+  /orders/prepare:
+    post:
+      tags:
+        - Orders
+      summary: Prepare order for signing
+      description: |
+        Prepares an order and returns EIP-712 typed data for signing.
+        The client should sign the typed data and submit it via POST /orders.
+      operationId: prepareOrder
+      security:
+        - EIP712Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareOrderRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrepareOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders:
+    post:
+      tags:
+        - Orders
+      summary: Create order
+      description: Creates a new order with signed EIP-712 data
+      operationId: createOrder
+      security:
+        - EIP712Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '200':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    get:
+      tags:
+        - Orders
+      summary: List orders
+      description: Returns paginated list of orders
+      operationId: listOrders
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: market
+          in: query
+          description: Filter by market
+          schema:
+            type: string
+        - name: side
+          in: query
+          description: Filter by side
+          schema:
+            type: string
+            enum: [buy, sell]
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [open, partial, filled, cancelled, rejected]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/StartTimeParam'
+        - $ref: '#/components/parameters/EndTimeParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags:
+        - Orders
+      summary: Batch cancel orders
+      description: Cancel multiple orders by IDs or by market/side
+      operationId: batchCancelOrders
+      security:
+        - EIP712Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCancelRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCancelResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders/open:
+    get:
+      tags:
+        - Orders
+      summary: List open orders
+      description: Returns all open (unfilled) orders
+      operationId: listOpenOrders
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: market
+          in: query
+          description: Filter by market
+          schema:
+            type: string
+        - name: side
+          in: query
+          description: Filter by side
+          schema:
+            type: string
+            enum: [buy, sell]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Get order details
+      description: Returns details of a specific order
+      operationId: getOrder
+      security:
+        - EIP712Auth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Orders
+      summary: Cancel order
+      description: Cancels a specific order
+      operationId: cancelOrder
+      security:
+        - EIP712Auth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /balances:
+    get:
+      tags:
+        - Account
+      summary: Get all balances
+      description: Returns all token balances for the authenticated user
+      operationId: listBalances
+      security:
+        - EIP712Auth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalancesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /balances/{token}:
+    get:
+      tags:
+        - Account
+      summary: Get token balance
+      description: Returns balance for a specific token
+      operationId: getBalance
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: Token symbol (e.g., USDC, ETH)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /transactions:
+    get:
+      tags:
+        - Account
+      summary: Get transaction history
+      description: Returns paginated list of balance changes
+      operationId: listTransactions
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: token
+          in: query
+          description: Filter by token
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by transaction type
+          schema:
+            type: string
+            enum: [deposit, withdrawal, trade, fee]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/StartTimeParam'
+        - $ref: '#/components/parameters/EndTimeParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deposits:
+    get:
+      tags:
+        - Deposit
+      summary: List deposits
+      description: Returns paginated list of deposits
+      operationId: listDeposits
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: token
+          in: query
+          description: Filter by token
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, confirmed, credited]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deposits/{id}:
+    get:
+      tags:
+        - Deposit
+      summary: Get deposit details
+      description: Returns details of a specific deposit
+      operationId: getDeposit
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deposit ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /withdrawals:
+    post:
+      tags:
+        - Withdrawal
+      summary: Create withdrawal
+      description: Creates a new withdrawal request
+      operationId: createWithdrawal
+      security:
+        - EIP712Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    get:
+      tags:
+        - Withdrawal
+      summary: List withdrawals
+      description: Returns paginated list of withdrawals
+      operationId: listWithdrawals
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: token
+          in: query
+          description: Filter by token
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, cancelled]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /withdrawals/{id}:
+    get:
+      tags:
+        - Withdrawal
+      summary: Get withdrawal details
+      description: Returns details of a specific withdrawal
+      operationId: getWithdrawal
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Withdrawal ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Withdrawal
+      summary: Cancel withdrawal
+      description: Cancels a pending withdrawal
+      operationId: cancelWithdrawal
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Withdrawal ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Withdrawal cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mytrades:
+    get:
+      tags:
+        - Account
+      summary: Get my trades
+      description: Returns paginated list of user's trades
+      operationId: listMyTrades
+      security:
+        - EIP712Auth: []
+      parameters:
+        - name: market
+          in: query
+          description: Filter by market
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/StartTimeParam'
+        - $ref: '#/components/parameters/EndTimeParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    EIP712Auth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        EIP-712 signature authentication.
+        Format: `EIP712 {wallet}:{timestamp}:{signature}`
+
+  parameters:
+    MarketParam:
+      name: market
+      in: path
+      required: true
+      description: Trading pair symbol (e.g., BTC-USDC)
+      schema:
+        type: string
+        pattern: ^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}$
+
+    OrderIdParam:
+      name: id
+      in: path
+      required: true
+      description: Order ID
+      schema:
+        type: string
+
+    PageParam:
+      name: page
+      in: query
+      description: Page number (starts from 1)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    StartTimeParam:
+      name: start_time
+      in: query
+      description: Start time in milliseconds
+      schema:
+        type: integer
+        format: int64
+
+    EndTimeParam:
+      name: end_time
+      in: query
+      description: End time in milliseconds
+      schema:
+        type: integer
+        format: int64
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 10003
+            message: "INVALID_PARAMS"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 10001
+            message: "INVALID_SIGNATURE"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 11001
+            message: "ORDER_NOT_FOUND"
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Remaining requests
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Reset timestamp
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimitResponse'
+
+  schemas:
+    # Base response
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Response code (0 for success)
+        message:
+          type: string
+          description: Response message
+      required:
+        - code
+        - message
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      example:
+        code: 10003
+        message: "INVALID_PARAMS"
+
+    RateLimitResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            limit:
+              type: integer
+            window:
+              type: string
+            retry_after:
+              type: integer
+
+    # Pagination
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+
+    # Market data schemas
+    Market:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: "BTC-USDC"
+        base_token:
+          type: string
+          example: "BTC"
+        quote_token:
+          type: string
+          example: "USDC"
+        price_decimals:
+          type: integer
+        amount_decimals:
+          type: integer
+        min_amount:
+          type: string
+        max_amount:
+          type: string
+        min_notional:
+          type: string
+        tick_size:
+          type: string
+        maker_fee_rate:
+          type: string
+        taker_fee_rate:
+          type: string
+        is_active:
+          type: boolean
+
+    MarketsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Market'
+
+    Ticker:
+      type: object
+      properties:
+        market:
+          type: string
+        last_price:
+          type: string
+        price_change:
+          type: string
+        price_change_percent:
+          type: string
+        high:
+          type: string
+        low:
+          type: string
+        volume:
+          type: string
+        quote_volume:
+          type: string
+        open:
+          type: string
+        best_bid:
+          type: string
+        best_ask:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+
+    TickerResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Ticker'
+
+    TickersResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticker'
+
+    DepthResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            market:
+              type: string
+            bids:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+            asks:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+            timestamp:
+              type: integer
+              format: int64
+
+    Kline:
+      type: object
+      properties:
+        open_time:
+          type: integer
+          format: int64
+        open:
+          type: string
+        high:
+          type: string
+        low:
+          type: string
+        close:
+          type: string
+        volume:
+          type: string
+        quote_volume:
+          type: string
+        close_time:
+          type: integer
+          format: int64
+        trade_count:
+          type: integer
+
+    KlinesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kline'
+
+    RecentTrade:
+      type: object
+      properties:
+        trade_id:
+          type: string
+        price:
+          type: string
+        amount:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        timestamp:
+          type: integer
+          format: int64
+
+    RecentTradesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentTrade'
+
+    # Order schemas
+    PrepareOrderRequest:
+      type: object
+      required:
+        - market
+        - side
+        - type
+        - amount
+      properties:
+        market:
+          type: string
+          example: "BTC-USDC"
+        side:
+          type: string
+          enum: [buy, sell]
+        type:
+          type: string
+          enum: [limit, market]
+        price:
+          type: string
+          description: Required for limit orders
+        amount:
+          type: string
+        time_in_force:
+          type: string
+          enum: [GTC, IOC, FOK, GTT]
+          default: GTC
+
+    PrepareOrderResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            order_id:
+              type: string
+            typed_data:
+              type: object
+              description: EIP-712 typed data for signing
+            nonce:
+              type: integer
+              format: uint64
+            expires_at:
+              type: integer
+              format: int64
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - order_id
+        - market
+        - side
+        - type
+        - amount
+        - nonce
+        - signature
+      properties:
+        order_id:
+          type: string
+        market:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        type:
+          type: string
+          enum: [limit, market]
+        price:
+          type: string
+        amount:
+          type: string
+        time_in_force:
+          type: string
+          enum: [GTC, IOC, FOK, GTT]
+        nonce:
+          type: integer
+          format: uint64
+        signature:
+          type: string
+          description: EIP-712 signature
+        client_order_id:
+          type: string
+
+    Order:
+      type: object
+      properties:
+        order_id:
+          type: string
+        wallet:
+          type: string
+        market:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        type:
+          type: string
+          enum: [limit, market]
+        price:
+          type: string
+        amount:
+          type: string
+        filled_amount:
+          type: string
+        remaining_amount:
+          type: string
+        avg_price:
+          type: string
+        status:
+          type: string
+          enum: [open, partial, filled, cancelled, rejected]
+        time_in_force:
+          type: string
+        nonce:
+          type: integer
+          format: uint64
+        client_order_id:
+          type: string
+        reject_reason:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    OrderResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+
+    OrderDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+
+    OrdersListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Order'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    BatchCancelRequest:
+      type: object
+      properties:
+        order_ids:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+        market:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+
+    BatchCancelResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            cancelled:
+              type: array
+              items:
+                type: string
+            failed:
+              type: array
+              items:
+                type: string
+
+    # Balance schemas
+    Balance:
+      type: object
+      properties:
+        wallet:
+          type: string
+        token:
+          type: string
+        settled_available:
+          type: string
+        settled_frozen:
+          type: string
+        pending_available:
+          type: string
+        pending_frozen:
+          type: string
+        total_available:
+          type: string
+        total:
+          type: string
+        withdrawable:
+          type: string
+        updated_at:
+          type: integer
+          format: int64
+
+    BalanceResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Balance'
+
+    BalancesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Balance'
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        wallet:
+          type: string
+        token:
+          type: string
+        type:
+          type: string
+        amount:
+          type: string
+        balance:
+          type: string
+        ref_id:
+          type: string
+        ref_type:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+
+    TransactionsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Transaction'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    # Deposit schemas
+    Deposit:
+      type: object
+      properties:
+        deposit_id:
+          type: string
+        wallet:
+          type: string
+        token:
+          type: string
+        amount:
+          type: string
+        tx_hash:
+          type: string
+        block_num:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [pending, confirmed, credited]
+        detected_at:
+          type: integer
+          format: int64
+        confirmed_at:
+          type: integer
+          format: int64
+        credited_at:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+
+    DepositDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Deposit'
+
+    DepositsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Deposit'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    # Withdrawal schemas
+    CreateWithdrawalRequest:
+      type: object
+      required:
+        - token
+        - amount
+        - to_address
+        - nonce
+        - signature
+      properties:
+        token:
+          type: string
+        amount:
+          type: string
+        to_address:
+          type: string
+        nonce:
+          type: integer
+          format: uint64
+        signature:
+          type: string
+
+    Withdrawal:
+      type: object
+      properties:
+        withdraw_id:
+          type: string
+        wallet:
+          type: string
+        token:
+          type: string
+        amount:
+          type: string
+        to_address:
+          type: string
+        nonce:
+          type: integer
+          format: uint64
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+        tx_hash:
+          type: string
+        reject_reason:
+          type: string
+        submitted_at:
+          type: integer
+          format: int64
+        confirmed_at:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+
+    WithdrawalResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Withdrawal'
+
+    WithdrawalDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          $ref: '#/components/schemas/Withdrawal'
+
+    WithdrawalsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Withdrawal'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    # Trade schemas
+    Trade:
+      type: object
+      properties:
+        trade_id:
+          type: string
+        market:
+          type: string
+        maker_order_id:
+          type: string
+        taker_order_id:
+          type: string
+        price:
+          type: string
+        amount:
+          type: string
+        quote_amount:
+          type: string
+        maker_fee:
+          type: string
+        taker_fee:
+          type: string
+        fee_token:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        matched_at:
+          type: integer
+          format: int64
+
+    TradesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Trade'
+            pagination:
+              $ref: '#/components/schemas/Pagination'

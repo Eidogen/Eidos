@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   # ========================================
-  # 数据库
+  # Infrastructure - Databases
   # ========================================
   postgres:
     image: postgres:16-alpine
@@ -25,7 +25,7 @@ services:
     networks:
       - eidos-network
 
-  # TimescaleDB (PostgreSQL + 时序数据扩展)
+  # TimescaleDB (PostgreSQL + Time-series extension)
   timescaledb:
     image: timescale/timescaledb:latest-pg16
     container_name: eidos-timescaledb
@@ -47,7 +47,7 @@ services:
       - eidos-network
 
   # ========================================
-  # 缓存
+  # Infrastructure - Cache
   # ========================================
   redis:
     image: redis:7-alpine
@@ -67,7 +67,7 @@ services:
       - eidos-network
 
   # ========================================
-  # 消息队列 (KRaft 模式，无需 Zookeeper)
+  # Infrastructure - Message Queue (KRaft mode)
   # ========================================
   kafka:
     image: apache/kafka:3.8.1
@@ -106,13 +106,14 @@ services:
     networks:
       - eidos-network
 
-  # Kafka UI (可选，用于调试)
+  # Kafka UI (optional, for debugging)
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: eidos-kafka-ui
     restart: unless-stopped
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8090:8080"
     environment:
@@ -120,13 +121,16 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
     networks:
       - eidos-network
+    profiles:
+      - debug
 
-  # Kafka Init (初始化 Topic)
+  # Kafka Init (Topic initialization)
   kafka-init:
     image: apache/kafka:3.8.1
     container_name: eidos-kafka-init
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     volumes:
       - ./scripts/init-kafka-topics.sh:/init-kafka-topics.sh
     entrypoint: ["/bin/bash", "/init-kafka-topics.sh"]
@@ -137,7 +141,7 @@ services:
       - eidos-network
 
   # ========================================
-  # 服务注册与发现
+  # Infrastructure - Service Registry
   # ========================================
   nacos:
     image: nacos/nacos-server:v2.3.2
@@ -170,7 +174,324 @@ services:
       - eidos-network
 
   # ========================================
-  # 监控
+  # Application Services
+  # ========================================
+
+  # eidos-api - REST + WebSocket API Gateway
+  eidos-api:
+    build:
+      context: .
+      dockerfile: eidos-api/Dockerfile
+    container_name: eidos-api
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      eidos-trading:
+        condition: service_started
+      eidos-matching:
+        condition: service_started
+      eidos-market:
+        condition: service_started
+      eidos-risk:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GRPC_TRADING_ADDR: eidos-trading:50051
+      GRPC_MATCHING_ADDR: eidos-matching:50052
+      GRPC_MARKET_ADDR: eidos-market:50053
+      GRPC_RISK_ADDR: eidos-risk:50055
+      EIP712_MOCK_MODE: "true"
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-trading - Order Management, Clearing, Account Service
+  eidos-trading:
+    build:
+      context: .
+      dockerfile: eidos-trading/Dockerfile
+    container_name: eidos-trading
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50051:50051"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eidos
+      POSTGRES_PASSWORD: eidos123
+      POSTGRES_DATABASE: eidos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      NODE_ID: 1
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-matching - Matching Engine
+  eidos-matching:
+    build:
+      context: .
+      dockerfile: eidos-matching/Dockerfile
+    container_name: eidos-matching
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50052:50052"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      NODE_ID: 1
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50052"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-market - Market Data Service
+  eidos-market:
+    build:
+      context: .
+      dockerfile: eidos-market/Dockerfile
+    container_name: eidos-market
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50053:50053"
+    environment:
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: 5432
+      TIMESCALEDB_USER: eidos
+      TIMESCALEDB_PASSWORD: eidos123
+      TIMESCALEDB_DATABASE: eidos_market
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50053"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-chain - On-Chain Settlement & Indexer
+  eidos-chain:
+    build:
+      context: .
+      dockerfile: eidos-chain/Dockerfile
+    container_name: eidos-chain
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50054:50054"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eidos
+      POSTGRES_PASSWORD: eidos123
+      POSTGRES_DATABASE: eidos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      # RPC_URL: ${RPC_URL}
+      # PRIVATE_KEY: ${PRIVATE_KEY}
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50054"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-risk - Risk Control Service
+  eidos-risk:
+    build:
+      context: .
+      dockerfile: eidos-risk/Dockerfile
+    container_name: eidos-risk
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50055:50055"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eidos
+      POSTGRES_PASSWORD: eidos123
+      POSTGRES_DATABASE: eidos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50055"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-jobs - Scheduled Jobs Service
+  eidos-jobs:
+    build:
+      context: .
+      dockerfile: eidos-jobs/Dockerfile
+    container_name: eidos-jobs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50056:50056"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eidos
+      POSTGRES_PASSWORD: eidos123
+      POSTGRES_DATABASE: eidos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50056"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # eidos-admin - Admin Backend
+  eidos-admin:
+    build:
+      context: .
+      dockerfile: eidos-admin/Dockerfile
+    container_name: eidos-admin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eidos
+      POSTGRES_PASSWORD: eidos123
+      POSTGRES_DATABASE: eidos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: eidos-dev
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8088"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+    profiles:
+      - services
+
+  # ========================================
+  # Monitoring
   # ========================================
   prometheus:
     image: prom/prometheus:v2.50.1

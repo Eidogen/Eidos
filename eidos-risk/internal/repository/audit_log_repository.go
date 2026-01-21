@@ -210,3 +210,148 @@ func (r *AuditLogRepository) GetP99Latency(ctx context.Context, action string, s
 	}
 	return p99, nil
 }
+
+// AuditLogFilter 审计日志查询过滤器
+type AuditLogFilter struct {
+	Wallet    string
+	Action    model.AuditAction
+	Result    model.AuditResult
+	StartTime int64
+	EndTime   int64
+}
+
+// Query 查询审计日志
+func (r *AuditLogRepository) Query(ctx context.Context, filter *AuditLogFilter, pagination *Pagination) ([]*model.AuditLog, int64, error) {
+	var logs []*model.AuditLog
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.AuditLog{})
+
+	// 应用过滤条件
+	if filter != nil {
+		if filter.Wallet != "" {
+			query = query.Where("wallet_address = ?", filter.Wallet)
+		}
+		if filter.Action != "" {
+			query = query.Where("action = ?", filter.Action)
+		}
+		if filter.Result != "" {
+			query = query.Where("result = ?", filter.Result)
+		}
+		if filter.StartTime > 0 {
+			query = query.Where("created_at >= ?", filter.StartTime)
+		}
+		if filter.EndTime > 0 {
+			query = query.Where("created_at <= ?", filter.EndTime)
+		}
+	}
+
+	// 统计总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	err := query.
+		Offset(pagination.Offset()).
+		Limit(pagination.Limit()).
+		Order("created_at DESC").
+		Find(&logs).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return logs, total, nil
+}
+
+// AuditStats 审计统计
+type AuditStats struct {
+	TotalChecks        int64
+	OrderChecks        int64
+	WithdrawChecks     int64
+	Rejections         int64
+	RejectionRate      float64
+	AvgDurationMs      int
+	BlacklistAdditions int64
+	BlacklistRemovals  int64
+	RuleUpdates        int64
+}
+
+// GetStats 获取审计统计
+func (r *AuditLogRepository) GetStats(ctx context.Context, startTime, endTime int64) (*AuditStats, error) {
+	stats := &AuditStats{}
+
+	baseQuery := r.db.WithContext(ctx).Model(&model.AuditLog{})
+	if startTime > 0 {
+		baseQuery = baseQuery.Where("created_at >= ?", startTime)
+	}
+	if endTime > 0 {
+		baseQuery = baseQuery.Where("created_at <= ?", endTime)
+	}
+
+	// 总检查数
+	baseQuery.Count(&stats.TotalChecks)
+
+	// 订单检查数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("action = ?", model.AuditActionCheckOrder).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.OrderChecks)
+
+	// 提现检查数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("action = ?", model.AuditActionCheckWithdraw).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.WithdrawChecks)
+
+	// 拒绝数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("result = ?", model.AuditResultRejected).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.Rejections)
+
+	// 黑名单添加数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("action = ?", model.AuditActionAddBlacklist).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.BlacklistAdditions)
+
+	// 黑名单移除数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("action = ?", model.AuditActionRemoveBlack).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.BlacklistRemovals)
+
+	// 规则更新数
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("action = ?", model.AuditActionUpdateRule).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&stats.RuleUpdates)
+
+	// 计算拒绝率
+	if stats.TotalChecks > 0 {
+		stats.RejectionRate = float64(stats.Rejections) / float64(stats.TotalChecks) * 100
+	}
+
+	// 平均延迟
+	var avgDuration struct {
+		AvgDuration float64
+	}
+	r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Select("AVG(duration_ms) as avg_duration").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Scan(&avgDuration)
+	stats.AvgDurationMs = int(avgDuration.AvgDuration)
+
+	return stats, nil
+}
+
+// CleanupOldLogs 清理旧日志
+func (r *AuditLogRepository) CleanupOldLogs(ctx context.Context, olderThan int64) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Where("created_at < ?", olderThan).
+		Delete(&model.AuditLog{})
+
+	return result.RowsAffected, result.Error
+}

@@ -96,3 +96,94 @@ type IgnoreEventRequest struct {
 type EventStats struct {
 	PendingByLevel map[string]int64
 }
+
+// AcknowledgeEvent acknowledges a risk event (alias for ResolveEvent)
+func (s *EventService) AcknowledgeEvent(ctx context.Context, eventID, operatorID, note string) error {
+	return s.repo.Resolve(ctx, eventID, operatorID, note)
+}
+
+// GetStats retrieves risk event statistics for a time period
+func (s *EventService) GetStats(ctx context.Context, startTime, endTime int64) (*RiskStats, error) {
+	// Get pending counts by level
+	pendingCounts, err := s.repo.CountPendingByLevel(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get events in time range for statistics
+	pagination := &repository.Pagination{Page: 1, PageSize: 10000}
+	events, total, err := s.repo.ListByTimeRange(ctx, startTime, endTime, pagination)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate statistics
+	stats := &RiskStats{
+		EventsByLevel: pendingCounts,
+		EventsByType:  make(map[string]int64),
+	}
+
+	var orderChecks, orderRejected int64
+	var withdrawChecks, withdrawRejected, withdrawReview int64
+
+	for _, event := range events {
+		// Count by type
+		typeName := event.Type.String()
+		stats.EventsByType[typeName]++
+
+		// Count order checks
+		if event.Type == model.RiskEventTypeOrderCheck {
+			orderChecks++
+			if event.Result == model.RiskEventResultRejected {
+				orderRejected++
+			}
+		}
+
+		// Count withdraw checks
+		if event.Type == model.RiskEventTypeWithdrawCheck {
+			withdrawChecks++
+			if event.Result == model.RiskEventResultRejected {
+				withdrawRejected++
+			}
+			if event.Result == model.RiskEventResultDelayed {
+				withdrawReview++
+			}
+		}
+	}
+
+	stats.OrdersChecked = orderChecks
+	stats.OrdersRejected = orderRejected
+	if orderChecks > 0 {
+		stats.OrderRejectionRate = float64(orderRejected) / float64(orderChecks)
+	}
+
+	stats.WithdrawalsChecked = withdrawChecks
+	stats.WithdrawalsRejected = withdrawRejected
+	stats.WithdrawalsReview = withdrawReview
+	if withdrawChecks > 0 {
+		stats.WithdrawalRejectionRate = float64(withdrawRejected) / float64(withdrawChecks)
+	}
+
+	// Count new blacklist entries and frozen accounts (placeholder - would need blacklist repo)
+	stats.NewBlacklistEntries = 0
+	stats.AccountsFrozen = 0
+
+	_ = total // Total events in range
+
+	return stats, nil
+}
+
+// RiskStats represents risk statistics
+type RiskStats struct {
+	OrdersChecked           int64
+	OrdersRejected          int64
+	OrderRejectionRate      float64
+	WithdrawalsChecked      int64
+	WithdrawalsRejected     int64
+	WithdrawalsReview       int64
+	WithdrawalRejectionRate float64
+	NewBlacklistEntries     int64
+	AccountsFrozen          int64
+	EventsByLevel           map[string]int64
+	EventsByType            map[string]int64
+}

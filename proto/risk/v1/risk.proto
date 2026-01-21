@@ -7,192 +7,962 @@ option go_package = "github.com/eidos-exchange/eidos/proto/risk/v1;riskv1";
 import "common/enums.proto";
 import "common/pagination.proto";
 
-// 风控服务
-service RiskService {
-    // === 交易前检查 (同步调用) ===
-    rpc CheckOrder(CheckOrderRequest) returns (CheckOrderResponse);
-    rpc CheckWithdraw(CheckWithdrawRequest) returns (CheckWithdrawResponse);
+// ============================================================================
+// RiskService - Risk Management API
+// ============================================================================
 
-    // === 黑名单管理 ===
+// RiskService provides risk management functionality including:
+// - Pre-trade risk checks (order, withdrawal)
+// - Blacklist management
+// - Risk rule configuration
+// - Rate limiting
+// - Risk event monitoring
+service RiskService {
+    // ========== Pre-Trade Risk Checks (Synchronous) ==========
+
+    // CheckOrder validates an order against risk rules
+    // Called before order is sent to matching engine
+    rpc CheckOrder(CheckOrderRequest) returns (CheckOrderResponse);
+
+    // CheckWithdrawal validates a withdrawal against risk rules
+    // Called before withdrawal is processed
+    rpc CheckWithdrawal(CheckWithdrawalRequest) returns (CheckWithdrawalResponse);
+
+    // CheckTransaction validates a generic transaction
+    rpc CheckTransaction(CheckTransactionRequest) returns (CheckTransactionResponse);
+
+    // ========== Blacklist Management ==========
+
+    // AddToBlacklist adds a wallet to the blacklist
     rpc AddToBlacklist(AddToBlacklistRequest) returns (AddToBlacklistResponse);
+
+    // RemoveFromBlacklist removes a wallet from the blacklist
     rpc RemoveFromBlacklist(RemoveFromBlacklistRequest) returns (RemoveFromBlacklistResponse);
+
+    // CheckBlacklist checks if a wallet is blacklisted
     rpc CheckBlacklist(CheckBlacklistRequest) returns (CheckBlacklistResponse);
+
+    // ListBlacklist retrieves the blacklist with filters
     rpc ListBlacklist(ListBlacklistRequest) returns (ListBlacklistResponse);
 
-    // === 风控规则 ===
+    // ========== Risk Rules Management ==========
+
+    // ListRiskRules retrieves all risk rules
     rpc ListRiskRules(ListRiskRulesRequest) returns (ListRiskRulesResponse);
+
+    // GetRiskRule retrieves a specific risk rule
+    rpc GetRiskRule(GetRiskRuleRequest) returns (GetRiskRuleResponse);
+
+    // UpdateRiskRule updates a risk rule
     rpc UpdateRiskRule(UpdateRiskRuleRequest) returns (UpdateRiskRuleResponse);
 
-    // === 风控事件 ===
+    // ========== Rate Limiting ==========
+
+    // GetRateLimitStatus retrieves rate limit status for a wallet
+    rpc GetRateLimitStatus(GetRateLimitStatusRequest) returns (GetRateLimitStatusResponse);
+
+    // ResetRateLimit resets rate limit counters for a wallet
+    rpc ResetRateLimit(ResetRateLimitRequest) returns (ResetRateLimitResponse);
+
+    // ========== Risk Events ==========
+
+    // ListRiskEvents retrieves risk events with filters
     rpc ListRiskEvents(ListRiskEventsRequest) returns (ListRiskEventsResponse);
 
-    // === 限额查询 ===
+    // GetRiskEvent retrieves a specific risk event
+    rpc GetRiskEvent(GetRiskEventRequest) returns (GetRiskEventResponse);
+
+    // AcknowledgeRiskEvent acknowledges a risk event
+    rpc AcknowledgeRiskEvent(AcknowledgeRiskEventRequest) returns (AcknowledgeRiskEventResponse);
+
+    // ========== User Limits ==========
+
+    // GetUserLimits retrieves limits for a user
     rpc GetUserLimits(GetUserLimitsRequest) returns (GetUserLimitsResponse);
+
+    // SetUserLimits sets custom limits for a user
+    rpc SetUserLimits(SetUserLimitsRequest) returns (SetUserLimitsResponse);
+
+    // ========== Account Actions ==========
+
+    // FreezeAccount freezes a user account
+    rpc FreezeAccount(FreezeAccountRequest) returns (FreezeAccountResponse);
+
+    // UnfreezeAccount unfreezes a user account
+    rpc UnfreezeAccount(UnfreezeAccountRequest) returns (UnfreezeAccountResponse);
+
+    // GetAccountStatus retrieves account risk status
+    rpc GetAccountStatus(GetAccountStatusRequest) returns (GetAccountStatusResponse);
+
+    // ========== Risk Statistics ==========
+
+    // GetRiskStats retrieves risk statistics
+    rpc GetRiskStats(GetRiskStatsRequest) returns (GetRiskStatsResponse);
 }
 
-// === 交易前检查 ===
+// ============================================================================
+// Pre-Trade Risk Check Messages
+// ============================================================================
+
+// CheckOrderRequest is the request to validate an order
 message CheckOrderRequest {
+    // User wallet address
     string wallet = 1;
+
+    // Trading pair symbol
     string market = 2;
+
+    // Order direction
     eidos.common.v1.OrderSide side = 3;
+
+    // Order type
     eidos.common.v1.OrderType order_type = 4;
+
+    // Order price (decimal string)
     string price = 5;
+
+    // Order amount (decimal string)
     string amount = 6;
+
+    // Quote amount for market orders (decimal string)
+    string quote_amount = 7;
+
+    // Client IP address (for rate limiting)
+    string client_ip = 8;
+
+    // Request timestamp (Unix milliseconds)
+    int64 timestamp = 9;
 }
 
+// CheckOrderResponse is the response from order validation
 message CheckOrderResponse {
+    // Whether order is approved
     bool approved = 1;
-    string reject_reason = 2;
-    string reject_code = 3;
-    repeated string warnings = 4;  // 通过但有警告
+
+    // Risk action taken
+    eidos.common.v1.RiskAction action = 2;
+
+    // Rejection reason (if rejected)
+    string reject_reason = 3;
+
+    // Rejection code (if rejected)
+    string reject_code = 4;
+
+    // Warnings (order may proceed but with caution)
+    repeated string warnings = 5;
+
+    // Risk score (0-100, higher = more risky)
+    int32 risk_score = 6;
+
+    // Rules that were triggered
+    repeated string triggered_rules = 7;
 }
 
-message CheckWithdrawRequest {
+// CheckWithdrawalRequest is the request to validate a withdrawal
+message CheckWithdrawalRequest {
+    // User wallet address
     string wallet = 1;
+
+    // Token symbol
     string token = 2;
+
+    // Withdrawal amount (decimal string)
     string amount = 3;
+
+    // Destination address
     string to_address = 4;
+
+    // Client IP address
+    string client_ip = 5;
+
+    // Request timestamp (Unix milliseconds)
+    int64 timestamp = 6;
 }
 
-message CheckWithdrawResponse {
+// CheckWithdrawalResponse is the response from withdrawal validation
+message CheckWithdrawalResponse {
+    // Whether withdrawal is approved
     bool approved = 1;
-    string reject_reason = 2;
-    string reject_code = 3;
-    bool require_manual_review = 4;  // 需要人工审核
+
+    // Risk action taken
+    eidos.common.v1.RiskAction action = 2;
+
+    // Rejection reason (if rejected)
+    string reject_reason = 3;
+
+    // Rejection code (if rejected)
+    string reject_code = 4;
+
+    // Whether manual review is required
+    bool require_manual_review = 5;
+
+    // Review reason (if review required)
+    string review_reason = 6;
+
+    // Suggested delay in seconds (if delayed)
+    int32 delay_seconds = 7;
+
+    // Risk score (0-100)
+    int32 risk_score = 8;
+
+    // Triggered rules
+    repeated string triggered_rules = 9;
 }
 
-// === 黑名单 ===
+// CheckTransactionRequest is a generic transaction check
+message CheckTransactionRequest {
+    // Transaction type (order, withdrawal, transfer, etc.)
+    string tx_type = 1;
+
+    // User wallet address
+    string wallet = 2;
+
+    // Transaction amount (decimal string)
+    string amount = 3;
+
+    // Token symbol
+    string token = 4;
+
+    // Additional context
+    map<string, string> context = 5;
+
+    // Client IP
+    string client_ip = 6;
+
+    // Timestamp (Unix milliseconds)
+    int64 timestamp = 7;
+}
+
+// CheckTransactionResponse is the generic transaction check response
+message CheckTransactionResponse {
+    // Whether approved
+    bool approved = 1;
+
+    // Action taken
+    eidos.common.v1.RiskAction action = 2;
+
+    // Rejection reason
+    string reject_reason = 3;
+
+    // Rejection code
+    string reject_code = 4;
+
+    // Risk score
+    int32 risk_score = 5;
+
+    // Triggered rules
+    repeated string triggered_rules = 6;
+}
+
+// ============================================================================
+// Blacklist Messages
+// ============================================================================
+
+// BlacklistEntry represents a blacklisted wallet
+message BlacklistEntry {
+    // Wallet address
+    string wallet = 1;
+
+    // Blacklist type (full, withdraw_only, trade_only)
+    string blacklist_type = 2;
+
+    // Reason for blacklisting
+    string reason = 3;
+
+    // Source of blacklist (manual, ofac, chainalysis, etc.)
+    string source = 4;
+
+    // Operator who added the entry
+    string operator_id = 5;
+
+    // When the entry was added (Unix milliseconds)
+    int64 created_at = 6;
+
+    // When the entry expires (Unix milliseconds, 0 = permanent)
+    int64 expire_at = 7;
+
+    // Additional metadata
+    map<string, string> metadata = 8;
+}
+
+// AddToBlacklistRequest is the request to blacklist a wallet
 message AddToBlacklistRequest {
+    // Wallet address to blacklist
     string wallet = 1;
-    string reason = 2;
-    string operator_id = 3;
-    int64 expire_at = 4;  // 0 表示永久
+
+    // Blacklist type (full, withdraw_only, trade_only)
+    string blacklist_type = 2;
+
+    // Reason for blacklisting
+    string reason = 3;
+
+    // Source (manual, external)
+    string source = 4;
+
+    // Operator ID
+    string operator_id = 5;
+
+    // Expiry timestamp (Unix milliseconds, 0 = permanent)
+    int64 expire_at = 6;
+
+    // Additional metadata
+    map<string, string> metadata = 7;
 }
 
+// AddToBlacklistResponse is the response after adding to blacklist
 message AddToBlacklistResponse {
+    // Whether operation was successful
     bool success = 1;
+
+    // Error message if failed
     string error_message = 2;
+
+    // Whether wallet was already blacklisted
+    bool already_exists = 3;
 }
 
+// RemoveFromBlacklistRequest is the request to remove from blacklist
 message RemoveFromBlacklistRequest {
+    // Wallet address
     string wallet = 1;
+
+    // Reason for removal
     string reason = 2;
+
+    // Operator ID
     string operator_id = 3;
 }
 
+// RemoveFromBlacklistResponse is the response after removal
 message RemoveFromBlacklistResponse {
+    // Whether removal was successful
     bool success = 1;
+
+    // Error message if failed
     string error_message = 2;
 }
 
+// CheckBlacklistRequest is the request to check blacklist status
 message CheckBlacklistRequest {
+    // Wallet address to check
     string wallet = 1;
 }
 
+// CheckBlacklistResponse is the blacklist check response
 message CheckBlacklistResponse {
+    // Whether wallet is blacklisted
     bool is_blacklisted = 1;
-    string reason = 2;
-    int64 expire_at = 3;
+
+    // Blacklist entry (if blacklisted)
+    BlacklistEntry entry = 2;
 }
 
+// ListBlacklistRequest is the request to list blacklist entries
 message ListBlacklistRequest {
-    eidos.common.v1.PaginationRequest pagination = 1;
+    // Filter by blacklist type (optional)
+    string blacklist_type = 1;
+
+    // Filter by source (optional)
+    string source = 2;
+
+    // Search query (wallet prefix, optional)
+    string search = 3;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 4;
 }
 
+// ListBlacklistResponse contains blacklist entries
 message ListBlacklistResponse {
+    // Blacklist entries
     repeated BlacklistEntry entries = 1;
+
+    // Pagination
     eidos.common.v1.PaginationResponse pagination = 2;
 }
 
-message BlacklistEntry {
-    string wallet = 1;
-    string reason = 2;
-    string operator_id = 3;
-    int64 created_at = 4;
-    int64 expire_at = 5;
+// ============================================================================
+// Risk Rules Messages
+// ============================================================================
+
+// RiskRule represents a risk rule configuration
+message RiskRule {
+    // Rule ID
+    string rule_id = 1;
+
+    // Rule name
+    string name = 2;
+
+    // Rule description
+    string description = 3;
+
+    // Rule category (order, withdrawal, account, rate_limit)
+    string category = 4;
+
+    // Risk level triggered by this rule
+    eidos.common.v1.RiskLevel level = 5;
+
+    // Action to take when triggered
+    eidos.common.v1.RiskAction action = 6;
+
+    // Whether rule is enabled
+    bool is_enabled = 7;
+
+    // Rule parameters
+    map<string, string> params = 8;
+
+    // Markets this rule applies to (empty = all)
+    repeated string markets = 9;
+
+    // Tokens this rule applies to (empty = all)
+    repeated string tokens = 10;
+
+    // Priority (lower = higher priority)
+    int32 priority = 11;
+
+    // Creation timestamp (Unix milliseconds)
+    int64 created_at = 12;
+
+    // Last update timestamp (Unix milliseconds)
+    int64 updated_at = 13;
+
+    // Last updated by
+    string updated_by = 14;
 }
 
-// === 风控规则 ===
-message ListRiskRulesRequest {}
+// ListRiskRulesRequest is the request to list risk rules
+message ListRiskRulesRequest {
+    // Filter by category (optional)
+    string category = 1;
 
+    // Filter by enabled status (optional)
+    bool enabled_only = 2;
+}
+
+// ListRiskRulesResponse contains risk rules
 message ListRiskRulesResponse {
+    // Risk rules
     repeated RiskRule rules = 1;
 }
 
-message RiskRule {
+// GetRiskRuleRequest is the request to get a rule
+message GetRiskRuleRequest {
+    // Rule ID
     string rule_id = 1;
-    string name = 2;
-    string description = 3;
-    string category = 4;       // order, withdraw, account
-    bool is_enabled = 5;
-    map<string, string> params = 6;
-    int64 updated_at = 7;
 }
 
+// GetRiskRuleResponse contains the rule
+message GetRiskRuleResponse {
+    // Risk rule
+    RiskRule rule = 1;
+}
+
+// UpdateRiskRuleRequest is the request to update a rule
 message UpdateRiskRuleRequest {
+    // Rule ID
     string rule_id = 1;
+
+    // Whether to enable the rule
     bool is_enabled = 2;
+
+    // Updated parameters
     map<string, string> params = 3;
-    string operator_id = 4;
+
+    // Updated action
+    eidos.common.v1.RiskAction action = 4;
+
+    // Operator ID
+    string operator_id = 5;
 }
 
+// UpdateRiskRuleResponse is the response after update
 message UpdateRiskRuleResponse {
+    // Whether update was successful
     bool success = 1;
+
+    // Error message if failed
     string error_message = 2;
 }
 
-// === 风控事件 ===
-message ListRiskEventsRequest {
-    string wallet = 1;
-    string event_type = 2;  // order_rejected, withdraw_rejected, blacklist_hit
-    int64 start_time = 3;
-    int64 end_time = 4;
-    eidos.common.v1.PaginationRequest pagination = 5;
+// ============================================================================
+// Rate Limiting Messages
+// ============================================================================
+
+// RateLimitCounter represents a rate limit counter
+message RateLimitCounter {
+    // Counter name (e.g., "orders_per_minute")
+    string name = 1;
+
+    // Current count
+    int64 current = 2;
+
+    // Maximum allowed
+    int64 limit = 3;
+
+    // Window duration in seconds
+    int32 window_seconds = 4;
+
+    // Window reset timestamp (Unix milliseconds)
+    int64 resets_at = 5;
 }
 
+// GetRateLimitStatusRequest is the request to get rate limit status
+message GetRateLimitStatusRequest {
+    // Wallet address
+    string wallet = 1;
+
+    // Optional: specific counter name
+    string counter_name = 2;
+}
+
+// GetRateLimitStatusResponse contains rate limit status
+message GetRateLimitStatusResponse {
+    // Wallet address
+    string wallet = 1;
+
+    // Rate limit counters
+    repeated RateLimitCounter counters = 2;
+
+    // Whether any limit is exceeded
+    bool is_limited = 3;
+}
+
+// ResetRateLimitRequest is the request to reset rate limits
+message ResetRateLimitRequest {
+    // Wallet address
+    string wallet = 1;
+
+    // Counter name to reset (empty = all)
+    string counter_name = 2;
+
+    // Operator ID
+    string operator_id = 3;
+
+    // Reason for reset
+    string reason = 4;
+}
+
+// ResetRateLimitResponse is the response after reset
+message ResetRateLimitResponse {
+    // Whether reset was successful
+    bool success = 1;
+
+    // Number of counters reset
+    int32 counters_reset = 2;
+}
+
+// ============================================================================
+// Risk Events Messages
+// ============================================================================
+
+// RiskEvent represents a risk event
+message RiskEvent {
+    // Event ID
+    string event_id = 1;
+
+    // Wallet address (may be empty for system events)
+    string wallet = 2;
+
+    // Event type
+    eidos.common.v1.RiskEventType event_type = 3;
+
+    // Risk level
+    eidos.common.v1.RiskLevel level = 4;
+
+    // Rule ID that triggered the event
+    string rule_id = 5;
+
+    // Event description
+    string description = 6;
+
+    // Action taken
+    eidos.common.v1.RiskAction action = 7;
+
+    // Event context
+    map<string, string> context = 8;
+
+    // Related order ID (optional)
+    string order_id = 9;
+
+    // Related withdrawal ID (optional)
+    string withdraw_id = 10;
+
+    // Related trade ID (optional)
+    string trade_id = 11;
+
+    // Whether event has been acknowledged
+    bool acknowledged = 12;
+
+    // Acknowledged by
+    string acknowledged_by = 13;
+
+    // Acknowledged at (Unix milliseconds)
+    int64 acknowledged_at = 14;
+
+    // Event timestamp (Unix milliseconds)
+    int64 created_at = 15;
+}
+
+// ListRiskEventsRequest is the request to list risk events
+message ListRiskEventsRequest {
+    // Filter by wallet (optional)
+    string wallet = 1;
+
+    // Filter by event type (optional)
+    eidos.common.v1.RiskEventType event_type = 2;
+
+    // Filter by risk level (optional)
+    eidos.common.v1.RiskLevel level = 3;
+
+    // Filter by acknowledged status (optional)
+    bool unacknowledged_only = 4;
+
+    // Start time (Unix milliseconds, optional)
+    int64 start_time = 5;
+
+    // End time (Unix milliseconds, optional)
+    int64 end_time = 6;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 7;
+}
+
+// ListRiskEventsResponse contains risk events
 message ListRiskEventsResponse {
+    // Risk events
     repeated RiskEvent events = 1;
+
+    // Pagination
     eidos.common.v1.PaginationResponse pagination = 2;
 }
 
-message RiskEvent {
+// GetRiskEventRequest is the request to get a risk event
+message GetRiskEventRequest {
+    // Event ID
     string event_id = 1;
-    string wallet = 2;
-    string event_type = 3;
-    string rule_id = 4;
-    string description = 5;
-    map<string, string> context = 6;
-    int64 created_at = 7;
 }
 
-// === 限额查询 ===
+// GetRiskEventResponse contains the event
+message GetRiskEventResponse {
+    // Risk event
+    RiskEvent event = 1;
+}
+
+// AcknowledgeRiskEventRequest is the request to acknowledge an event
+message AcknowledgeRiskEventRequest {
+    // Event ID
+    string event_id = 1;
+
+    // Operator ID
+    string operator_id = 2;
+
+    // Acknowledgement note
+    string note = 3;
+}
+
+// AcknowledgeRiskEventResponse is the response after acknowledgement
+message AcknowledgeRiskEventResponse {
+    // Whether acknowledgement was successful
+    bool success = 1;
+
+    // Error message if failed
+    string error_message = 2;
+}
+
+// ============================================================================
+// User Limits Messages
+// ============================================================================
+
+// UserLimit represents a user-specific limit
+message UserLimit {
+    // Limit type (daily_withdraw, single_order, pending_settle, etc.)
+    string limit_type = 1;
+
+    // Token symbol (empty = all tokens)
+    string token = 2;
+
+    // Maximum value (decimal string)
+    string max_value = 3;
+
+    // Currently used value (decimal string)
+    string used_value = 4;
+
+    // Remaining value (decimal string)
+    string remaining_value = 5;
+
+    // Window duration (for periodic limits)
+    int32 window_seconds = 6;
+
+    // Reset timestamp (Unix milliseconds)
+    int64 resets_at = 7;
+
+    // Whether this is a custom limit
+    bool is_custom = 8;
+}
+
+// GetUserLimitsRequest is the request to get user limits
 message GetUserLimitsRequest {
+    // Wallet address
     string wallet = 1;
 }
 
+// GetUserLimitsResponse contains user limits
 message GetUserLimitsResponse {
+    // Wallet address
     string wallet = 1;
-    repeated Limit limits = 2;
+
+    // User limits
+    repeated UserLimit limits = 2;
+
+    // User tier (basic, advanced, vip, etc.)
+    string tier = 3;
 }
 
-message Limit {
-    string limit_type = 1;        // daily_withdraw, single_order, pending_settle
-    string token = 2;             // 适用代币，空表示所有
-    string max_value = 3;         // 最大限额
-    string used_value = 4;        // 已使用
-    string remaining_value = 5;   // 剩余
-    int64 reset_at = 6;           // 重置时间
+// SetUserLimitsRequest is the request to set custom limits
+message SetUserLimitsRequest {
+    // Wallet address
+    string wallet = 1;
+
+    // Limits to set
+    repeated UserLimit limits = 2;
+
+    // Operator ID
+    string operator_id = 3;
+
+    // Reason for setting custom limits
+    string reason = 4;
 }
 
-// === Kafka 消息 ===
+// SetUserLimitsResponse is the response after setting limits
+message SetUserLimitsResponse {
+    // Whether operation was successful
+    bool success = 1;
 
-// 风控告警消息 (Kafka: risk-alerts)
+    // Error message if failed
+    string error_message = 2;
+}
+
+// ============================================================================
+// Account Actions Messages
+// ============================================================================
+
+// FreezeAccountRequest is the request to freeze an account
+message FreezeAccountRequest {
+    // Wallet address
+    string wallet = 1;
+
+    // Freeze type (full, trading, withdrawal)
+    string freeze_type = 2;
+
+    // Reason for freezing
+    string reason = 3;
+
+    // Operator ID
+    string operator_id = 4;
+
+    // Duration in seconds (0 = indefinite)
+    int64 duration_seconds = 5;
+}
+
+// FreezeAccountResponse is the response after freezing
+message FreezeAccountResponse {
+    // Whether freeze was successful
+    bool success = 1;
+
+    // Error message if failed
+    string error_message = 2;
+}
+
+// UnfreezeAccountRequest is the request to unfreeze an account
+message UnfreezeAccountRequest {
+    // Wallet address
+    string wallet = 1;
+
+    // Reason for unfreezing
+    string reason = 2;
+
+    // Operator ID
+    string operator_id = 3;
+}
+
+// UnfreezeAccountResponse is the response after unfreezing
+message UnfreezeAccountResponse {
+    // Whether unfreeze was successful
+    bool success = 1;
+
+    // Error message if failed
+    string error_message = 2;
+}
+
+// GetAccountStatusRequest is the request to get account status
+message GetAccountStatusRequest {
+    // Wallet address
+    string wallet = 1;
+}
+
+// GetAccountStatusResponse contains account status
+message GetAccountStatusResponse {
+    // Wallet address
+    string wallet = 1;
+
+    // Whether account is frozen
+    bool is_frozen = 2;
+
+    // Freeze type (if frozen)
+    string freeze_type = 3;
+
+    // Freeze reason (if frozen)
+    string freeze_reason = 4;
+
+    // Freeze expiry (Unix milliseconds, if applicable)
+    int64 freeze_expires_at = 5;
+
+    // Whether account is blacklisted
+    bool is_blacklisted = 6;
+
+    // Risk score (0-100)
+    int32 risk_score = 7;
+
+    // Account tier
+    string tier = 8;
+
+    // Total trading volume (quote, decimal string)
+    string total_volume = 9;
+
+    // Account creation time (Unix milliseconds)
+    int64 created_at = 10;
+
+    // Last activity time (Unix milliseconds)
+    int64 last_activity_at = 11;
+
+    // Recent risk events count
+    int32 recent_risk_events = 12;
+}
+
+// ============================================================================
+// Risk Statistics Messages
+// ============================================================================
+
+// GetRiskStatsRequest is the request to get risk statistics
+message GetRiskStatsRequest {
+    // Time period in hours (default 24)
+    int32 period_hours = 1;
+}
+
+// GetRiskStatsResponse contains risk statistics
+message GetRiskStatsResponse {
+    // Period start (Unix milliseconds)
+    int64 period_start = 1;
+
+    // Period end (Unix milliseconds)
+    int64 period_end = 2;
+
+    // Total orders checked
+    int64 orders_checked = 3;
+
+    // Orders rejected
+    int64 orders_rejected = 4;
+
+    // Rejection rate percentage
+    double order_rejection_rate = 5;
+
+    // Total withdrawals checked
+    int64 withdrawals_checked = 6;
+
+    // Withdrawals rejected
+    int64 withdrawals_rejected = 7;
+
+    // Withdrawals requiring review
+    int64 withdrawals_review = 8;
+
+    // Withdrawal rejection rate percentage
+    double withdrawal_rejection_rate = 9;
+
+    // New blacklist entries
+    int64 new_blacklist_entries = 10;
+
+    // Accounts frozen
+    int64 accounts_frozen = 11;
+
+    // Risk events by level
+    map<string, int64> events_by_level = 12;
+
+    // Risk events by type
+    map<string, int64> events_by_type = 13;
+
+    // Top triggered rules
+    repeated RuleStats top_triggered_rules = 14;
+}
+
+// RuleStats contains statistics for a rule
+message RuleStats {
+    // Rule ID
+    string rule_id = 1;
+
+    // Rule name
+    string name = 2;
+
+    // Number of times triggered
+    int64 trigger_count = 3;
+
+    // Rejection count
+    int64 rejection_count = 4;
+}
+
+// ============================================================================
+// Kafka Messages for Risk
+// ============================================================================
+
+// RiskAlertMessage is published when risk event occurs (Kafka: risk-alerts)
 message RiskAlertMessage {
+    // Alert ID
     string alert_id = 1;
+
+    // Wallet address (optional)
     string wallet = 2;
-    string alert_type = 3;
-    string severity = 4;     // info, warning, critical
-    string description = 5;
-    map<string, string> context = 6;
-    int64 created_at = 7;
+
+    // Alert type
+    eidos.common.v1.RiskEventType alert_type = 3;
+
+    // Severity level
+    eidos.common.v1.RiskLevel severity = 4;
+
+    // Rule ID that triggered
+    string rule_id = 5;
+
+    // Description
+    string description = 6;
+
+    // Action taken
+    eidos.common.v1.RiskAction action_taken = 7;
+
+    // Context data
+    map<string, string> context = 8;
+
+    // Related order ID
+    string order_id = 9;
+
+    // Related withdrawal ID
+    string withdraw_id = 10;
+
+    // Alert timestamp (Unix milliseconds)
+    int64 created_at = 11;
+}
+
+// AccountStatusChangeMessage is published on account status change (Kafka: account-status)
+message AccountStatusChangeMessage {
+    // Wallet address
+    string wallet = 1;
+
+    // Change type (frozen, unfrozen, blacklisted, etc.)
+    string change_type = 2;
+
+    // Reason
+    string reason = 3;
+
+    // Operator ID
+    string operator_id = 4;
+
+    // Change timestamp (Unix milliseconds)
+    int64 changed_at = 5;
 }

@@ -50,4 +50,7 @@ type TradeRepository interface {
 
 	// GetByID 根据 ID 获取成交记录
 	GetByID(ctx context.Context, tradeID string) (*model.Trade, error)
+
+	// ListByTimeRange 根据时间范围查询成交记录
+	ListByTimeRange(ctx context.Context, market string, startTime, endTime int64, limit int) ([]*model.Trade, error)
 }

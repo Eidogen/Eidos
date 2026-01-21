@@ -309,3 +309,153 @@ func UpdateMarketsGauge(status string, count float64) {
 func UpdateConfigVersion(scope string, version float64) {
 	ConfigVersionGauge.WithLabelValues(scope).Set(version)
 }
+
+// gRPC 客户端指标
+var (
+	// GRPCClientRequestsTotal gRPC 客户端请求总数
+	GRPCClientRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "grpc_client_requests_total",
+			Help:      "gRPC 客户端请求总数",
+		},
+		[]string{"service", "method", "status"},
+	)
+
+	// GRPCClientRequestDuration gRPC 客户端请求耗时
+	GRPCClientRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "grpc_client_request_duration_seconds",
+			Help:      "gRPC 客户端请求耗时(秒)",
+			Buckets:   []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+		},
+		[]string{"service", "method"},
+	)
+)
+
+// 用户管理指标
+var (
+	// UserOperationsTotal 用户操作总数
+	UserOperationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "user_operations_total",
+			Help:      "用户管理操作总数",
+		},
+		[]string{"operation"}, // freeze, unfreeze, set_limits, reset_rate_limit
+	)
+)
+
+// 订单管理指标
+var (
+	// OrderOperationsTotal 订单操作总数
+	OrderOperationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "order_operations_total",
+			Help:      "订单管理操作总数",
+		},
+		[]string{"operation"}, // cancel, batch_cancel
+	)
+
+	// OrderCancelledTotal 取消订单总数
+	OrderCancelledTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "orders_cancelled_total",
+			Help:      "管理员取消订单总数",
+		},
+	)
+)
+
+// 提现管理指标
+var (
+	// WithdrawalOperationsTotal 提现操作总数
+	WithdrawalOperationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "withdrawal_operations_total",
+			Help:      "提现管理操作总数",
+		},
+		[]string{"operation"}, // reject, retry
+	)
+)
+
+// 风控管理指标
+var (
+	// RiskOperationsTotal 风控操作总数
+	RiskOperationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "risk_operations_total",
+			Help:      "风控管理操作总数",
+		},
+		[]string{"operation"}, // update_rule, add_blacklist, remove_blacklist, acknowledge_event
+	)
+
+	// BlacklistEntriesGauge 黑名单条目数
+	BlacklistEntriesGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "blacklist_entries_total",
+			Help:      "黑名单条目总数",
+		},
+		[]string{"type"}, // full, withdraw_only, trade_only
+	)
+
+	// RiskEventsGauge 风险事件数
+	RiskEventsGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "risk_events_total",
+			Help:      "风险事件总数",
+		},
+		[]string{"acknowledged"}, // true, false
+	)
+)
+
+// RecordGRPCClientRequest 记录 gRPC 客户端请求
+func RecordGRPCClientRequest(service, method, status string, durationSeconds float64) {
+	GRPCClientRequestsTotal.WithLabelValues(service, method, status).Inc()
+	GRPCClientRequestDuration.WithLabelValues(service, method).Observe(durationSeconds)
+}
+
+// RecordUserOperation 记录用户管理操作
+func RecordUserOperation(operation string) {
+	UserOperationsTotal.WithLabelValues(operation).Inc()
+}
+
+// RecordOrderOperation 记录订单管理操作
+func RecordOrderOperation(operation string) {
+	OrderOperationsTotal.WithLabelValues(operation).Inc()
+}
+
+// RecordOrderCancelled 记录订单取消
+func RecordOrderCancelled() {
+	OrderCancelledTotal.Inc()
+}
+
+// RecordWithdrawalOperation 记录提现管理操作
+func RecordWithdrawalOperation(operation string) {
+	WithdrawalOperationsTotal.WithLabelValues(operation).Inc()
+}
+
+// RecordRiskOperation 记录风控管理操作
+func RecordRiskOperation(operation string) {
+	RiskOperationsTotal.WithLabelValues(operation).Inc()
+}
+
+// UpdateBlacklistGauge 更新黑名单数量
+func UpdateBlacklistGauge(blacklistType string, count float64) {
+	BlacklistEntriesGauge.WithLabelValues(blacklistType).Set(count)
+}
+
+// UpdateRiskEventsGauge 更新风险事件数量
+func UpdateRiskEventsGauge(acknowledged bool, count float64) {
+	ackStr := "false"
+	if acknowledged {
+		ackStr = "true"
+	}
+	RiskEventsGauge.WithLabelValues(ackStr).Set(count)
+}

@@ -24,6 +24,12 @@
 //
 // 服务注册:
 //   - Nacos: 服务注册发现 (已完成)
+//
+// 新增功能:
+//   - 市场配置热加载: 从 Nacos 动态加载市场配置
+//   - 外部指数价格: 多数据源聚合的指数价格管理
+//   - 高可用: Leader 选举和 Standby 模式
+//   - 完整监控: 撮合延迟、订单簿深度、吞吐量指标
 package app
 
 import (
@@ -36,18 +42,21 @@ import (
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
-	commonv1 "github.com/eidos-exchange/eidos/proto/common/v1"
+	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	matchingv1 "github.com/eidos-exchange/eidos/proto/matching/v1"
 	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/engine"
+	"github.com/eidos-exchange/eidos/eidos-matching/internal/ha"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/metrics"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/model"
+	"github.com/eidos-exchange/eidos/eidos-matching/internal/price"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/snapshot"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -68,14 +77,23 @@ type App struct {
 	grpcServer   *grpc.Server
 	grpcListener net.Listener
 
-	// Nacos 服务注册
-	nacosClient   *nacos.Client
-	nacosRegistry *nacos.Registry
-	serviceInst   *nacos.ServiceInstance
+	// Nacos 服务注册和配置
+	nacosClient       *nacos.Client
+	nacosConfigCenter *nacos.ConfigCenter
+	nacosRegistry     *nacos.Registry
+	nacosConfigLoader *config.NacosConfigLoader
+	serviceInst       *nacos.ServiceInstance
 
 	// eidos-risk 风控客户端
 	riskConn   *grpc.ClientConn
 	riskClient riskv1.RiskServiceClient
+
+	// 高可用组件
+	leaderElection *ha.LeaderElection
+	standbyManager *ha.StandbyManager
+
+	// 指数价格管理器
+	indexPriceManager *price.IndexPriceManager
 
 	// 状态
 	isRunning atomic.Bool
@@ -83,8 +101,14 @@ type App struct {
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 
-	// 快照定时器
+	// 定时器
 	snapshotTicker *time.Ticker
+	metricsTicker  *time.Ticker
+
+	// 吞吐量统计
+	lastOrderCount int64
+	lastTradeCount int64
+	lastStatTime   time.Time
 }
 
 // NewApp 创建应用
@@ -135,6 +159,23 @@ func NewApp(cfg *config.Config) (*App, error) {
 	if cfg.Risk.Enabled && cfg.Risk.Addr != "" {
 		if err := app.initRisk(); err != nil {
 			zap.L().Warn("init risk client failed, risk checking disabled", zap.Error(err))
+		}
+	}
+
+	// 初始化高可用组件 (可选)
+	if cfg.HA.Enabled {
+		if err := app.initHA(); err != nil {
+			zap.L().Warn("init HA failed, running in standalone mode", zap.Error(err))
+		}
+	}
+
+	// 初始化指数价格管理器
+	app.initIndexPriceManager()
+
+	// 初始化 Nacos 配置热加载 (可选)
+	if app.nacosClient != nil {
+		if err := app.initNacosConfigLoader(); err != nil {
+			zap.L().Warn("init nacos config loader failed", zap.Error(err))
 		}
 	}
 
@@ -275,6 +316,22 @@ func (a *App) initNacos() error {
 	}
 	a.nacosClient = client
 
+	// 创建配置中心客户端
+	configCenterCfg := &nacos.ConfigCenterConfig{
+		ServerAddr: a.cfg.Nacos.ServerAddr,
+		Namespace:  a.cfg.Nacos.Namespace,
+		Group:      a.cfg.Nacos.Group,
+		LogDir:     "/tmp/nacos/log",
+		CacheDir:   "/tmp/nacos/cache",
+		LogLevel:   "warn",
+		TimeoutMs:  5000,
+	}
+	configCenter, err := nacos.NewConfigCenter(configCenterCfg)
+	if err != nil {
+		return fmt.Errorf("create nacos config center: %w", err)
+	}
+	a.nacosConfigCenter = configCenter
+
 	// 创建服务注册器
 	a.nacosRegistry = nacos.NewRegistry(client)
 
@@ -319,6 +376,210 @@ func (a *App) initRisk() error {
 	return nil
 }
 
+// initHA 初始化高可用组件
+func (a *App) initHA() error {
+	// 创建 Leader 选举器
+	leaderCfg := &ha.LeaderElectionConfig{
+		RedisClient:   a.redisClient,
+		KeyPrefix:     "eidos:matching:leader",
+		NodeID:        a.cfg.Service.NodeID,
+		LeaseDuration: a.cfg.HA.FailoverTimeout * 3, // 租约时间是超时时间的3倍
+		RenewInterval: a.cfg.HA.HeartbeatInterval,
+		RetryInterval: a.cfg.HA.HeartbeatInterval,
+		OnLeaderChange: func(isLeader bool, oldState, newState ha.LeaderState) {
+			a.handleLeaderChange(isLeader, oldState, newState)
+		},
+	}
+
+	var err error
+	a.leaderElection, err = ha.NewLeaderElection(leaderCfg)
+	if err != nil {
+		return fmt.Errorf("create leader election: %w", err)
+	}
+
+	// 创建 Standby 管理器
+	standbyyCfg := &ha.StandbyManagerConfig{
+		RedisClient:       a.redisClient,
+		NodeID:            a.cfg.Service.NodeID,
+		KeyPrefix:         "eidos:matching:ha",
+		SyncInterval:      time.Second,
+		HeartbeatInterval: a.cfg.HA.HeartbeatInterval,
+		FailoverTimeout:   a.cfg.HA.FailoverTimeout,
+		OnStateChange: func(oldMode, newMode ha.StandbyMode) {
+			zap.L().Info("standby mode changed",
+				zap.String("old_mode", oldMode.String()),
+				zap.String("new_mode", newMode.String()))
+			metrics.SetLeaderState(a.cfg.Service.NodeID, int(newMode))
+		},
+	}
+
+	a.standbyManager, err = ha.NewStandbyManager(standbyyCfg, a.leaderElection)
+	if err != nil {
+		return fmt.Errorf("create standby manager: %w", err)
+	}
+
+	zap.L().Info("HA components initialized",
+		zap.String("node_id", a.cfg.Service.NodeID),
+		zap.Duration("heartbeat_interval", a.cfg.HA.HeartbeatInterval),
+		zap.Duration("failover_timeout", a.cfg.HA.FailoverTimeout))
+
+	return nil
+}
+
+// handleLeaderChange 处理 Leader 变更
+func (a *App) handleLeaderChange(isLeader bool, oldState, newState ha.LeaderState) {
+	zap.L().Info("leader state changed",
+		zap.Bool("is_leader", isLeader),
+		zap.String("old_state", oldState.String()),
+		zap.String("new_state", newState.String()))
+
+	metrics.SetLeaderState(a.cfg.Service.NodeID, int(newState))
+
+	if isLeader && oldState != ha.StateLeader {
+		// 成为 Leader，记录故障转移
+		metrics.RecordFailover(a.cfg.Service.NodeID)
+		zap.L().Info("this node became the leader",
+			zap.String("node_id", a.cfg.Service.NodeID))
+	}
+}
+
+// initIndexPriceManager 初始化指数价格管理器
+func (a *App) initIndexPriceManager() {
+	cfg := &price.IndexPriceManagerConfig{
+		UpdateInterval:     time.Second,
+		StaleThreshold:     30 * time.Second,
+		AggMethod:          price.AggMedian,
+		MinValidSources:    1,
+		DeviationThreshold: decimal.NewFromFloat(0.1), // 10%
+	}
+
+	a.indexPriceManager = price.NewIndexPriceManager(cfg)
+
+	// 设置价格更新回调
+	a.indexPriceManager.SetCallback(func(symbol string, indexPrice *price.IndexPrice) {
+		// 将指数价格更新到对应的撮合引擎
+		if err := a.engineManager.UpdateIndexPrice(symbol, indexPrice.Price); err != nil {
+			zap.L().Debug("update index price to engine failed",
+				zap.String("symbol", symbol),
+				zap.Error(err))
+		}
+
+		// 计算与最新成交价的偏差
+		eng, err := a.engineManager.GetEngine(symbol)
+		if err == nil {
+			lastPrice := eng.GetStats().MatcherStats.LastPrice
+			if !lastPrice.IsZero() {
+				deviation := indexPrice.Price.Sub(lastPrice).Abs().Div(lastPrice).Mul(decimal.NewFromInt(100))
+				deviationFloat, _ := deviation.Float64()
+				metrics.UpdateIndexPriceDeviation(symbol, deviationFloat)
+			}
+		}
+	})
+
+	// 添加一个静态价格源作为默认实现 (生产环境应该接入真实的价格源)
+	staticSource := price.NewStaticPriceSource("static", 100)
+	a.indexPriceManager.AddSource(staticSource)
+
+	zap.L().Info("index price manager initialized")
+}
+
+// initNacosConfigLoader 初始化 Nacos 配置热加载
+func (a *App) initNacosConfigLoader() error {
+	loaderCfg := &config.NacosLoaderConfig{
+		Client:       a.nacosConfigCenter,
+		DataID:       "eidos-matching-markets",
+		Group:        a.cfg.Nacos.Group,
+		PollInterval: 30 * time.Second,
+		Callback:     a.handleMarketConfigChange,
+	}
+
+	var err error
+	a.nacosConfigLoader, err = config.NewNacosConfigLoader(loaderCfg)
+	if err != nil {
+		return fmt.Errorf("create nacos config loader: %w", err)
+	}
+
+	zap.L().Info("nacos config loader initialized",
+		zap.String("dataId", loaderCfg.DataID),
+		zap.String("group", loaderCfg.Group))
+
+	return nil
+}
+
+// handleMarketConfigChange 处理市场配置变更
+func (a *App) handleMarketConfigChange(added, updated, removed []*config.EngineMarketConfig) {
+	// 处理新增的市场
+	for _, cfg := range added {
+		if err := config.ValidateMarketConfig(cfg); err != nil {
+			zap.L().Warn("invalid market config, skipping",
+				zap.String("symbol", cfg.Symbol),
+				zap.Error(err))
+			continue
+		}
+
+		engineCfg := &engine.MarketConfig{
+			Symbol:        cfg.Symbol,
+			BaseToken:     cfg.BaseToken,
+			QuoteToken:    cfg.QuoteToken,
+			PriceDecimals: cfg.PriceDecimals,
+			SizeDecimals:  cfg.SizeDecimals,
+			MinSize:       cfg.MinSize,
+			TickSize:      cfg.TickSize,
+			MakerFeeRate:  cfg.MakerFeeRate,
+			TakerFeeRate:  cfg.TakerFeeRate,
+			MaxSlippage:   cfg.MaxSlippage,
+		}
+
+		if err := a.engineManager.AddMarket(engineCfg); err != nil {
+			zap.L().Error("add market failed",
+				zap.String("symbol", cfg.Symbol),
+				zap.Error(err))
+		} else {
+			zap.L().Info("market added via hot reload",
+				zap.String("symbol", cfg.Symbol))
+		}
+	}
+
+	// 处理更新的市场
+	for _, cfg := range updated {
+		if err := config.ValidateMarketConfig(cfg); err != nil {
+			zap.L().Warn("invalid market config, skipping update",
+				zap.String("symbol", cfg.Symbol),
+				zap.Error(err))
+			continue
+		}
+
+		engineCfg := &engine.MarketConfig{
+			Symbol:        cfg.Symbol,
+			BaseToken:     cfg.BaseToken,
+			QuoteToken:    cfg.QuoteToken,
+			PriceDecimals: cfg.PriceDecimals,
+			SizeDecimals:  cfg.SizeDecimals,
+			MinSize:       cfg.MinSize,
+			TickSize:      cfg.TickSize,
+			MakerFeeRate:  cfg.MakerFeeRate,
+			TakerFeeRate:  cfg.TakerFeeRate,
+			MaxSlippage:   cfg.MaxSlippage,
+		}
+
+		if err := a.engineManager.UpdateMarket(engineCfg); err != nil {
+			zap.L().Error("update market failed",
+				zap.String("symbol", cfg.Symbol),
+				zap.Error(err))
+		} else {
+			zap.L().Info("market updated via hot reload",
+				zap.String("symbol", cfg.Symbol))
+		}
+	}
+
+	// 处理删除的市场 (通常不建议动态删除，记录警告)
+	for _, cfg := range removed {
+		zap.L().Warn("market removal requested via hot reload",
+			zap.String("symbol", cfg.Symbol),
+			zap.String("note", "market removal is not recommended, manual restart required"))
+	}
+}
+
 // Start 启动应用
 func (a *App) Start() error {
 	if a.isRunning.Load() {
@@ -352,9 +613,41 @@ func (a *App) Start() error {
 	a.wg.Add(1)
 	go a.snapshotLoop()
 
+	// 启动指标收集
+	a.metricsTicker = time.NewTicker(time.Second)
+	a.lastStatTime = time.Now()
+	a.wg.Add(1)
+	go a.metricsLoop()
+
 	// 启动 gRPC 服务
 	a.wg.Add(1)
 	go a.serveGRPC()
+
+	// 启动高可用组件
+	if a.leaderElection != nil {
+		if err := a.leaderElection.Start(); err != nil {
+			zap.L().Error("start leader election failed", zap.Error(err))
+		}
+	}
+	if a.standbyManager != nil {
+		if err := a.standbyManager.Start(a.engineManager.GetMarkets()); err != nil {
+			zap.L().Error("start standby manager failed", zap.Error(err))
+		}
+	}
+
+	// 启动指数价格管理器
+	if a.indexPriceManager != nil {
+		if err := a.indexPriceManager.Start(a.engineManager.GetMarkets()); err != nil {
+			zap.L().Warn("start index price manager failed", zap.Error(err))
+		}
+	}
+
+	// 启动 Nacos 配置热加载
+	if a.nacosConfigLoader != nil {
+		if err := a.nacosConfigLoader.Start(); err != nil {
+			zap.L().Warn("start nacos config loader failed", zap.Error(err))
+		}
+	}
 
 	// 注册服务到 Nacos
 	if a.nacosRegistry != nil && a.serviceInst != nil {
@@ -414,6 +707,29 @@ func (a *App) Stop() error {
 	// 停止快照定时器
 	if a.snapshotTicker != nil {
 		a.snapshotTicker.Stop()
+	}
+
+	// 停止指标定时器
+	if a.metricsTicker != nil {
+		a.metricsTicker.Stop()
+	}
+
+	// 停止 Nacos 配置热加载
+	if a.nacosConfigLoader != nil {
+		a.nacosConfigLoader.Stop()
+	}
+
+	// 停止指数价格管理器
+	if a.indexPriceManager != nil {
+		a.indexPriceManager.Stop()
+	}
+
+	// 停止高可用组件
+	if a.standbyManager != nil {
+		a.standbyManager.Stop()
+	}
+	if a.leaderElection != nil {
+		a.leaderElection.Stop()
 	}
 
 	// 停止消费者
@@ -658,6 +974,97 @@ func (a *App) snapshotLoop() {
 			a.saveAllSnapshots()
 		}
 	}
+}
+
+// metricsLoop 指标收集循环
+func (a *App) metricsLoop() {
+	defer a.wg.Done()
+
+	for {
+		select {
+		case <-a.ctx.Done():
+			return
+		case <-a.metricsTicker.C:
+			a.collectMetrics()
+		}
+	}
+}
+
+// collectMetrics 收集性能指标
+func (a *App) collectMetrics() {
+	now := time.Now()
+	elapsed := now.Sub(a.lastStatTime).Seconds()
+	if elapsed <= 0 {
+		elapsed = 1
+	}
+
+	for _, market := range a.engineManager.GetMarkets() {
+		eng, err := a.engineManager.GetEngine(market)
+		if err != nil {
+			continue
+		}
+
+		stats := eng.GetStats()
+		obStats := stats.OrderBookStats
+
+		// 计算吞吐量
+		currentOrders := stats.OrdersProcessed
+		currentTrades := stats.TradesGenerated
+		ordersPerSec := float64(currentOrders-a.lastOrderCount) / elapsed
+		tradesPerSec := float64(currentTrades-a.lastTradeCount) / elapsed
+		metrics.UpdateThroughputMetrics(market, ordersPerSec, tradesPerSec)
+
+		// 记录撮合延迟 (微秒)
+		metrics.RecordMatchLatencyMicros(market, float64(stats.AvgLatencyUs))
+
+		// 更新订单簿深度指标
+		bestBid, _ := obStats.BestBid.Float64()
+		bestAsk, _ := obStats.BestAsk.Float64()
+
+		// 计算中间价
+		midPrice := 0.0
+		if bestBid > 0 && bestAsk > 0 {
+			midPrice = (bestBid + bestAsk) / 2
+		}
+
+		// 计算订单簿不平衡度 (这里简化为档位数量比例)
+		imbalance := 0.0
+		totalLevels := obStats.BidLevels + obStats.AskLevels
+		if totalLevels > 0 {
+			imbalance = float64(obStats.BidLevels-obStats.AskLevels) / float64(totalLevels)
+		}
+
+		metrics.UpdateOrderBookVolumeMetrics(market, 0, 0, midPrice, imbalance) // 实际 volume 需要从订单簿计算
+
+		// 更新最优价位数量 (简化实现)
+		metrics.UpdateTopOfBookMetrics(market, float64(obStats.BidLevels), float64(obStats.AskLevels))
+
+		// 更新订单簿内存估算 (每个订单约 200 字节)
+		estimatedMemory := int64(obStats.OrderCount * 200)
+		metrics.UpdateOrderBookMemory(market, estimatedMemory)
+
+		// 更新通道缓冲区使用率
+		// 注意: 通道长度获取需要在 Engine 中暴露，这里简化处理
+		metrics.UpdateChannelBufferUsage(market, "trades", 0)
+		metrics.UpdateChannelBufferUsage(market, "updates", 0)
+		metrics.UpdateChannelBufferUsage(market, "cancels", 0)
+	}
+
+	// 更新统计基准
+	engineStats := a.engineManager.GetStats()
+	totalOrders := int64(0)
+	totalTrades := int64(0)
+	for _, stat := range engineStats {
+		totalOrders += stat.OrdersProcessed
+		totalTrades += stat.TradesGenerated
+	}
+	a.lastOrderCount = totalOrders
+	a.lastTradeCount = totalTrades
+	a.lastStatTime = now
+
+	// 更新全局消息吞吐量
+	metrics.UpdateMessageThroughput("orders", float64(totalOrders-a.lastOrderCount)/elapsed)
+	metrics.UpdateMessageThroughput("trades", float64(totalTrades-a.lastTradeCount)/elapsed)
 }
 
 // saveAllSnapshots 保存所有市场的快照

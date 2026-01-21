@@ -1,10 +1,12 @@
 service:
   name: eidos-api
   http_port: 8080
-  env: dev
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  enabled: false
+  enabled: ${NACOS_ENABLED:false}
   server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:public}
   group: EIDOS_GROUP
@@ -12,20 +14,61 @@ nacos:
   password: ${NACOS_PASSWORD:}
   log_dir: /tmp/nacos/log
   cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Redis Configuration
 redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
+  min_idle_conns: 10
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# gRPC Client Configuration
 grpc_clients:
-  trading: ${GRPC_TRADING_ADDR:localhost:50051}
-  matching: ${GRPC_MATCHING_ADDR:localhost:50052}
-  market: ${GRPC_MARKET_ADDR:localhost:50053}
-  risk: ${GRPC_RISK_ADDR:localhost:50055}
+  trading:
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    timeout_ms: 5000
+    max_retry: 3
+  matching:
+    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
+    timeout_ms: 5000
+    max_retry: 3
+  market:
+    addr: ${GRPC_MARKET_ADDR:localhost:50053}
+    timeout_ms: 5000
+    max_retry: 3
+  risk:
+    addr: ${GRPC_RISK_ADDR:localhost:50055}
+    timeout_ms: 5000
+    max_retry: 3
+  chain:
+    addr: ${GRPC_CHAIN_ADDR:localhost:50054}
+    timeout_ms: 5000
+    max_retry: 3
 
+# Kafka Configuration (for pub/sub)
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+  brokers:
+    - ${KAFKA_BROKERS:localhost:9092}
+  consumer:
+    group_id: eidos-api
+    topics:
+      - market-data
+      - trade-events
+      - order-updates
+    auto_offset_reset: latest
+  producer:
+    compression: lz4
+    batch_size: 1000
+
+# EIP-712 Signature Verification
 eip712:
   domain:
     name: EidosExchange
@@ -33,32 +76,68 @@ eip712:
     chain_id: ${EIP712_CHAIN_ID:31337}
     verifying_contract: ${EIP712_CONTRACT:0x0000000000000000000000000000000000000000}
   mock_mode: ${EIP712_MOCK_MODE:true}
-  timestamp_tolerance_ms: 300000  # 5 分钟
+  timestamp_tolerance_ms: 300000  # 5 minutes
 
+# Rate Limiting
 rate_limit:
   enabled: ${RATE_LIMIT_ENABLED:true}
   per_wallet:
-    orders: 10        # 下单 次/秒
-    queries: 100      # 查询 次/秒
-    withdrawals: 1    # 提现 次/秒
-    cancels: 20       # 取消 次/秒
+    orders: 10        # Orders per second
+    queries: 100      # Queries per second
+    withdrawals: 1    # Withdrawals per second
+    cancels: 20       # Cancels per second
   per_ip:
-    total: 1000       # 总请求 次/分钟
-    websocket: 5      # WebSocket 连接 次/分钟
-    public_api: 100   # 公开 API 次/秒
+    total: 1000       # Total requests per minute
+    websocket: 5      # WebSocket connections per minute
+    public_api: 100   # Public API requests per second
   global:
-    orders: 10000     # 全局下单 次/秒
+    orders: 10000     # Global orders per second
 
+# WebSocket Configuration
 websocket:
   read_buffer_size: 1024
   write_buffer_size: 1024
-  ping_interval: 30           # 秒
-  pong_timeout: 10            # 秒
+  ping_interval: 30           # Seconds
+  pong_timeout: 10            # Seconds
   max_connections: 100000
   max_subscriptions: 50
-  write_wait: 10              # 秒
+  write_wait: 10              # Seconds
   max_message_size: 4096
+  allowed_origins:
+    - "localhost"
+    - "localhost:3000"
+    - "localhost:8080"
+    - "*.eidos.exchange"
+  allow_all_origins: ${WS_ALLOW_ALL_ORIGINS:true}
+  auth_timeout: 30
+  enable_private_auth: ${WS_ENABLE_PRIVATE_AUTH:true}
 
+# Risk Service Integration
+risk:
+  enabled: ${RISK_ENABLED:true}
+  fail_open: false
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+  file:
+    enabled: false
+    path: /var/log/eidos/api.log
+    max_size_mb: 100
+    max_backups: 3
+    max_age_days: 7
+
+# Health Check
+health:
+  enabled: true
+  path: /health
+  liveness_path: /health/live
+  readiness_path: /health/ready

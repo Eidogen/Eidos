@@ -25,7 +25,7 @@ func TestReconciliationStatus_Values(t *testing.T) {
 // TestReconciliationRecord_TableName 测试表名
 func TestReconciliationRecord_TableName(t *testing.T) {
 	record := &model.ReconciliationRecord{}
-	assert.Equal(t, "eidos_chain_reconciliation_records", record.TableName())
+	assert.Equal(t, "chain_reconciliation_records", record.TableName())
 }
 
 // TestReconciliationRecord_Fields 测试 ReconciliationRecord 字段

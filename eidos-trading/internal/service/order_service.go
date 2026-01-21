@@ -42,6 +42,19 @@ var (
 	ErrGlobalPendingLimitExceeded = errors.New("global pending limit exceeded")
 	ErrMaxOpenOrdersExceeded      = errors.New("max open orders exceeded")
 	ErrInvalidStateTransition     = errors.New("invalid order state transition")
+	ErrSlippageExceeded           = errors.New("market order slippage exceeded")
+	ErrMinFillNotMet              = errors.New("IOC minimum fill amount not met")
+	ErrRiskCheckFailed            = errors.New("risk check failed")
+	ErrMarketOrderPriceRequired   = errors.New("market order requires price for slippage calculation")
+	ErrInvalidSlippage            = errors.New("invalid slippage value")
+	ErrInvalidQuoteAmount         = errors.New("invalid quote amount for market buy order")
+)
+
+// Default market order settings
+const (
+	DefaultMarketOrderSlippageBps = 100  // 1% default slippage
+	MaxMarketOrderSlippageBps     = 1000 // 10% max slippage
+	MinMarketOrderSlippageBps     = 10   // 0.1% min slippage
 )
 
 // OrderService 订单服务接口
@@ -112,16 +125,20 @@ type OrderAcceptedMessage struct {
 
 // CreateOrderRequest 创建订单请求
 type CreateOrderRequest struct {
-	Wallet        string          // 钱包地址
-	Market        string          // 交易对
-	Side          model.OrderSide // 买卖方向
-	Type          model.OrderType // 订单类型
-	Price         decimal.Decimal // 价格 (限价单必填)
-	Amount        decimal.Decimal // 数量
-	Nonce         uint64          // 用户 Nonce
-	Signature     []byte          // EIP-712 签名
-	ClientOrderID string          // 客户端订单 ID (可选)
-	ExpireAt      int64           // 过期时间 (可选)
+	Wallet        string              // 钱包地址
+	Market        string              // 交易对
+	Side          model.OrderSide     // 买卖方向
+	Type          model.OrderType     // 订单类型
+	TimeInForce   model.TimeInForce   // 有效期类型 (GTC/IOC/FOK)
+	Price         decimal.Decimal     // 价格 (限价单必填)
+	Amount        decimal.Decimal     // 数量 (基础代币数量)
+	QuoteAmount   decimal.Decimal     // 报价币种数量 (市价买单可选)
+	SlippageBps   int32               // 滑点容忍度 (basis points, 1 bps = 0.01%)
+	MinFillAmount decimal.Decimal     // IOC 最小成交数量 (可选)
+	Nonce         uint64              // 用户 Nonce
+	Signature     []byte              // EIP-712 签名
+	ClientOrderID string              // 客户端订单 ID (可选)
+	ExpireAt      int64               // 过期时间 (可选)
 }
 
 // OrderPublisher 订单状态发布接口
@@ -129,18 +146,26 @@ type OrderPublisher interface {
 	PublishOrderUpdate(ctx context.Context, order *model.Order) error
 }
 
+// RiskClient 风控客户端接口
+type RiskClient interface {
+	CheckOrder(ctx context.Context, wallet, market string, side model.OrderSide, orderType model.OrderType, price, amount decimal.Decimal) error
+	CheckWithdrawal(ctx context.Context, wallet, token string, amount decimal.Decimal) error
+}
+
 // orderService 订单服务实现
 type orderService struct {
-	orderRepo    repository.OrderRepository
-	balanceRepo  repository.BalanceRepository
-	nonceRepo    repository.NonceRepository
-	balanceCache cache.BalanceRedisRepository // Redis 作为实时资金真相
-	idGenerator  IDGenerator
-	marketConfig MarketConfigProvider
-	riskConfig   RiskConfigProvider // 风控配置
-	producer     KafkaProducer      // Kafka producer 发送取消请求到撮合引擎
-	publisher    OrderPublisher     // 订单状态更新发布者
-	asyncTasks   *AsyncTaskManager  // 异步任务管理器
+	orderRepo        repository.OrderRepository
+	balanceRepo      repository.BalanceRepository
+	nonceRepo        repository.NonceRepository
+	balanceCache     cache.BalanceRedisRepository // Redis 作为实时资金真相
+	idGenerator      IDGenerator
+	marketConfig     MarketConfigProvider
+	riskConfig       RiskConfigProvider   // 风控配置
+	producer         KafkaProducer        // Kafka producer 发送取消请求到撮合引擎
+	publisher        OrderPublisher       // 订单状态更新发布者
+	signatureService SignatureService     // 签名验证服务
+	riskClient       RiskClient           // 风控客户端
+	asyncTasks       *AsyncTaskManager    // 异步任务管理器
 }
 
 // KafkaProducer Kafka 生产者接口
@@ -211,6 +236,36 @@ func NewOrderService(
 	}
 }
 
+// NewOrderServiceWithOptions 创建订单服务 (带可选参数)
+func NewOrderServiceWithOptions(
+	orderRepo repository.OrderRepository,
+	balanceRepo repository.BalanceRepository,
+	nonceRepo repository.NonceRepository,
+	balanceCache cache.BalanceRedisRepository,
+	idGenerator IDGenerator,
+	marketConfig MarketConfigProvider,
+	riskConfig RiskConfigProvider,
+	producer KafkaProducer,
+	publisher OrderPublisher,
+	signatureService SignatureService,
+	riskClient RiskClient,
+) OrderService {
+	return &orderService{
+		orderRepo:        orderRepo,
+		balanceRepo:      balanceRepo,
+		nonceRepo:        nonceRepo,
+		balanceCache:     balanceCache,
+		idGenerator:      idGenerator,
+		marketConfig:     marketConfig,
+		riskConfig:       riskConfig,
+		producer:         producer,
+		publisher:        publisher,
+		signatureService: signatureService,
+		riskClient:       riskClient,
+		asyncTasks:       GetAsyncTaskManager(),
+	}
+}
+
 // CreateOrder 创建订单
 // 使用 Redis Lua 原子操作: 检查 Nonce + 冻结余额 + 写入 Outbox
 // 这确保了实时资金的一致性，DB 写入异步完成
@@ -226,7 +281,29 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("%w: invalid market %s", ErrInvalidOrder, req.Market)
 	}
 
-	// 3. 检查客户端订单 ID 幂等性 (从 DB 检查)
+	// 3. 验证 EIP-712 签名
+	if s.signatureService != nil {
+		if err := s.signatureService.VerifyOrderSignature(ctx, req); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidOrder, err)
+		}
+	}
+
+	// 4. 风控检查
+	if s.riskClient != nil {
+		if err := s.riskClient.CheckOrder(ctx, req.Wallet, req.Market, req.Side, req.Type, req.Price, req.Amount); err != nil {
+			metrics.RecordRiskRejection("external_risk_check")
+			return nil, fmt.Errorf("%w: %v", ErrRiskCheckFailed, err)
+		}
+	}
+
+	// 5. 市价单滑点处理
+	if req.Type == model.OrderTypeMarket {
+		if err := s.processMarketOrder(req, marketCfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// 6. 检查客户端订单 ID 幂等性 (从 DB 检查)
 	if req.ClientOrderID != "" {
 		existingOrder, err := s.orderRepo.GetByClientOrderID(ctx, req.Wallet, req.ClientOrderID)
 		if err == nil {
@@ -237,17 +314,27 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		}
 	}
 
-	// 4. 生成订单 ID
+	// 7. 生成订单 ID
 	orderIDInt, err := s.idGenerator.Generate()
 	if err != nil {
 		return nil, fmt.Errorf("generate order id failed: %w", err)
 	}
 	orderID := fmt.Sprintf("O%d", orderIDInt)
 
-	// 5. 计算需要冻结的金额
+	// 8. 计算需要冻结的金额
 	freezeToken, freezeAmount := s.calculateFreezeAmount(req, marketCfg)
 
-	// 6. 构建订单对象
+	// 设置默认 TimeInForce
+	timeInForce := req.TimeInForce
+	if timeInForce == 0 {
+		if req.Type == model.OrderTypeMarket {
+			timeInForce = model.TimeInForceIOC // 市价单默认 IOC
+		} else {
+			timeInForce = model.TimeInForceGTC // 限价单默认 GTC
+		}
+	}
+
+	// 9. 构建订单对象
 	now := time.Now().UnixMilli()
 	order := &model.Order{
 		OrderID:       orderID,
@@ -255,6 +342,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		Market:        req.Market,
 		Side:          req.Side,
 		Type:          req.Type,
+		TimeInForce:   timeInForce,
 		Price:         req.Price,
 		Amount:        req.Amount,
 		FilledAmount:  decimal.Zero,
@@ -270,13 +358,13 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		UpdatedAt:     now,
 	}
 
-	// 7. 序列化订单用于 Outbox
+	// 10. 序列化订单用于 Outbox
 	orderJSON, err := json.Marshal(order)
 	if err != nil {
 		return nil, fmt.Errorf("marshal order failed: %w", err)
 	}
 
-	// 8. Redis Lua 原子操作: Nonce 检查 + 余额冻结 + Outbox 写入
+	// 11. Redis Lua 原子操作: Nonce 检查 + 余额冻结 + Outbox 写入
 	// 这是关键的原子操作，确保实时资金一致性
 	nonceKey := fmt.Sprintf("nonce:%s:order:%d", req.Wallet, req.Nonce)
 
@@ -327,7 +415,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("redis freeze for order failed: %w", err)
 	}
 
-	// 9. 记录订单创建成功指标
+	// 12. 记录订单创建成功指标
 	sideStr := "buy"
 	if req.Side == model.OrderSideSell {
 		sideStr = "sell"
@@ -335,7 +423,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 	metrics.RecordOrderCreated(req.Market, sideStr)
 	metrics.IncTotalOpenOrders()
 
-	// 10. 同步写入 DB (保证数据持久化，避免 Redis 写入成功但 DB 丢单)
+	// 13. 同步写入 DB (保证数据持久化，避免 Redis 写入成功但 DB 丢单)
 	if err := s.persistOrderToDB(ctx, order, req); err != nil {
 		// 严重错误：Redis 冻结成功但 DB 写入失败
 		// 此时需要回滚 Redis (解锁资金，清除 Outbox)，并返回错误给用户
@@ -354,10 +442,57 @@ func (s *orderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("persist order to db failed: %w", err)
 	}
 
-	// 11. 发布订单创建消息到 Kafka (供 WebSocket 推送)
+	// 14. 发布订单创建消息到 Kafka (供 WebSocket 推送)
 	s.publishOrderUpdate(ctx, order)
 
 	return order, nil
+}
+
+// processMarketOrder 处理市价单特殊逻辑
+// 包括滑点计算、报价币种下单转换等
+func (s *orderService) processMarketOrder(req *CreateOrderRequest, cfg *MarketConfig) error {
+	// 1. 验证和规范化滑点
+	if req.SlippageBps == 0 {
+		req.SlippageBps = DefaultMarketOrderSlippageBps
+	}
+	if req.SlippageBps < MinMarketOrderSlippageBps || req.SlippageBps > MaxMarketOrderSlippageBps {
+		return fmt.Errorf("%w: slippage must be between %d and %d bps",
+			ErrInvalidSlippage, MinMarketOrderSlippageBps, MaxMarketOrderSlippageBps)
+	}
+
+	// 2. 市价买单支持以报价币种下单
+	if req.Side == model.OrderSideBuy && req.QuoteAmount.GreaterThan(decimal.Zero) {
+		// 用户指定了要花费的报价币种数量 (如花 1000 USDT 买 ETH)
+		// 需要将 QuoteAmount 转换为 Amount (基础币种数量)
+		if req.Price.IsZero() {
+			return ErrMarketOrderPriceRequired
+		}
+
+		// 计算可买入的基础币种数量 (考虑滑点)
+		slippageMultiplier := decimal.NewFromInt(10000 + int64(req.SlippageBps)).Div(decimal.NewFromInt(10000))
+		effectivePrice := req.Price.Mul(slippageMultiplier)
+		req.Amount = req.QuoteAmount.Div(effectivePrice)
+
+		// 验证最小数量
+		if req.Amount.LessThan(cfg.MinAmount) {
+			return fmt.Errorf("%w: calculated amount %.8f is below minimum %.8f",
+				ErrInvalidQuoteAmount, req.Amount.InexactFloat64(), cfg.MinAmount.InexactFloat64())
+		}
+	}
+
+	// 3. 计算滑点保护价格
+	// 买单: worstPrice = price * (1 + slippage)
+	// 卖单: worstPrice = price * (1 - slippage)
+	if !req.Price.IsZero() {
+		slippageDecimal := decimal.NewFromInt(int64(req.SlippageBps)).Div(decimal.NewFromInt(10000))
+		if req.Side == model.OrderSideBuy {
+			req.Price = req.Price.Mul(decimal.NewFromInt(1).Add(slippageDecimal))
+		} else {
+			req.Price = req.Price.Mul(decimal.NewFromInt(1).Sub(slippageDecimal))
+		}
+	}
+
+	return nil
 }
 
 // persistOrderToDB 持久化订单到数据库
@@ -727,11 +862,21 @@ func (s *orderService) validateCreateOrderRequest(req *CreateOrderRequest) error
 }
 
 // calculateFreezeAmount 计算需要冻结的金额
+// 支持市价单的报价币种下单
 func (s *orderService) calculateFreezeAmount(req *CreateOrderRequest, cfg *MarketConfig) (string, decimal.Decimal) {
 	if req.Side == model.OrderSideBuy {
 		// 买单冻结计价代币 (Quote Token)
-		// 冻结金额 = 价格 * 数量 * (1 + 手续费率)
-		quoteAmount := req.Price.Mul(req.Amount)
+		var quoteAmount decimal.Decimal
+
+		// 如果用户指定了 QuoteAmount (市价买单以报价币种下单)
+		if req.QuoteAmount.GreaterThan(decimal.Zero) {
+			quoteAmount = req.QuoteAmount
+		} else {
+			// 冻结金额 = 价格 * 数量
+			quoteAmount = req.Price.Mul(req.Amount)
+		}
+
+		// 冻结金额 = quoteAmount * (1 + 手续费率)
 		feeAmount := quoteAmount.Mul(cfg.TakerFeeRate)
 		return cfg.QuoteToken, quoteAmount.Add(feeAmount)
 	} else {

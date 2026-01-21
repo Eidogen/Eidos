@@ -74,7 +74,7 @@ func TestOrderRepository_Create_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "orders"`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "trading_orders"`)).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -103,7 +103,7 @@ func TestOrderRepository_GetByOrderID_Success(t *testing.T) {
 	)
 
 	// GORM First() 会添加 ORDER BY id LIMIT 1
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE order_id = \$1 ORDER BY "orders"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE order_id = \$1 ORDER BY "trading_orders"\."id" LIMIT \$2`).
 		WithArgs(orderID, 1).
 		WillReturnRows(rows)
 
@@ -123,7 +123,7 @@ func TestOrderRepository_GetByOrderID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	orderID := "O999999999"
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE order_id = \$1 ORDER BY "orders"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE order_id = \$1 ORDER BY "trading_orders"\."id" LIMIT \$2`).
 		WithArgs(orderID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -153,7 +153,7 @@ func TestOrderRepository_GetByClientOrderID_Success(t *testing.T) {
 		now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE wallet = \$1 AND client_order_id = \$2 ORDER BY "orders"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE wallet = \$1 AND client_order_id = \$2 ORDER BY "trading_orders"\."id" LIMIT \$3`).
 		WithArgs(wallet, clientOrderID, 1).
 		WillReturnRows(rows)
 
@@ -184,7 +184,7 @@ func TestOrderRepository_GetByWalletNonce_Success(t *testing.T) {
 		now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE wallet = \$1 AND nonce = \$2 ORDER BY "orders"\."id" LIMIT \$3`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE wallet = \$1 AND nonce = \$2 ORDER BY "trading_orders"\."id" LIMIT \$3`).
 		WithArgs(wallet, nonce, 1).
 		WillReturnRows(rows)
 
@@ -205,7 +205,7 @@ func TestOrderRepository_UpdateStatus_Success(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "orders" SET "status"=\$1,"updated_at"=\$2 WHERE order_id = \$3 AND status = \$4`).
+	mock.ExpectExec(`UPDATE "trading_orders" SET "status"=\$1,"updated_at"=\$2 WHERE order_id = \$3 AND status = \$4`).
 		WithArgs(model.OrderStatusCancelled, sqlmock.AnyArg(), orderID, model.OrderStatusOpen).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -225,7 +225,7 @@ func TestOrderRepository_UpdateStatus_OptimisticLock(t *testing.T) {
 	orderID := "O123456789"
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "orders" SET "status"=\$1,"updated_at"=\$2 WHERE order_id = \$3 AND status = \$4`).
+	mock.ExpectExec(`UPDATE "trading_orders" SET "status"=\$1,"updated_at"=\$2 WHERE order_id = \$3 AND status = \$4`).
 		WithArgs(model.OrderStatusCancelled, sqlmock.AnyArg(), orderID, model.OrderStatusOpen).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
@@ -256,7 +256,7 @@ func TestOrderRepository_ListOpenOrders_Success(t *testing.T) {
 		now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE status IN \(\$1,\$2\) AND wallet = \$3 AND market = \$4 ORDER BY created_at ASC`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE status IN \(\$1,\$2\) AND wallet = \$3 AND market = \$4 ORDER BY created_at ASC`).
 		WithArgs(model.OrderStatusOpen, model.OrderStatusPartial, wallet, market).
 		WillReturnRows(rows)
 
@@ -278,7 +278,7 @@ func TestOrderRepository_ListOpenOrders_EmptyFilters(t *testing.T) {
 
 	rows := sqlmock.NewRows(orderColumns())
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE status IN \(\$1,\$2\) ORDER BY created_at ASC`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE status IN \(\$1,\$2\) ORDER BY created_at ASC`).
 		WithArgs(model.OrderStatusOpen, model.OrderStatusPartial).
 		WillReturnRows(rows)
 
@@ -297,7 +297,7 @@ func TestOrderRepository_CountByWallet_Success(t *testing.T) {
 	ctx := context.Background()
 	wallet := "0x1234567890123456789012345678901234567890"
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "orders" WHERE wallet = \$1`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_orders" WHERE wallet = \$1`).
 		WithArgs(wallet).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(10))
 
@@ -320,7 +320,7 @@ func TestOrderRepository_CountByWallet_WithFilter(t *testing.T) {
 		Statuses: []model.OrderStatus{model.OrderStatusOpen, model.OrderStatusPartial},
 	}
 
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "orders" WHERE wallet = \$1 AND market = \$2 AND status IN \(\$3,\$4\)`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "trading_orders" WHERE wallet = \$1 AND market = \$2 AND status IN \(\$3,\$4\)`).
 		WithArgs(wallet, "ETH-USDT", model.OrderStatusOpen, model.OrderStatusPartial).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
 
@@ -339,7 +339,7 @@ func TestOrderRepository_UpdateFilled_Success(t *testing.T) {
 	ctx := context.Background()
 	orderID := "O123456789"
 
-	mock.ExpectExec(`UPDATE orders`).
+	mock.ExpectExec(`UPDATE trading_orders`).
 		WithArgs("0.5", "1000", model.OrderStatusPartial, sqlmock.AnyArg(), orderID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -357,7 +357,7 @@ func TestOrderRepository_UpdateFilled_NotFound(t *testing.T) {
 	ctx := context.Background()
 	orderID := "O999999999"
 
-	mock.ExpectExec(`UPDATE orders`).
+	mock.ExpectExec(`UPDATE trading_orders`).
 		WithArgs("0.5", "1000", model.OrderStatusPartial, sqlmock.AnyArg(), orderID).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
@@ -385,7 +385,7 @@ func TestOrderRepository_GetByID_Success(t *testing.T) {
 		now, now, "", "",
 	)
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE id = \$1 ORDER BY "orders"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE id = \$1 ORDER BY "trading_orders"\."id" LIMIT \$2`).
 		WithArgs(id, 1).
 		WillReturnRows(rows)
 
@@ -405,7 +405,7 @@ func TestOrderRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	id := int64(999)
 
-	mock.ExpectQuery(`SELECT \* FROM "orders" WHERE id = \$1 ORDER BY "orders"\."id" LIMIT \$2`).
+	mock.ExpectQuery(`SELECT \* FROM "trading_orders" WHERE id = \$1 ORDER BY "trading_orders"\."id" LIMIT \$2`).
 		WithArgs(id, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -433,7 +433,7 @@ func TestOrderRepository_Update_Success(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "orders" SET`).
+	mock.ExpectExec(`UPDATE "trading_orders" SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 

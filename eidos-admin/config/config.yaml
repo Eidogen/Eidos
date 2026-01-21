@@ -1,15 +1,25 @@
 service:
   name: eidos-admin
   http_port: 8088
-  env: dev
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:postgres}
+  host: ${POSTGRES_HOST:localhost}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_admin}
   user: ${POSTGRES_USER:eidos}
@@ -17,25 +27,132 @@ postgres:
   max_connections: 30
   max_idle_conns: 10
   conn_max_lifetime: 3600
+  ssl_mode: disable
+  timezone: UTC
 
+# Redis Configuration
 redis:
   addresses:
-    - ${REDIS_ADDR:redis:6379}
+    - ${REDIS_ADDR:localhost:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 20
+  min_idle_conns: 5
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# Kafka Configuration
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+  brokers:
+    - ${KAFKA_BROKERS:localhost:9092}
+  group_id: eidos-admin
+  client_id: eidos-admin
+  consumer:
+    topics:
+      - admin-events
+      - risk-alerts
+    auto_offset_reset: latest
+    max_poll_records: 100
+  producer:
+    topics:
+      admin_commands: admin-commands
+      config_updates: config-updates
+    compression: lz4
+    batch_size: 100
+    linger_ms: 10
+    required_acks: -1
+
+# gRPC Client Configuration
 grpc_clients:
-  trading: ${TRADING_ADDR:eidos-trading:50051}
-  matching: ${MATCHING_ADDR:eidos-matching:50052}
-  market: ${MARKET_ADDR:eidos-market:50053}
-  chain: ${CHAIN_ADDR:eidos-chain:50054}
-  risk: ${RISK_ADDR:eidos-risk:50055}
+  trading:
+    addr: ${TRADING_ADDR:localhost:50051}
+    timeout_ms: 10000
+    max_retry: 3
+  matching:
+    addr: ${MATCHING_ADDR:localhost:50052}
+    timeout_ms: 10000
+    max_retry: 3
+  market:
+    addr: ${MARKET_ADDR:localhost:50053}
+    timeout_ms: 10000
+    max_retry: 3
+  chain:
+    addr: ${CHAIN_ADDR:localhost:50054}
+    timeout_ms: 10000
+    max_retry: 3
+  risk:
+    addr: ${RISK_ADDR:localhost:50055}
+    timeout_ms: 10000
+    max_retry: 3
+  jobs:
+    addr: ${JOBS_ADDR:localhost:50056}
+    timeout_ms: 10000
+    max_retry: 3
 
+# JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:your-jwt-secret-key-here}
+  secret: ${JWT_SECRET:your-jwt-secret-key-change-in-production}
   expire_hours: 24
+  refresh_expire_hours: 168  # 7 days
+  issuer: eidos-admin
 
+# Admin User Configuration
+admin:
+  default_username: ${ADMIN_USERNAME:admin}
+  default_password: ${ADMIN_PASSWORD:admin123}
+  password_min_length: 8
+  max_login_attempts: 5
+  lockout_duration_minutes: 30
+
+# CORS Configuration
+cors:
+  enabled: true
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8088"
+    - "https://admin.eidos.exchange"
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Authorization
+    - Content-Type
+    - X-Request-ID
+  allow_credentials: true
+  max_age: 86400
+
+# Audit Log Configuration
+audit:
+  enabled: true
+  retention_days: 365
+  sensitive_fields:
+    - password
+    - private_key
+    - secret
+
+# Dashboard Configuration
+dashboard:
+  refresh_interval_sec: 30
+  max_data_points: 1000
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9097
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

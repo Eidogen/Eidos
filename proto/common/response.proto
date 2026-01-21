@@ -2,14 +2,230 @@ syntax = "proto3";
 
 package eidos.common.v1;
 
-option go_package = "github.com/eidos-exchange/eidos/proto/common/v1;commonv1";
+option go_package = "github.com/eidos-exchange/eidos/proto/common;commonv1";
 
-// 通用响应
+// ============================================================================
+// Common Response Types
+// Standard response wrappers and error types
+// ============================================================================
+
+// Response is a generic response wrapper
+// Used for simple operations that only need success/failure status
 message Response {
+    // Whether the operation was successful
     bool success = 1;
+
+    // Error code (only set if success = false)
+    // Format: CATEGORY_SPECIFIC_ERROR (e.g., ORDER_INSUFFICIENT_BALANCE)
     string error_code = 2;
+
+    // Human-readable error message (only set if success = false)
     string error_message = 3;
+
+    // Additional error details (optional)
+    map<string, string> details = 4;
+
+    // Request ID for tracing
+    string request_id = 5;
 }
 
-// 空请求
-message Empty {}
+// Error represents a detailed error
+message Error {
+    // Error code (machine-readable)
+    // Format: CATEGORY_SPECIFIC_ERROR
+    string code = 1;
+
+    // Error message (human-readable)
+    string message = 2;
+
+    // Field that caused the error (for validation errors)
+    string field = 3;
+
+    // Additional error context
+    map<string, string> details = 4;
+}
+
+// ErrorResponse is used for error responses
+message ErrorResponse {
+    // Main error
+    Error error = 1;
+
+    // Additional errors (for validation errors with multiple fields)
+    repeated Error errors = 2;
+
+    // Request ID for tracing
+    string request_id = 3;
+
+    // Timestamp of the error (Unix milliseconds)
+    int64 timestamp = 4;
+}
+
+// ============================================================================
+// Standard Error Codes
+// ============================================================================
+
+// ErrorCode defines standard error codes used across services
+// These are documented here for reference; actual values are strings
+//
+// General Errors (1xxx):
+//   INTERNAL_ERROR           - Internal server error
+//   INVALID_REQUEST          - Request validation failed
+//   INVALID_PARAMETER        - Invalid parameter value
+//   MISSING_PARAMETER        - Required parameter is missing
+//   NOT_FOUND                - Resource not found
+//   ALREADY_EXISTS           - Resource already exists
+//   PERMISSION_DENIED        - Permission denied
+//   RATE_LIMITED             - Rate limit exceeded
+//   UNAVAILABLE              - Service unavailable
+//   TIMEOUT                  - Operation timed out
+//
+// Authentication Errors (2xxx):
+//   UNAUTHENTICATED          - Not authenticated
+//   INVALID_SIGNATURE        - Invalid signature
+//   INVALID_NONCE            - Invalid nonce
+//   NONCE_TOO_LOW            - Nonce is too low
+//   SIGNATURE_EXPIRED        - Signature has expired
+//
+// Order Errors (3xxx):
+//   ORDER_NOT_FOUND          - Order not found
+//   ORDER_ALREADY_FILLED     - Order is already filled
+//   ORDER_ALREADY_CANCELLED  - Order is already cancelled
+//   ORDER_INVALID_STATUS     - Invalid order status for operation
+//   INSUFFICIENT_BALANCE     - Insufficient balance
+//   INVALID_PRICE            - Invalid order price
+//   INVALID_AMOUNT           - Invalid order amount
+//   PRICE_TOO_HIGH           - Price exceeds maximum
+//   PRICE_TOO_LOW            - Price below minimum
+//   AMOUNT_TOO_HIGH          - Amount exceeds maximum
+//   AMOUNT_TOO_LOW           - Amount below minimum
+//   NOTIONAL_TOO_LOW         - Notional value below minimum
+//   MARKET_NOT_FOUND         - Market not found
+//   MARKET_NOT_ACTIVE        - Market is not active
+//   MARKET_SUSPENDED         - Market is suspended
+//   POST_ONLY_REJECTED       - Post-only order would take
+//   FOK_NOT_FILLABLE         - FOK order cannot be fully filled
+//   IOC_MIN_NOT_MET          - IOC minimum fill not met
+//   MAX_ORDERS_EXCEEDED      - Maximum open orders exceeded
+//   SLIPPAGE_EXCEEDED        - Market order slippage exceeded
+//
+// Withdrawal Errors (4xxx):
+//   WITHDRAW_NOT_FOUND       - Withdrawal not found
+//   WITHDRAW_INVALID_STATUS  - Invalid withdrawal status
+//   WITHDRAW_AMOUNT_TOO_LOW  - Withdrawal amount too low
+//   WITHDRAW_AMOUNT_TOO_HIGH - Withdrawal amount exceeds limit
+//   WITHDRAW_DAILY_LIMIT     - Daily withdrawal limit exceeded
+//   WITHDRAW_INVALID_ADDRESS - Invalid destination address
+//   WITHDRAW_DISABLED        - Withdrawals are disabled
+//   WITHDRAW_INSUFFICIENT    - Insufficient withdrawable balance
+//
+// Deposit Errors (5xxx):
+//   DEPOSIT_NOT_FOUND        - Deposit not found
+//   DEPOSIT_ALREADY_CREDITED - Deposit already credited
+//
+// Risk Errors (6xxx):
+//   RISK_REJECTED            - Rejected by risk system
+//   ACCOUNT_FROZEN           - Account is frozen
+//   ACCOUNT_BLACKLISTED      - Account is blacklisted
+//   RATE_LIMIT_ORDER         - Order rate limit exceeded
+//   RATE_LIMIT_CANCEL        - Cancel rate limit exceeded
+//   RATE_LIMIT_API           - API rate limit exceeded
+//
+// Settlement Errors (7xxx):
+//   BATCH_NOT_FOUND          - Settlement batch not found
+//   BATCH_INVALID_STATUS     - Invalid batch status for operation
+//   SETTLEMENT_FAILED        - Settlement transaction failed
+
+// ============================================================================
+// Health Check Types
+// ============================================================================
+
+// HealthStatus represents service health status
+enum HealthStatus {
+    // Unknown status
+    HEALTH_STATUS_UNSPECIFIED = 0;
+
+    // Service is healthy and fully operational
+    HEALTH_STATUS_HEALTHY = 1;
+
+    // Service is degraded but still operational
+    HEALTH_STATUS_DEGRADED = 2;
+
+    // Service is unhealthy and not operational
+    HEALTH_STATUS_UNHEALTHY = 3;
+}
+
+// HealthCheckRequest is the health check request
+message HealthCheckRequest {
+    // Service name to check (optional, empty = check all)
+    string service = 1;
+}
+
+// HealthCheckResponse is the health check response
+message HealthCheckResponse {
+    // Overall health status
+    HealthStatus status = 1;
+
+    // Service version
+    string version = 2;
+
+    // Uptime in seconds
+    int64 uptime_seconds = 3;
+
+    // Individual component health
+    repeated ComponentHealth components = 4;
+
+    // Timestamp of the check (Unix milliseconds)
+    int64 timestamp = 5;
+}
+
+// ComponentHealth represents health of a component
+message ComponentHealth {
+    // Component name
+    string name = 1;
+
+    // Component status
+    HealthStatus status = 2;
+
+    // Additional status message
+    string message = 3;
+
+    // Last check time (Unix milliseconds)
+    int64 last_check = 4;
+}
+
+// ============================================================================
+// Request Metadata
+// ============================================================================
+
+// RequestMetadata contains metadata for requests
+message RequestMetadata {
+    // Request ID for tracing
+    string request_id = 1;
+
+    // Client IP address
+    string client_ip = 2;
+
+    // User agent string
+    string user_agent = 3;
+
+    // Request timestamp (Unix milliseconds)
+    int64 timestamp = 4;
+
+    // Additional headers
+    map<string, string> headers = 5;
+}
+
+// ResponseMetadata contains metadata for responses
+message ResponseMetadata {
+    // Request ID (echoed from request)
+    string request_id = 1;
+
+    // Server processing time in milliseconds
+    int64 processing_time_ms = 2;
+
+    // Response timestamp (Unix milliseconds)
+    int64 timestamp = 3;
+
+    // Server node identifier
+    string server_node = 4;
+}

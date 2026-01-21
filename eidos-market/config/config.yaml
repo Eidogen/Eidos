@@ -1,16 +1,26 @@
 service:
   name: eidos-market
   grpc_port: 50053
-  http_port: 8080
-  env: dev
+  http_port: 8082
+  env: ${ENV:dev}
+  version: 1.0.0
 
+# Nacos Service Discovery
 nacos:
-  server_addr: ${NACOS_SERVER_ADDR:nacos:8848}
+  enabled: ${NACOS_ENABLED:true}
+  server_addr: ${NACOS_SERVER_ADDR:localhost:8848}
   namespace: ${NACOS_NAMESPACE:eidos-dev}
   group: EIDOS_GROUP
+  username: ${NACOS_USERNAME:}
+  password: ${NACOS_PASSWORD:}
+  log_dir: /tmp/nacos/log
+  cache_dir: /tmp/nacos/cache
+  timeout_ms: 5000
+  heartbeat_interval_ms: 5000
 
+# Database Configuration
 postgres:
-  host: ${POSTGRES_HOST:postgres}
+  host: ${POSTGRES_HOST:localhost}
   port: ${POSTGRES_PORT:5432}
   database: ${POSTGRES_DATABASE:eidos_market}
   user: ${POSTGRES_USER:eidos}
@@ -18,20 +28,54 @@ postgres:
   max_connections: 50
   max_idle_conns: 10
   conn_max_lifetime: 3600
+  ssl_mode: disable
+  timezone: UTC
 
+# Redis Configuration
 redis:
   addresses:
-    - ${REDIS_ADDR:redis:6379}
+    - ${REDIS_ADDR:localhost:6379}
   password: ${REDIS_PASSWORD:}
   db: 0
   pool_size: 100
+  min_idle_conns: 10
+  dial_timeout_sec: 5
+  read_timeout_sec: 3
+  write_timeout_sec: 3
 
+# Kafka Configuration
 kafka:
+  enabled: ${KAFKA_ENABLED:true}
   brokers:
-    - ${KAFKA_BROKERS:kafka:9092}
+    - ${KAFKA_BROKERS:localhost:9092}
   group_id: eidos-market-group
   client_id: eidos-market
+  consumer:
+    topics:
+      - trade-events
+      - order-book-updates
+    auto_offset_reset: latest
+    max_poll_records: 1000
+  producer:
+    topics:
+      market_data: market-data
+      kline_updates: kline-updates
+    compression: lz4
+    batch_size: 1000
+    linger_ms: 5
 
+# gRPC Client Configuration
+grpc_clients:
+  trading:
+    addr: ${GRPC_TRADING_ADDR:localhost:50051}
+    timeout_ms: 5000
+    max_retry: 3
+  matching:
+    addr: ${GRPC_MATCHING_ADDR:localhost:50052}
+    timeout_ms: 5000
+    max_retry: 3
+
+# K-Line Configuration
 kline:
   intervals:
     - 1m
@@ -42,18 +86,39 @@ kline:
     - 4h
     - 1d
     - 1w
+  retention_days: 365
 
-# 聚合器配置
+# Aggregator Configuration
 aggregator:
-  # K 线刷盘间隔（秒）
-  kline_flush_interval: 10
-  # Ticker 发布间隔（毫秒）
-  ticker_publish_interval: 1000
-  # 深度发布间隔（毫秒）
-  depth_publish_interval: 100
-  # 深度最大档位数
+  kline_flush_interval: 10      # Seconds
+  ticker_publish_interval: 1000  # Milliseconds
+  depth_publish_interval: 100    # Milliseconds
   depth_max_levels: 100
 
+# Order Book Configuration
+orderbook:
+  max_depth: 1000
+  snapshot_interval: 60         # Seconds
+  broadcast_throttle_ms: 100
+
+# Trade History Configuration
+trade_history:
+  max_records: 1000
+  retention_days: 90
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9092
+  path: /metrics
+
+# Logging Configuration
 log:
   level: ${LOG_LEVEL:info}
   format: json
+  output: stdout
+
+# Health Check
+health:
+  enabled: true
+  path: /health

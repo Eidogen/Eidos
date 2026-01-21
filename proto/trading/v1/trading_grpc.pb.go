@@ -20,8 +20,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	TradingService_PrepareOrder_FullMethodName        = "/eidos.trading.v1.TradingService/PrepareOrder"
 	TradingService_CreateOrder_FullMethodName         = "/eidos.trading.v1.TradingService/CreateOrder"
 	TradingService_CancelOrder_FullMethodName         = "/eidos.trading.v1.TradingService/CancelOrder"
+	TradingService_BatchCancelOrders_FullMethodName   = "/eidos.trading.v1.TradingService/BatchCancelOrders"
 	TradingService_GetOrder_FullMethodName            = "/eidos.trading.v1.TradingService/GetOrder"
 	TradingService_ListOrders_FullMethodName          = "/eidos.trading.v1.TradingService/ListOrders"
 	TradingService_ListOpenOrders_FullMethodName      = "/eidos.trading.v1.TradingService/ListOpenOrders"
@@ -40,55 +42,75 @@ const (
 	TradingService_ProcessTradeResult_FullMethodName  = "/eidos.trading.v1.TradingService/ProcessTradeResult"
 	TradingService_ProcessDepositEvent_FullMethodName = "/eidos.trading.v1.TradingService/ProcessDepositEvent"
 	TradingService_ConfirmSettlement_FullMethodName   = "/eidos.trading.v1.TradingService/ConfirmSettlement"
+	TradingService_RollbackSettlement_FullMethodName  = "/eidos.trading.v1.TradingService/RollbackSettlement"
 )
 
 // TradingServiceClient is the client API for TradingService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// TradingService 交易服务
-// 提供订单、余额、成交、充提等核心交易功能
+// TradingService provides the core trading functionality including:
+// - Order management (create, cancel, query)
+// - Balance management (query, freeze/unfreeze)
+// - Trade history
+// - Deposit/Withdrawal operations
 type TradingServiceClient interface {
-	// CreateOrder 创建订单
+	// PrepareOrder prepares an order for signing
+	// Returns EIP-712 typed data for client to sign
+	PrepareOrder(ctx context.Context, in *PrepareOrderRequest, opts ...grpc.CallOption) (*PrepareOrderResponse, error)
+	// CreateOrder creates a new order (limit or market)
+	// Returns the created order with initial status
 	CreateOrder(ctx context.Context, in *CreateOrderRequest, opts ...grpc.CallOption) (*CreateOrderResponse, error)
-	// CancelOrder 取消订单
+	// CancelOrder cancels an active order
+	// Only orders with status OPEN or PARTIAL can be cancelled
 	CancelOrder(ctx context.Context, in *CancelOrderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// GetOrder 获取订单详情
+	// BatchCancelOrders cancels multiple orders at once
+	// Supports filtering by market and side
+	BatchCancelOrders(ctx context.Context, in *BatchCancelOrdersRequest, opts ...grpc.CallOption) (*BatchCancelOrdersResponse, error)
+	// GetOrder retrieves order details by order ID
 	GetOrder(ctx context.Context, in *GetOrderRequest, opts ...grpc.CallOption) (*Order, error)
-	// ListOrders 获取订单列表
+	// ListOrders retrieves orders with optional filters
 	ListOrders(ctx context.Context, in *ListOrdersRequest, opts ...grpc.CallOption) (*ListOrdersResponse, error)
-	// ListOpenOrders 获取活跃订单
+	// ListOpenOrders retrieves all active orders for a wallet
 	ListOpenOrders(ctx context.Context, in *ListOpenOrdersRequest, opts ...grpc.CallOption) (*ListOrdersResponse, error)
-	// GetBalance 获取单个代币余额
+	// GetBalance retrieves balance for a specific token
 	GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*Balance, error)
-	// GetBalances 获取所有余额
+	// GetBalances retrieves all token balances for a wallet
 	GetBalances(ctx context.Context, in *GetBalancesRequest, opts ...grpc.CallOption) (*GetBalancesResponse, error)
-	// GetBalanceLogs 获取余额流水
+	// GetBalanceLogs retrieves balance change history
 	GetBalanceLogs(ctx context.Context, in *GetBalanceLogsRequest, opts ...grpc.CallOption) (*GetBalanceLogsResponse, error)
-	// GetTrade 获取成交详情
+	// GetTrade retrieves trade details by trade ID
 	GetTrade(ctx context.Context, in *GetTradeRequest, opts ...grpc.CallOption) (*Trade, error)
-	// ListTrades 获取成交列表
+	// ListTrades retrieves trade history with optional filters
 	ListTrades(ctx context.Context, in *ListTradesRequest, opts ...grpc.CallOption) (*ListTradesResponse, error)
-	// ListTradesByOrder 获取订单相关成交
+	// ListTradesByOrder retrieves all trades for a specific order
 	ListTradesByOrder(ctx context.Context, in *ListTradesByOrderRequest, opts ...grpc.CallOption) (*ListTradesResponse, error)
-	// GetDeposit 获取充值详情
+	// GetDeposit retrieves deposit details by deposit ID
 	GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*Deposit, error)
-	// ListDeposits 获取充值列表
+	// ListDeposits retrieves deposit history with optional filters
 	ListDeposits(ctx context.Context, in *ListDepositsRequest, opts ...grpc.CallOption) (*ListDepositsResponse, error)
-	// CreateWithdrawal 创建提现
+	// CreateWithdrawal creates a new withdrawal request
+	// Requires sufficient available balance
 	CreateWithdrawal(ctx context.Context, in *CreateWithdrawalRequest, opts ...grpc.CallOption) (*CreateWithdrawalResponse, error)
-	// CancelWithdrawal 取消提现
+	// CancelWithdrawal cancels a pending withdrawal
+	// Only withdrawals with status PENDING can be cancelled
 	CancelWithdrawal(ctx context.Context, in *CancelWithdrawalRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// GetWithdrawal 获取提现详情
+	// GetWithdrawal retrieves withdrawal details by withdrawal ID
 	GetWithdrawal(ctx context.Context, in *GetWithdrawalRequest, opts ...grpc.CallOption) (*Withdrawal, error)
-	// ListWithdrawals 获取提现列表
+	// ListWithdrawals retrieves withdrawal history with optional filters
 	ListWithdrawals(ctx context.Context, in *ListWithdrawalsRequest, opts ...grpc.CallOption) (*ListWithdrawalsResponse, error)
-	// ProcessTradeResult 处理撮合结果
+	// ProcessTradeResult processes a trade result from matching engine
+	// Called by Settlement Service after trade matching
 	ProcessTradeResult(ctx context.Context, in *ProcessTradeResultRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// ProcessDepositEvent 处理充值事件
+	// ProcessDepositEvent processes a deposit event from chain indexer
+	// Called by Chain Service when deposit is detected
 	ProcessDepositEvent(ctx context.Context, in *ProcessDepositEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// ConfirmSettlement 确认结算
+	// ConfirmSettlement confirms on-chain settlement of trades
+	// Called by Chain Service when settlement tx is confirmed
 	ConfirmSettlement(ctx context.Context, in *ConfirmSettlementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// RollbackSettlement rolls back a failed settlement
+	// Called when on-chain settlement fails
+	RollbackSettlement(ctx context.Context, in *RollbackSettlementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type tradingServiceClient struct {
@@ -97,6 +119,16 @@ type tradingServiceClient struct {
 
 func NewTradingServiceClient(cc grpc.ClientConnInterface) TradingServiceClient {
 	return &tradingServiceClient{cc}
+}
+
+func (c *tradingServiceClient) PrepareOrder(ctx context.Context, in *PrepareOrderRequest, opts ...grpc.CallOption) (*PrepareOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PrepareOrderResponse)
+	err := c.cc.Invoke(ctx, TradingService_PrepareOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *tradingServiceClient) CreateOrder(ctx context.Context, in *CreateOrderRequest, opts ...grpc.CallOption) (*CreateOrderResponse, error) {
@@ -113,6 +145,16 @@ func (c *tradingServiceClient) CancelOrder(ctx context.Context, in *CancelOrderR
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, TradingService_CancelOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tradingServiceClient) BatchCancelOrders(ctx context.Context, in *BatchCancelOrdersRequest, opts ...grpc.CallOption) (*BatchCancelOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchCancelOrdersResponse)
+	err := c.cc.Invoke(ctx, TradingService_BatchCancelOrders_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -299,53 +341,82 @@ func (c *tradingServiceClient) ConfirmSettlement(ctx context.Context, in *Confir
 	return out, nil
 }
 
+func (c *tradingServiceClient) RollbackSettlement(ctx context.Context, in *RollbackSettlementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TradingService_RollbackSettlement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TradingServiceServer is the server API for TradingService service.
 // All implementations must embed UnimplementedTradingServiceServer
 // for forward compatibility.
 //
-// TradingService 交易服务
-// 提供订单、余额、成交、充提等核心交易功能
+// TradingService provides the core trading functionality including:
+// - Order management (create, cancel, query)
+// - Balance management (query, freeze/unfreeze)
+// - Trade history
+// - Deposit/Withdrawal operations
 type TradingServiceServer interface {
-	// CreateOrder 创建订单
+	// PrepareOrder prepares an order for signing
+	// Returns EIP-712 typed data for client to sign
+	PrepareOrder(context.Context, *PrepareOrderRequest) (*PrepareOrderResponse, error)
+	// CreateOrder creates a new order (limit or market)
+	// Returns the created order with initial status
 	CreateOrder(context.Context, *CreateOrderRequest) (*CreateOrderResponse, error)
-	// CancelOrder 取消订单
+	// CancelOrder cancels an active order
+	// Only orders with status OPEN or PARTIAL can be cancelled
 	CancelOrder(context.Context, *CancelOrderRequest) (*emptypb.Empty, error)
-	// GetOrder 获取订单详情
+	// BatchCancelOrders cancels multiple orders at once
+	// Supports filtering by market and side
+	BatchCancelOrders(context.Context, *BatchCancelOrdersRequest) (*BatchCancelOrdersResponse, error)
+	// GetOrder retrieves order details by order ID
 	GetOrder(context.Context, *GetOrderRequest) (*Order, error)
-	// ListOrders 获取订单列表
+	// ListOrders retrieves orders with optional filters
 	ListOrders(context.Context, *ListOrdersRequest) (*ListOrdersResponse, error)
-	// ListOpenOrders 获取活跃订单
+	// ListOpenOrders retrieves all active orders for a wallet
 	ListOpenOrders(context.Context, *ListOpenOrdersRequest) (*ListOrdersResponse, error)
-	// GetBalance 获取单个代币余额
+	// GetBalance retrieves balance for a specific token
 	GetBalance(context.Context, *GetBalanceRequest) (*Balance, error)
-	// GetBalances 获取所有余额
+	// GetBalances retrieves all token balances for a wallet
 	GetBalances(context.Context, *GetBalancesRequest) (*GetBalancesResponse, error)
-	// GetBalanceLogs 获取余额流水
+	// GetBalanceLogs retrieves balance change history
 	GetBalanceLogs(context.Context, *GetBalanceLogsRequest) (*GetBalanceLogsResponse, error)
-	// GetTrade 获取成交详情
+	// GetTrade retrieves trade details by trade ID
 	GetTrade(context.Context, *GetTradeRequest) (*Trade, error)
-	// ListTrades 获取成交列表
+	// ListTrades retrieves trade history with optional filters
 	ListTrades(context.Context, *ListTradesRequest) (*ListTradesResponse, error)
-	// ListTradesByOrder 获取订单相关成交
+	// ListTradesByOrder retrieves all trades for a specific order
 	ListTradesByOrder(context.Context, *ListTradesByOrderRequest) (*ListTradesResponse, error)
-	// GetDeposit 获取充值详情
+	// GetDeposit retrieves deposit details by deposit ID
 	GetDeposit(context.Context, *GetDepositRequest) (*Deposit, error)
-	// ListDeposits 获取充值列表
+	// ListDeposits retrieves deposit history with optional filters
 	ListDeposits(context.Context, *ListDepositsRequest) (*ListDepositsResponse, error)
-	// CreateWithdrawal 创建提现
+	// CreateWithdrawal creates a new withdrawal request
+	// Requires sufficient available balance
 	CreateWithdrawal(context.Context, *CreateWithdrawalRequest) (*CreateWithdrawalResponse, error)
-	// CancelWithdrawal 取消提现
+	// CancelWithdrawal cancels a pending withdrawal
+	// Only withdrawals with status PENDING can be cancelled
 	CancelWithdrawal(context.Context, *CancelWithdrawalRequest) (*emptypb.Empty, error)
-	// GetWithdrawal 获取提现详情
+	// GetWithdrawal retrieves withdrawal details by withdrawal ID
 	GetWithdrawal(context.Context, *GetWithdrawalRequest) (*Withdrawal, error)
-	// ListWithdrawals 获取提现列表
+	// ListWithdrawals retrieves withdrawal history with optional filters
 	ListWithdrawals(context.Context, *ListWithdrawalsRequest) (*ListWithdrawalsResponse, error)
-	// ProcessTradeResult 处理撮合结果
+	// ProcessTradeResult processes a trade result from matching engine
+	// Called by Settlement Service after trade matching
 	ProcessTradeResult(context.Context, *ProcessTradeResultRequest) (*emptypb.Empty, error)
-	// ProcessDepositEvent 处理充值事件
+	// ProcessDepositEvent processes a deposit event from chain indexer
+	// Called by Chain Service when deposit is detected
 	ProcessDepositEvent(context.Context, *ProcessDepositEventRequest) (*emptypb.Empty, error)
-	// ConfirmSettlement 确认结算
+	// ConfirmSettlement confirms on-chain settlement of trades
+	// Called by Chain Service when settlement tx is confirmed
 	ConfirmSettlement(context.Context, *ConfirmSettlementRequest) (*emptypb.Empty, error)
+	// RollbackSettlement rolls back a failed settlement
+	// Called when on-chain settlement fails
+	RollbackSettlement(context.Context, *RollbackSettlementRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedTradingServiceServer()
 }
 
@@ -356,11 +427,17 @@ type TradingServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTradingServiceServer struct{}
 
+func (UnimplementedTradingServiceServer) PrepareOrder(context.Context, *PrepareOrderRequest) (*PrepareOrderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepareOrder not implemented")
+}
 func (UnimplementedTradingServiceServer) CreateOrder(context.Context, *CreateOrderRequest) (*CreateOrderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateOrder not implemented")
 }
 func (UnimplementedTradingServiceServer) CancelOrder(context.Context, *CancelOrderRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOrder not implemented")
+}
+func (UnimplementedTradingServiceServer) BatchCancelOrders(context.Context, *BatchCancelOrdersRequest) (*BatchCancelOrdersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchCancelOrders not implemented")
 }
 func (UnimplementedTradingServiceServer) GetOrder(context.Context, *GetOrderRequest) (*Order, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOrder not implemented")
@@ -416,6 +493,9 @@ func (UnimplementedTradingServiceServer) ProcessDepositEvent(context.Context, *P
 func (UnimplementedTradingServiceServer) ConfirmSettlement(context.Context, *ConfirmSettlementRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfirmSettlement not implemented")
 }
+func (UnimplementedTradingServiceServer) RollbackSettlement(context.Context, *RollbackSettlementRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackSettlement not implemented")
+}
 func (UnimplementedTradingServiceServer) mustEmbedUnimplementedTradingServiceServer() {}
 func (UnimplementedTradingServiceServer) testEmbeddedByValue()                        {}
 
@@ -435,6 +515,24 @@ func RegisterTradingServiceServer(s grpc.ServiceRegistrar, srv TradingServiceSer
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&TradingService_ServiceDesc, srv)
+}
+
+func _TradingService_PrepareOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TradingServiceServer).PrepareOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TradingService_PrepareOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TradingServiceServer).PrepareOrder(ctx, req.(*PrepareOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _TradingService_CreateOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -469,6 +567,24 @@ func _TradingService_CancelOrder_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TradingServiceServer).CancelOrder(ctx, req.(*CancelOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TradingService_BatchCancelOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchCancelOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TradingServiceServer).BatchCancelOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TradingService_BatchCancelOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TradingServiceServer).BatchCancelOrders(ctx, req.(*BatchCancelOrdersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -797,6 +913,24 @@ func _TradingService_ConfirmSettlement_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TradingService_RollbackSettlement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackSettlementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TradingServiceServer).RollbackSettlement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TradingService_RollbackSettlement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TradingServiceServer).RollbackSettlement(ctx, req.(*RollbackSettlementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TradingService_ServiceDesc is the grpc.ServiceDesc for TradingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -805,12 +939,20 @@ var TradingService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*TradingServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "PrepareOrder",
+			Handler:    _TradingService_PrepareOrder_Handler,
+		},
+		{
 			MethodName: "CreateOrder",
 			Handler:    _TradingService_CreateOrder_Handler,
 		},
 		{
 			MethodName: "CancelOrder",
 			Handler:    _TradingService_CancelOrder_Handler,
+		},
+		{
+			MethodName: "BatchCancelOrders",
+			Handler:    _TradingService_BatchCancelOrders_Handler,
 		},
 		{
 			MethodName: "GetOrder",
@@ -883,6 +1025,10 @@ var TradingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConfirmSettlement",
 			Handler:    _TradingService_ConfirmSettlement_Handler,
+		},
+		{
+			MethodName: "RollbackSettlement",
+			Handler:    _TradingService_RollbackSettlement_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

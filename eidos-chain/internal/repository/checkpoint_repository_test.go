@@ -24,13 +24,13 @@ func TestChainEventType_Values(t *testing.T) {
 // TestBlockCheckpoint_TableName 测试表名
 func TestBlockCheckpoint_TableName(t *testing.T) {
 	checkpoint := &model.BlockCheckpoint{}
-	assert.Equal(t, "eidos_chain_block_checkpoints", checkpoint.TableName())
+	assert.Equal(t, "chain_block_checkpoints", checkpoint.TableName())
 }
 
 // TestChainEvent_TableName 测试表名
 func TestChainEvent_TableName(t *testing.T) {
 	event := &model.ChainEvent{}
-	assert.Equal(t, "eidos_chain_events", event.TableName())
+	assert.Equal(t, "chain_events", event.TableName())
 }
 
 // TestBlockCheckpoint_Fields 测试 BlockCheckpoint 字段
