@@ -44,7 +44,7 @@ Eidos 是一个高性能的去中心化交易系统，采用**链下撮合 + 链
 - **低成本**: 仅最终结算上链，Gas 费用极低
 - **可验证**: 所有交易结果链上可查，完全透明
 - **钱包原生**: EIP-712 签名认证，无需注册，连接钱包即可交易
-- **生产就绪**: 完整的微服务架构，配备监控、日志、高可用方案
+- **生产就绪**: 完整的微服务架构，配备监控、链路追踪、日志、高可用方案
 
 ## 系统架构
 
@@ -90,7 +90,7 @@ Eidos 由 8 个微服务组成，通过 gRPC（同步）和 Kafka（异步）通
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         基础设施层                               │
-│        PostgreSQL + TimescaleDB  •  Redis  •  Nacos             │
+│   PostgreSQL + TimescaleDB • Redis • Nacos • Kafka • Jaeger     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -120,6 +120,7 @@ Eidos 由 8 个微服务组成，通过 gRPC（同步）和 Kafka（异步）通
 | **服务发现**  | Nacos                                |
 | **目标链**    | Arbitrum (Ethereum L2)               |
 | **监控**      | Prometheus + Grafana                 |
+| **链路追踪**  | OpenTelemetry + Jaeger               |
 | **部署**      | Docker Compose / Kubernetes          |
 
 ## 项目进度
@@ -128,7 +129,7 @@ Eidos 由 8 个微服务组成，通过 gRPC（同步）和 Kafka（异步）通
 
 | 模块               | 状态      | 说明                                   |
 | ------------------ | --------- | -------------------------------------- |
-| **eidos-common**   | ✅ 已完成 | 公共库：EIP-712、Kafka、Redis、gRPC 等 |
+| **eidos-common**   | ✅ 已完成 | 公共库：EIP-712、Kafka、Redis、gRPC、Tracing 等 |
 | **eidos-api**      | ✅ 已完成 | REST API、WebSocket 推送、签名验证     |
 | **eidos-trading**  | ✅ 已完成 | 订单管理、清算、账户余额、资金流水     |
 | **eidos-matching** | ✅ 已完成 | 内存订单簿、价格时间优先撮合           |
@@ -218,6 +219,7 @@ API 网关地址：`http://localhost:8080`
 | **Nacos** (服务发现/配置)   | `http://localhost:8848/nacos` | `nacos`             | `nacos`             |
 | **Grafana** (监控面板)      | `http://localhost:3000`       | `admin`             | `admin123`          |
 | **Prometheus** (时序指标)   | `http://localhost:9090`       | -                   | -                   |
+| **Jaeger** (链路追踪)       | `http://localhost:16686`      | -                   | -                   |
 | **Admin 后台**              | `http://localhost:8088`       | `admin`             | `admin123`          |
 | **Kafka UI** (需开启 debug) | `http://localhost:8090`       | -                   | -                   |
 
