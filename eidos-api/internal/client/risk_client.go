@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	commonpb "github.com/eidos-exchange/eidos/proto/common"
 	pb "github.com/eidos-exchange/eidos/proto/risk/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -98,12 +98,10 @@ func NewRiskClient(conn *grpc.ClientConn) *RiskClient {
 }
 
 // NewRiskClientWithTarget 创建 Risk 客户端（自动创建连接）
-func NewRiskClientWithTarget(target string, opts ...grpc.DialOption) (*RiskClient, error) {
-	// 默认选项
-	defaultOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-	}
+// 使用企业级默认配置：keepalive、负载均衡、拦截器（tracing/metrics/logging）
+func NewRiskClientWithTarget(target string, enableTracing bool, opts ...grpc.DialOption) (*RiskClient, error) {
+	// 获取企业级默认选项
+	defaultOpts := commonGrpc.DefaultDialOptions("eidos-api", enableTracing)
 	opts = append(defaultOpts, opts...)
 
 	conn, err := grpc.NewClient(target, opts...)

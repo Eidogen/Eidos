@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/dto"
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	pb "github.com/eidos-exchange/eidos/proto/market/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -43,12 +43,10 @@ func NewMarketClient(conn *grpc.ClientConn) *MarketClient {
 }
 
 // NewMarketClientWithTarget 创建 Market 客户端（自动创建连接）
-func NewMarketClientWithTarget(target string, opts ...grpc.DialOption) (*MarketClient, error) {
-	// 默认选项
-	defaultOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-	}
+// 使用企业级默认配置：keepalive、负载均衡、拦截器（tracing/metrics/logging）
+func NewMarketClientWithTarget(target string, enableTracing bool, opts ...grpc.DialOption) (*MarketClient, error) {
+	// 获取企业级默认选项
+	defaultOpts := commonGrpc.DefaultDialOptions("eidos-api", enableTracing)
 	opts = append(defaultOpts, opts...)
 
 	conn, err := grpc.NewClient(target, opts...)

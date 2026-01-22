@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,8 +22,8 @@ func TestDefaultConfig(t *testing.T) {
 
 	// Nacos
 	assert.Equal(t, "nacos:8848", cfg.Nacos.ServerAddr)
-	assert.Equal(t, "eidos-dev", cfg.Nacos.Namespace)
-	assert.Equal(t, "EIDOS_GROUP", cfg.Nacos.Group)
+	assert.Equal(t, "eidos", cfg.Nacos.Namespace)
+	assert.Equal(t, "DEFAULT_GROUP", cfg.Nacos.Group)
 
 	// Postgres
 	assert.Equal(t, "postgres", cfg.Postgres.Host)
@@ -42,7 +43,7 @@ func TestDefaultConfig(t *testing.T) {
 	// Kafka
 	assert.Equal(t, []string{"kafka:9092"}, cfg.Kafka.Brokers)
 	assert.Equal(t, "eidos-market", cfg.Kafka.GroupID)
-	assert.Equal(t, "eidos-market", cfg.Kafka.ClientID)
+	assert.Equal(t, "", cfg.Kafka.ClientID)
 
 	// Kline
 	expectedIntervals := []string{"1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"}
@@ -286,7 +287,7 @@ func TestAggregatorConfig(t *testing.T) {
 }
 
 func TestLogConfig(t *testing.T) {
-	lc := LogConfig{
+	lc := commonConfig.LogConfig{
 		Level:  "warn",
 		Format: "console",
 	}

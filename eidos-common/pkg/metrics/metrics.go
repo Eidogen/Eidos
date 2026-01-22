@@ -129,6 +129,7 @@ var (
 )
 
 // Cache Metrics - 缓存监控指标
+// 注意: Redis 连接池指标已在 eidos-common/pkg/infra 包中定义，使用 infra.NewPoolMetricsCollector() 收集
 var (
 	// CacheHits 缓存命中数
 	CacheHits = promauto.NewCounterVec(

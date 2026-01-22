@@ -23,6 +23,8 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-api/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/ws"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/tracing"
 )
 
 // App 应用实例
@@ -59,6 +61,9 @@ type App struct {
 	// Middleware 组件
 	replayGuard   *cache.ReplayGuard
 	slidingWindow *ratelimit.SlidingWindow
+
+	// 链路追踪
+	tracingShutdown func(context.Context) error
 }
 
 // New 创建应用实例
@@ -71,6 +76,11 @@ func New(cfg *config.Config, logger *slog.Logger) *App {
 
 // Start 启动应用
 func (a *App) Start(ctx context.Context) error {
+	// 0. 初始化链路追踪
+	if err := a.initTracing(); err != nil {
+		a.logger.Warn("init tracing failed, tracing disabled", "error", err)
+	}
+
 	// 1. 初始化依赖
 	if err := a.initDependencies(ctx); err != nil {
 		return fmt.Errorf("init dependencies: %w", err)
@@ -143,6 +153,15 @@ func (a *App) Stop(ctx context.Context) error {
 		}
 	}
 
+	// 关闭链路追踪
+	if a.tracingShutdown != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.tracingShutdown(shutdownCtx); err != nil {
+			a.logger.Error("shutdown tracing failed", "error", err)
+		}
+	}
+
 	a.logger.Info("application stopped")
 	return nil
 }
@@ -162,19 +181,46 @@ func (a *App) WaitForShutdown() {
 	}
 }
 
+// initTracing 初始化链路追踪
+func (a *App) initTracing() error {
+	if !a.cfg.Tracing.Enabled {
+		return nil
+	}
+
+	tracingCfg := &tracing.Config{
+		Enabled:     a.cfg.Tracing.Enabled,
+		ServiceName: a.cfg.Service.Name,
+		Endpoint:    a.cfg.Tracing.Endpoint,
+		SampleRate:  a.cfg.Tracing.SampleRate,
+		Environment: a.cfg.Service.Env,
+		Version:     "1.0.0",
+		Insecure:    a.cfg.Tracing.Insecure,
+		Timeout:     time.Duration(a.cfg.Tracing.TimeoutSec) * time.Second,
+	}
+
+	shutdown, err := tracing.Init(tracingCfg)
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+
+	a.tracingShutdown = shutdown
+	a.logger.Info("tracing initialized",
+		"endpoint", a.cfg.Tracing.Endpoint,
+		"sample_rate", a.cfg.Tracing.SampleRate)
+
+	return nil
+}
+
 // initDependencies 初始化依赖
 func (a *App) initDependencies(ctx context.Context) error {
-	// 初始化 Redis
-	a.redis = redis.NewClient(&redis.Options{
-		Addr:     a.cfg.RedisAddr(),
-		Password: a.cfg.Redis.Password,
-		DB:       a.cfg.Redis.DB,
-		PoolSize: a.cfg.Redis.PoolSize,
-	})
-	if err := a.redis.Ping(ctx).Err(); err != nil {
+	// 初始化 Redis - 使用统一基础设施初始化
+	a.redis = infra.NewRedisClient(&a.cfg.Redis)
+
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := a.redis.Ping(pingCtx).Err(); err != nil {
 		return fmt.Errorf("redis ping: %w", err)
 	}
-	a.logger.Info("redis connected", "addr", a.cfg.RedisAddr())
 
 	// 初始化统一服务发现基础设施 (Nacos 必须启用)
 	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, 0, a.cfg.Service.HTTPPort)
@@ -306,6 +352,11 @@ func (a *App) initHTTPServer() {
 
 	a.engine = gin.New()
 
+	// 如果启用了链路追踪，添加 tracing 中间件
+	if a.cfg.Tracing.Enabled {
+		a.engine.Use(tracing.GinMiddleware(a.cfg.Service.Name))
+	}
+
 	// 注册路由
 	r := router.New(
 		a.engine,
@@ -348,5 +399,7 @@ type redisHealthAdapter struct {
 }
 
 func (r *redisHealthAdapter) Ping() error {
-	return r.client.Ping(context.Background()).Err()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	return r.client.Ping(ctx).Err()
 }

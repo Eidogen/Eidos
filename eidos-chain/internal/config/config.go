@@ -17,6 +17,7 @@ type Config struct {
 	Blockchain  BlockchainConfig               `yaml:"blockchain" json:"blockchain"`
 	Settlement  SettlementConfig               `yaml:"settlement" json:"settlement"`
 	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Tracing     commonConfig.TracingConfig     `yaml:"tracing" json:"tracing"`
 	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
@@ -93,6 +94,16 @@ func overrideFromEnv(cfg *Config) {
 	// 数据库
 	if v := os.Getenv("DB_HOST"); v != "" {
 		cfg.Postgres.Host = v
+	}
+
+	// 链路追踪配置 (支持 OTEL 标准环境变量)
+	if v := os.Getenv("TRACING_ENABLED"); v != "" {
+		cfg.Tracing.Enabled = v == "true"
+	}
+	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
+	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
 	}
 }
 

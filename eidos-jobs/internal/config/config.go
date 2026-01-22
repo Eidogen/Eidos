@@ -21,6 +21,7 @@ type Config struct {
 	Jobs            JobsConfig                     `yaml:"jobs" json:"jobs"`
 	Scheduler       SchedulerConfig                `yaml:"scheduler" json:"scheduler"`
 	Log             commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Tracing         commonConfig.TracingConfig     `yaml:"tracing" json:"tracing"`
 }
 
 // HealthEndpointConfig 单个服务健康检查端点配置
@@ -334,5 +335,15 @@ func applyEnvOverrides(cfg *Config) {
 	// Log
 	if v := os.Getenv("LOG_LEVEL"); v != "" {
 		cfg.Log.Level = v
+	}
+
+	// 链路追踪配置 (支持 OTEL 标准环境变量)
+	if v := os.Getenv("TRACING_ENABLED"); v != "" {
+		cfg.Tracing.Enabled = v == "true"
+	}
+	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
+	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
 	}
 }

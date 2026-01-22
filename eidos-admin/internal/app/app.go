@@ -23,6 +23,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/tracing"
 )
 
 // App 应用
@@ -35,6 +36,9 @@ type App struct {
 	infra         *discovery.Infrastructure // 统一服务发现基础设施
 	clientManager *client.ClientManager
 	repos         *repositories
+
+	// 链路追踪
+	tracingShutdown func(context.Context) error
 }
 
 // New 创建应用
@@ -48,11 +52,21 @@ func New(cfg *config.Config, db *gorm.DB, redisClient redis.UniversalClient) *Ap
 
 // Init 初始化应用
 func (a *App) Init() error {
+	// 初始化链路追踪
+	if err := a.initTracing(); err != nil {
+		logger.Warn("init tracing failed, tracing disabled", "error", err)
+	}
+
 	// 设置 Gin 模式
 	gin.SetMode(a.cfg.Service.Env)
 
 	// 创建 Gin 引擎
 	a.engine = gin.New()
+
+	// 如果启用了链路追踪，添加 tracing 中间件（放在最前面）
+	if a.cfg.Tracing.Enabled {
+		a.engine.Use(tracing.GinMiddleware(a.cfg.Service.Name))
+	}
 
 	// 添加中间件
 	a.engine.Use(gin.Recovery())
@@ -67,13 +81,17 @@ func (a *App) Init() error {
 
 	// 初始化 gRPC 客户端管理器（使用服务发现）
 	a.clientManager = client.NewClientManagerWithDiscovery(&a.cfg.GRPCClients, a.infra)
-	if err := a.clientManager.Connect(context.Background()); err != nil {
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer connectCancel()
+	if err := a.clientManager.Connect(connectCtx); err != nil {
 		logger.Warn("failed to connect to some gRPC services", "error", err)
 	}
 
 	// 连接 Jobs 服务（可选）
 	if a.cfg.GRPCClients.Jobs.Addr != "" {
-		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs.Addr); err != nil {
+		jobsCtx, jobsCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer jobsCancel()
+		if err := a.clientManager.ConnectJobs(jobsCtx, a.cfg.GRPCClients.Jobs.Addr); err != nil {
 			logger.Warn("failed to connect to jobs service", "error", err)
 		}
 	}
@@ -107,6 +125,36 @@ func (a *App) Init() error {
 	logger.Info("app initialized",
 		"port", a.cfg.Service.HTTPPort,
 		"mode", a.cfg.Service.Env)
+
+	return nil
+}
+
+// initTracing 初始化链路追踪
+func (a *App) initTracing() error {
+	if !a.cfg.Tracing.Enabled {
+		return nil
+	}
+
+	tracingCfg := &tracing.Config{
+		Enabled:     a.cfg.Tracing.Enabled,
+		ServiceName: a.cfg.Service.Name,
+		Endpoint:    a.cfg.Tracing.Endpoint,
+		SampleRate:  a.cfg.Tracing.SampleRate,
+		Environment: a.cfg.Service.Env,
+		Version:     "1.0.0",
+		Insecure:    a.cfg.Tracing.Insecure,
+		Timeout:     time.Duration(a.cfg.Tracing.TimeoutSec) * time.Second,
+	}
+
+	shutdown, err := tracing.Init(tracingCfg)
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+
+	a.tracingShutdown = shutdown
+	logger.Info("tracing initialized",
+		"endpoint", a.cfg.Tracing.Endpoint,
+		"sample_rate", a.cfg.Tracing.SampleRate)
 
 	return nil
 }
@@ -302,6 +350,15 @@ func (a *App) Shutdown(ctx context.Context) error {
 	if a.infra != nil {
 		if err := a.infra.Close(); err != nil {
 			logger.Warn("failed to close infrastructure", "error", err)
+		}
+	}
+
+	// 关闭链路追踪
+	if a.tracingShutdown != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.tracingShutdown(shutdownCtx); err != nil {
+			logger.Warn("shutdown tracing failed", "error", err)
 		}
 	}
 

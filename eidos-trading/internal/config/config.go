@@ -20,6 +20,7 @@ type Config struct {
 	Node        NodeConfig                     `yaml:"node" json:"node"`
 	EIP712      EIP712Config                   `yaml:"eip712" json:"eip712"`
 	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Tracing     commonConfig.TracingConfig     `yaml:"tracing" json:"tracing"`
 	Markets     []MarketConfig                 `yaml:"markets" json:"markets"`
 	Tokens      []TokenConfig                  `yaml:"tokens" json:"tokens"`
 	RiskControl RiskControlConfig              `yaml:"risk_control" json:"risk_control"`
@@ -333,5 +334,15 @@ func loadFromEnv(cfg *Config) {
 		if id, err := strconv.ParseInt(nodeID, 10, 64); err == nil {
 			cfg.Node.ID = id
 		}
+	}
+
+	// 链路追踪配置 (支持 OTEL 标准环境变量)
+	if v := os.Getenv("TRACING_ENABLED"); v != "" {
+		cfg.Tracing.Enabled = v == "true"
+	}
+	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
+	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
 	}
 }

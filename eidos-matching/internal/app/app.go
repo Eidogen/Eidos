@@ -45,7 +45,9 @@ import (
 	"log/slog"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
 	commonMetrics "github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/tracing"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/engine"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/ha"
@@ -60,7 +62,6 @@ import (
 	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
@@ -99,6 +100,9 @@ type App struct {
 	// 指数价格管理器
 	indexPriceManager *price.IndexPriceManager
 
+	// 链路追踪
+	tracingShutdown func(context.Context) error
+
 	// 状态
 	isRunning atomic.Bool
 	ctx       context.Context
@@ -126,6 +130,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		cfg:    cfg,
 		ctx:    ctx,
 		cancel: cancel,
+	}
+
+	// 初始化链路追踪
+	if err := app.initTracing(); err != nil {
+		slog.Warn("init tracing failed, tracing disabled", "error", err)
 	}
 
 	// 初始化 Redis
@@ -187,16 +196,39 @@ func NewApp(cfg *config.Config) (*App, error) {
 	return app, nil
 }
 
-// initRedis 初始化 Redis
-func (a *App) initRedis() error {
-	opts := &redis.UniversalOptions{
-		Addrs:    a.cfg.Redis.Addresses,
-		Password: a.cfg.Redis.Password,
-		DB:       a.cfg.Redis.DB,
-		PoolSize: a.cfg.Redis.PoolSize,
+// initTracing 初始化链路追踪
+func (a *App) initTracing() error {
+	if !a.cfg.Tracing.Enabled {
+		return nil
 	}
 
-	a.redisClient = redis.NewUniversalClient(opts)
+	tracingCfg := &tracing.Config{
+		Enabled:     a.cfg.Tracing.Enabled,
+		ServiceName: a.cfg.Service.Name,
+		Endpoint:    a.cfg.Tracing.Endpoint,
+		SampleRate:  a.cfg.Tracing.SampleRate,
+		Environment: a.cfg.Service.Env,
+		Version:     "1.0.0",
+		Insecure:    a.cfg.Tracing.Insecure,
+		Timeout:     time.Duration(a.cfg.Tracing.TimeoutSec) * time.Second,
+	}
+
+	shutdown, err := tracing.Init(tracingCfg)
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+
+	a.tracingShutdown = shutdown
+	slog.Info("tracing initialized",
+		"endpoint", a.cfg.Tracing.Endpoint,
+		"sample_rate", a.cfg.Tracing.SampleRate)
+
+	return nil
+}
+
+// initRedis 初始化 Redis
+func (a *App) initRedis() error {
+	a.redisClient = infra.NewRedisUniversalClient(&a.cfg.Redis)
 
 	// 测试连接
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -291,14 +323,28 @@ func (a *App) initKafka() error {
 
 // initGRPC 初始化 gRPC 服务
 func (a *App) initGRPC() error {
-	// 创建 gRPC 服务器 (带 metrics 拦截器)
+	// 构建拦截器链
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		commonMetrics.UnaryServerInterceptor(a.cfg.Service.Name),
+	}
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		commonMetrics.StreamServerInterceptor(a.cfg.Service.Name),
+	}
+
+	// 如果启用了链路追踪，添加 tracing 拦截器
+	if a.cfg.Tracing.Enabled {
+		unaryInterceptors = append([]grpc.UnaryServerInterceptor{
+			tracing.UnaryServerInterceptor(a.cfg.Service.Name),
+		}, unaryInterceptors...)
+		streamInterceptors = append([]grpc.StreamServerInterceptor{
+			tracing.StreamServerInterceptor(a.cfg.Service.Name),
+		}, streamInterceptors...)
+	}
+
+	// 创建 gRPC 服务器 (带 metrics 和 tracing 拦截器)
 	a.grpcServer = grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			commonMetrics.UnaryServerInterceptor(a.cfg.Service.Name),
-		),
-		grpc.ChainStreamInterceptor(
-			commonMetrics.StreamServerInterceptor(a.cfg.Service.Name),
-		),
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
 	)
 
 	// 注册 MatchingService
@@ -685,47 +731,19 @@ func (a *App) Start() error {
 
 // startHTTPServer 启动 HTTP 服务器 (metrics + health check)
 func (a *App) startHTTPServer() {
-	mux := http.NewServeMux()
-
-	// Prometheus metrics 端点
-	mux.Handle("/metrics", promhttp.Handler())
-
-	// 健康检查端点 (HTTP)
-	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
-		if !a.isRunning.Load() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("NOT READY"))
-			return
-		}
-		// 检查 Redis 连接
-		if a.redisClient != nil {
-			if err := a.redisClient.Ping(r.Context()).Err(); err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte("REDIS NOT READY"))
-				return
+	a.httpServer = infra.NewHTTPServer(&infra.HTTPServerConfig{
+		Port:           a.cfg.Service.HTTPPort,
+		RedisUniversal: a.redisClient,
+		EnableMetrics:  true,
+		EnableHealth:   true,
+		CustomChecker: func(ctx context.Context) error {
+			if !a.isRunning.Load() {
+				return fmt.Errorf("NOT READY")
 			}
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+			return nil
+		},
 	})
-
-	a.httpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
-		Handler: mux,
-	}
-
-	go func() {
-		slog.Info("HTTP server listening (metrics + health)",
-			"port", a.cfg.Service.HTTPPort,
-		)
-		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("http server error", "error", err)
-		}
-	}()
+	infra.StartHTTPServer(a.httpServer)
 }
 
 // Stop 停止应用
@@ -759,12 +777,8 @@ func (a *App) Stop() error {
 	}
 
 	// 停止 HTTP 服务器
-	if a.httpServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-			slog.Error("http server shutdown error", "error", err)
-		}
+	if err := infra.ShutdownHTTPServer(a.httpServer, 5*time.Second); err != nil {
+		slog.Error("http server shutdown error", "error", err)
 	}
 
 	// 停止快照定时器
@@ -818,6 +832,15 @@ func (a *App) Stop() error {
 
 	// 保存最终快照
 	a.saveAllSnapshots()
+
+	// 关闭链路追踪
+	if a.tracingShutdown != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.tracingShutdown(shutdownCtx); err != nil {
+			slog.Error("shutdown tracing failed", "error", err)
+		}
+	}
 
 	return nil
 }

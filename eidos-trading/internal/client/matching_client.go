@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	matchingpb "github.com/eidos-exchange/eidos/proto/matching/v1"
 )
@@ -41,13 +41,14 @@ func DefaultMatchingClientConfig(addr string) *MatchingClientConfig {
 }
 
 // NewMatchingClient 创建撮合服务客户端（自行管理连接）
-func NewMatchingClient(cfg *MatchingClientConfig) (*MatchingClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ConnectTimeout)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, cfg.Addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+// 使用企业级默认配置：keepalive、负载均衡、拦截器（tracing/metrics/logging）
+func NewMatchingClient(cfg *MatchingClientConfig, enableTracing bool) (*MatchingClient, error) {
+	conn, err := commonGrpc.DialWithTimeout(
+		context.Background(),
+		cfg.Addr,
+		"eidos-trading",
+		cfg.ConnectTimeout,
+		enableTracing,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("connect to matching service: %w", err)

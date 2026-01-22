@@ -176,7 +176,7 @@ func TestContainsInner(t *testing.T) {
 func TestNewTradingClientWithTarget(t *testing.T) {
 	// Test creating a client with an invalid target
 	// This won't actually fail because NewClient is lazy
-	client, err := NewTradingClientWithTarget("localhost:99999")
+	client, err := NewTradingClientWithTarget("localhost:99999", false)
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
 

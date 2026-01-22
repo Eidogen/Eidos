@@ -11,20 +11,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/id"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/tracing"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
@@ -99,6 +98,9 @@ type App struct {
 	// 缓存层 (Redis 作为实时资金真相)
 	balanceCache cache.BalanceRedisRepository
 
+	// 链路追踪
+	tracingShutdown func(context.Context) error
+
 	// 生命周期
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -117,6 +119,11 @@ func New(cfg *config.Config) *App {
 // Run 启动应用
 func (a *App) Run() error {
 	logger.Info("starting service", "service", serviceName)
+
+	// 0. 初始化链路追踪
+	if err := a.initTracing(); err != nil {
+		logger.Warn("init tracing failed, tracing disabled", "error", err)
+	}
 
 	// 1. 初始化基础设施
 	if err := a.initInfra(); err != nil {
@@ -170,6 +177,36 @@ func (a *App) Run() error {
 	return nil
 }
 
+// initTracing 初始化链路追踪
+func (a *App) initTracing() error {
+	if !a.cfg.Tracing.Enabled {
+		return nil
+	}
+
+	tracingCfg := &tracing.Config{
+		Enabled:     a.cfg.Tracing.Enabled,
+		ServiceName: a.cfg.Service.Name,
+		Endpoint:    a.cfg.Tracing.Endpoint,
+		SampleRate:  a.cfg.Tracing.SampleRate,
+		Environment: a.cfg.Service.Env,
+		Version:     "1.0.0",
+		Insecure:    a.cfg.Tracing.Insecure,
+		Timeout:     time.Duration(a.cfg.Tracing.TimeoutSec) * time.Second,
+	}
+
+	shutdown, err := tracing.Init(tracingCfg)
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+
+	a.tracingShutdown = shutdown
+	logger.Info("tracing initialized",
+		"endpoint", a.cfg.Tracing.Endpoint,
+		"sample_rate", a.cfg.Tracing.SampleRate)
+
+	return nil
+}
+
 // initInfra 初始化基础设施
 func (a *App) initInfra() error {
 	var err error
@@ -210,12 +247,11 @@ func (a *App) initInfra() error {
 		return fmt.Errorf("ensure database: %w", err)
 	}
 
-	// 初始化数据库
-	a.db, err = initDatabase(a.cfg)
+	// 初始化数据库 (使用统一的 infra 包)
+	a.db, err = infra.NewDatabase(&a.cfg.Postgres)
 	if err != nil {
 		return fmt.Errorf("init database: %w", err)
 	}
-	logger.Info("database connected")
 
 	// 自动迁移
 	if err := AutoMigrate(a.db); err != nil {
@@ -223,9 +259,8 @@ func (a *App) initInfra() error {
 	}
 	logger.Info("database migrated")
 
-	// 初始化 Redis
-	a.rdb = initRedis(a.cfg)
-	logger.Info("redis connected", "addr", a.cfg.RedisAddr())
+	// 初始化 Redis (使用统一的 infra 包)
+	a.rdb = infra.NewRedisClient(&a.cfg.Redis)
 
 	// 初始化 ID 生成器
 	a.idGen, err = id.NewGenerator(a.cfg.Node.ID)
@@ -447,52 +482,16 @@ func (a *App) initWorkers() {
 }
 
 // startHTTPServer 启动 HTTP 服务器 (metrics + health check)
+// 使用统一的 infra 包，消除重复代码
 func (a *App) startHTTPServer() {
-	mux := http.NewServeMux()
-
-	// Prometheus metrics 端点
-	mux.Handle("/metrics", promhttp.Handler())
-
-	// 健康检查端点 (HTTP)
-	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+	a.httpServer = infra.NewHTTPServer(&infra.HTTPServerConfig{
+		Port:          a.cfg.Service.HTTPPort,
+		DB:            a.db,
+		Redis:         a.rdb,
+		EnableMetrics: true,
+		EnableHealth:  true,
 	})
-	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
-		// 检查数据库连接
-		if a.db != nil {
-			sqlDB, err := a.db.DB()
-			if err != nil || sqlDB.Ping() != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte("DB NOT READY"))
-				return
-			}
-		}
-		// 检查 Redis 连接
-		if a.rdb != nil {
-			if err := a.rdb.Ping(r.Context()).Err(); err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte("REDIS NOT READY"))
-				return
-			}
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	a.httpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
-		Handler: mux,
-	}
-
-	go func() {
-		logger.Info("HTTP server listening (metrics + health)",
-			"port", a.cfg.Service.HTTPPort,
-		)
-		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("http server error", "error", err)
-		}
-	}()
+	infra.StartHTTPServer(a.httpServer)
 }
 
 // startGRPCServer 启动 gRPC 服务器
@@ -506,15 +505,29 @@ func (a *App) startGRPCServer() error {
 		a.withdrawSvc,
 	)
 
+	// 构建拦截器链
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		middleware.RecoveryUnaryServerInterceptor(),
+		middleware.UnaryServerInterceptor(),
+	}
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		middleware.RecoveryStreamServerInterceptor(),
+		middleware.StreamServerInterceptor(),
+	}
+
+	// 如果启用了链路追踪，添加 tracing 拦截器
+	if a.cfg.Tracing.Enabled {
+		unaryInterceptors = append([]grpc.UnaryServerInterceptor{
+			tracing.UnaryServerInterceptor(a.cfg.Service.Name),
+		}, unaryInterceptors...)
+		streamInterceptors = append([]grpc.StreamServerInterceptor{
+			tracing.StreamServerInterceptor(a.cfg.Service.Name),
+		}, streamInterceptors...)
+	}
+
 	a.grpcServer = grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.RecoveryUnaryServerInterceptor(),
-			middleware.UnaryServerInterceptor(),
-		),
-		grpc.ChainStreamInterceptor(
-			middleware.RecoveryStreamServerInterceptor(),
-			middleware.StreamServerInterceptor(),
-		),
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
 	)
 
 	// 注册健康检查
@@ -695,12 +708,8 @@ func (a *App) shutdown() {
 	}
 
 	// 停止 HTTP 服务器
-	if a.httpServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-			logger.Error("http server shutdown error", "error", err)
-		}
+	if err := infra.ShutdownHTTPServer(a.httpServer, 5*time.Second); err != nil {
+		logger.Error("http server shutdown error", "error", err)
 	}
 
 	// 关闭 Redis
@@ -715,48 +724,15 @@ func (a *App) shutdown() {
 		}
 	}
 
+	// 关闭链路追踪
+	if a.tracingShutdown != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.tracingShutdown(shutdownCtx); err != nil {
+			logger.Error("shutdown tracing failed", "error", err)
+		}
+	}
+
 	logger.Info("service stopped")
-}
-
-// ========== Infrastructure Init ==========
-
-func initDatabase(cfg *config.Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Postgres.Host,
-		cfg.Postgres.Port,
-		cfg.Postgres.User,
-		cfg.Postgres.Password,
-		cfg.Postgres.Database,
-	)
-
-	gormConfig := &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
-	}
-
-	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB.SetMaxIdleConns(cfg.Postgres.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.Postgres.MaxConnections)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Postgres.ConnMaxLifetime) * time.Second)
-
-	return db, nil
-}
-
-func initRedis(cfg *config.Config) *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr(),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-		PoolSize: cfg.Redis.PoolSize,
-	})
 }
 

@@ -31,15 +31,23 @@ KAFKA_BROKER="${KAFKA_BROKER:-localhost:29092}"
 NACOS_HOST="${NACOS_HOST:-localhost}"
 NACOS_PORT="${NACOS_PORT:-8848}"
 
-# Service ports
+# Service ports (gRPC)
 API_PORT="${API_PORT:-8080}"
-TRADING_PORT="${TRADING_PORT:-50051}"
-MATCHING_PORT="${MATCHING_PORT:-50052}"
-MARKET_PORT="${MARKET_PORT:-50053}"
-CHAIN_PORT="${CHAIN_PORT:-50054}"
-RISK_PORT="${RISK_PORT:-50055}"
-JOBS_PORT="${JOBS_PORT:-50056}"
+TRADING_GRPC_PORT="${TRADING_GRPC_PORT:-50051}"
+MATCHING_GRPC_PORT="${MATCHING_GRPC_PORT:-50052}"
+MARKET_GRPC_PORT="${MARKET_GRPC_PORT:-50053}"
+CHAIN_GRPC_PORT="${CHAIN_GRPC_PORT:-50054}"
+RISK_GRPC_PORT="${RISK_GRPC_PORT:-50055}"
+JOBS_GRPC_PORT="${JOBS_GRPC_PORT:-50056}"
 ADMIN_PORT="${ADMIN_PORT:-8088}"
+
+# Service HTTP ports (for health checks)
+TRADING_HTTP_PORT="${TRADING_HTTP_PORT:-8081}"
+MATCHING_HTTP_PORT="${MATCHING_HTTP_PORT:-8082}"
+MARKET_HTTP_PORT="${MARKET_HTTP_PORT:-8083}"
+CHAIN_HTTP_PORT="${CHAIN_HTTP_PORT:-8084}"
+RISK_HTTP_PORT="${RISK_HTTP_PORT:-8085}"
+JOBS_HTTP_PORT="${JOBS_HTTP_PORT:-8086}"
 
 # Counters
 PASSED=0
@@ -184,60 +192,89 @@ else
     fi
 fi
 
-# eidos-trading (gRPC)
-echo -n "  eidos-trading (gRPC :$TRADING_PORT): "
-if check_grpc_service "localhost" "$TRADING_PORT"; then
-    log_success "OK"
+# eidos-trading (gRPC + HTTP health)
+echo -n "  eidos-trading (gRPC :$TRADING_GRPC_PORT): "
+if check_grpc_service "localhost" "$TRADING_GRPC_PORT"; then
+    # Also check HTTP readiness endpoint
+    if check_http_endpoint "http://localhost:$TRADING_HTTP_PORT/health/ready" 200; then
+        log_success "OK (DB+Redis ready)"
+    else
+        log_warn "gRPC OK but DB/Redis not ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
-# eidos-matching (gRPC)
-echo -n "  eidos-matching (gRPC :$MATCHING_PORT): "
-if check_grpc_service "localhost" "$MATCHING_PORT"; then
-    log_success "OK"
+# eidos-matching (gRPC + HTTP health)
+echo -n "  eidos-matching (gRPC :$MATCHING_GRPC_PORT): "
+if check_grpc_service "localhost" "$MATCHING_GRPC_PORT"; then
+    if check_http_endpoint "http://localhost:$MATCHING_HTTP_PORT/health/ready" 200; then
+        log_success "OK (ready)"
+    else
+        log_warn "gRPC OK but not fully ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
-# eidos-market (gRPC)
-echo -n "  eidos-market (gRPC :$MARKET_PORT): "
-if check_grpc_service "localhost" "$MARKET_PORT"; then
-    log_success "OK"
+# eidos-market (gRPC + HTTP health)
+echo -n "  eidos-market (gRPC :$MARKET_GRPC_PORT): "
+if check_grpc_service "localhost" "$MARKET_GRPC_PORT"; then
+    if check_http_endpoint "http://localhost:$MARKET_HTTP_PORT/health/ready" 200; then
+        log_success "OK (DB+Redis ready)"
+    else
+        log_warn "gRPC OK but DB/Redis not ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
-# eidos-chain (gRPC)
-echo -n "  eidos-chain (gRPC :$CHAIN_PORT): "
-if check_grpc_service "localhost" "$CHAIN_PORT"; then
-    log_success "OK"
+# eidos-chain (gRPC + HTTP health)
+echo -n "  eidos-chain (gRPC :$CHAIN_GRPC_PORT): "
+if check_grpc_service "localhost" "$CHAIN_GRPC_PORT"; then
+    if check_http_endpoint "http://localhost:$CHAIN_HTTP_PORT/health/ready" 200; then
+        log_success "OK (DB+Redis ready)"
+    else
+        log_warn "gRPC OK but DB/Redis not ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
-# eidos-risk (gRPC)
-echo -n "  eidos-risk (gRPC :$RISK_PORT): "
-if check_grpc_service "localhost" "$RISK_PORT"; then
-    log_success "OK"
+# eidos-risk (gRPC + HTTP health)
+echo -n "  eidos-risk (gRPC :$RISK_GRPC_PORT): "
+if check_grpc_service "localhost" "$RISK_GRPC_PORT"; then
+    if check_http_endpoint "http://localhost:$RISK_HTTP_PORT/health/ready" 200; then
+        log_success "OK (DB+Redis ready)"
+    else
+        log_warn "gRPC OK but DB/Redis not ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
-# eidos-jobs (gRPC)
-echo -n "  eidos-jobs (gRPC :$JOBS_PORT): "
-if check_grpc_service "localhost" "$JOBS_PORT"; then
-    log_success "OK"
+# eidos-jobs (gRPC + HTTP health)
+echo -n "  eidos-jobs (gRPC :$JOBS_GRPC_PORT): "
+if check_grpc_service "localhost" "$JOBS_GRPC_PORT"; then
+    if check_http_endpoint "http://localhost:$JOBS_HTTP_PORT/health/ready" 200; then
+        log_success "OK (DB+Redis ready)"
+    else
+        log_warn "gRPC OK but DB/Redis not ready"
+    fi
 else
     log_fail "Not reachable"
 fi
 
 # eidos-admin (HTTP)
 echo -n "  eidos-admin (HTTP :$ADMIN_PORT): "
-if check_tcp_port "localhost" "$ADMIN_PORT"; then
+if check_http_endpoint "http://localhost:$ADMIN_PORT/metrics" 200; then
     log_success "OK"
 else
-    log_fail "Not reachable"
+    if check_tcp_port "localhost" "$ADMIN_PORT"; then
+        log_warn "Port open but metrics endpoint failed"
+    else
+        log_fail "Not reachable"
+    fi
 fi
 
 echo ""
@@ -279,6 +316,18 @@ if check_tcp_port "localhost" 8090; then
     log_success "OK"
 else
     log_warn "Not available (optional)"
+fi
+
+# Jaeger
+echo -n "  Jaeger (localhost:16686): "
+if check_http_endpoint "http://localhost:14269/" 200; then
+    log_success "OK"
+else
+    if check_tcp_port "localhost" 16686; then
+        log_warn "Port open but admin health check failed"
+    else
+        log_warn "Not available (optional for dev)"
+    fi
 fi
 
 echo ""

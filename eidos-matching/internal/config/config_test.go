@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,8 +38,7 @@ kafka:
   brokers:
     - localhost:9092
   consumer:
-    group_id: matching-group
-    batch_size: 100
+    max_poll_records: 100
   producer:
     compression: lz4
 
@@ -131,12 +131,11 @@ func TestConfig_SetDefaults(t *testing.T) {
 	assert.Equal(t, 8080, cfg.Service.HTTPPort)
 	assert.NotEmpty(t, cfg.Service.NodeID)
 
-	// Kafka defaults
-	assert.Equal(t, 100, cfg.Kafka.Consumer.BatchSize)
-	assert.Equal(t, 5, cfg.Kafka.Consumer.LingerMs)
+	// Kafka defaults - 使用新的字段名称
+	assert.Equal(t, 100, cfg.Kafka.Consumer.MaxPollRecords)
+	assert.Equal(t, 5, cfg.Kafka.Producer.LingerMs)
 	assert.Equal(t, 1000, cfg.Kafka.Producer.BatchSize)
 	assert.Equal(t, "lz4", cfg.Kafka.Producer.Compression)
-	assert.Equal(t, -1, cfg.Kafka.Producer.RequiredAcks)
 
 	// Snapshot defaults
 	assert.Equal(t, 30*time.Second, cfg.Snapshot.Interval)
@@ -159,15 +158,15 @@ func TestConfig_SetDefaults_DoesNotOverride(t *testing.T) {
 			HTTPPort: 8888,
 			NodeID:   "custom-node",
 		},
-		Kafka: KafkaConfig{
-			Consumer: KafkaConsumerConfig{
-				BatchSize: 200,
-				LingerMs:  10,
+		Kafka: commonConfig.KafkaConfig{
+			Consumer: commonConfig.KafkaConsumer{
+				MaxPollRecords: 200,
 			},
-			Producer: KafkaProducerConfig{
+			Producer: commonConfig.KafkaProducer{
 				BatchSize:    2000,
 				Compression:  "gzip",
 				RequiredAcks: 1,
+				LingerMs:     10,
 			},
 		},
 		Snapshot: SnapshotConfig{
@@ -178,7 +177,7 @@ func TestConfig_SetDefaults_DoesNotOverride(t *testing.T) {
 			HeartbeatInterval: 200 * time.Millisecond,
 			FailoverTimeout:   time.Second,
 		},
-		Log: LogConfig{
+		Log: commonConfig.LogConfig{
 			Level:  "debug",
 			Format: "text",
 		},
@@ -190,7 +189,7 @@ func TestConfig_SetDefaults_DoesNotOverride(t *testing.T) {
 	assert.Equal(t, 9999, cfg.Service.GRPCPort)
 	assert.Equal(t, 8888, cfg.Service.HTTPPort)
 	assert.Equal(t, "custom-node", cfg.Service.NodeID)
-	assert.Equal(t, 200, cfg.Kafka.Consumer.BatchSize)
+	assert.Equal(t, 200, cfg.Kafka.Consumer.MaxPollRecords)
 	assert.Equal(t, "gzip", cfg.Kafka.Producer.Compression)
 	assert.Equal(t, time.Minute, cfg.Snapshot.Interval)
 	assert.Equal(t, "debug", cfg.Log.Level)
@@ -261,40 +260,35 @@ func TestServiceConfig_Fields(t *testing.T) {
 }
 
 func TestRedisConfig_Fields(t *testing.T) {
-	rc := RedisConfig{
-		Addresses:  []string{"localhost:6379", "localhost:6380"},
-		Password:   "secret",
-		DB:         1,
-		PoolSize:   100,
-		TLSEnabled: true,
+	rc := commonConfig.RedisConfig{
+		Addresses: []string{"localhost:6379", "localhost:6380"},
+		Password:  "secret",
+		DB:        1,
+		PoolSize:  100,
 	}
 
 	assert.Equal(t, 2, len(rc.Addresses))
 	assert.Equal(t, "secret", rc.Password)
 	assert.Equal(t, 1, rc.DB)
 	assert.Equal(t, 100, rc.PoolSize)
-	assert.True(t, rc.TLSEnabled)
 }
 
 func TestKafkaConfig_Fields(t *testing.T) {
-	kc := KafkaConfig{
+	kc := commonConfig.KafkaConfig{
 		Brokers: []string{"localhost:9092"},
-		Consumer: KafkaConsumerConfig{
-			GroupID:   "test-group",
-			Topics:    []string{"orders", "cancels"},
-			BatchSize: 100,
-			LingerMs:  5,
+		Consumer: commonConfig.KafkaConsumer{
+			Topics:         []string{"orders", "cancels"},
+			MaxPollRecords: 100,
 		},
-		Producer: KafkaProducerConfig{
+		Producer: commonConfig.KafkaProducer{
 			Compression:  "lz4",
 			BatchSize:    1000,
-			BatchTimeout: 10,
+			LingerMs:     10,
 			RequiredAcks: -1,
 		},
 	}
 
 	assert.Equal(t, 1, len(kc.Brokers))
-	assert.Equal(t, "test-group", kc.Consumer.GroupID)
 	assert.Equal(t, 2, len(kc.Consumer.Topics))
 	assert.Equal(t, "lz4", kc.Producer.Compression)
 }

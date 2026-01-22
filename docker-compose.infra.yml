@@ -180,6 +180,37 @@ services:
       - eidos-network
 
   # ========================================
+  # Tracing (Distributed Tracing)
+  # ========================================
+
+  # Jaeger - 分布式链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: eidos-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "6831:6831/udp"   # Jaeger Thrift (UDP)
+      - "6832:6832/udp"   # Jaeger Thrift (UDP)
+      - "5778:5778"       # Jaeger Agent configs
+      - "16686:16686"     # Jaeger UI
+      - "4317:4317"       # OTLP gRPC receiver
+      - "4318:4318"       # OTLP HTTP receiver
+      - "14250:14250"     # Jaeger gRPC
+      - "14268:14268"     # Jaeger HTTP Thrift
+      - "14269:14269"     # Admin port (health check)
+      - "9411:9411"       # Zipkin compatible endpoint
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
   # Monitoring
   # ========================================
 
@@ -228,6 +259,7 @@ volumes:
   nacos_data:
   prometheus_data:
   grafana_data:
+  jaeger_data:
 
 networks:
   eidos-network:

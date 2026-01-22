@@ -11,12 +11,11 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
 
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/app"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/config"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
@@ -105,54 +104,26 @@ func main() {
 
 // initDatabase 初始化数据库连接
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Postgres.Host,
-		cfg.Postgres.Port,
-		cfg.Postgres.User,
-		cfg.Postgres.Password,
-		cfg.Postgres.Database,
-	)
-
-	gormConfig := &gorm.Config{
-		Logger: gormLogger.Default.LogMode(gormLogger.Warn),
-	}
-
-	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
+	db, err := infra.NewDatabase(&cfg.Postgres)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
 
+	// 测试连接
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sql.DB: %w", err)
 	}
-
-	sqlDB.SetMaxOpenConns(cfg.Postgres.MaxConnections)
-	sqlDB.SetMaxIdleConns(cfg.Postgres.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Postgres.ConnMaxLifetime) * time.Second)
-
-	// 测试连接
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
-
-	logger.Info("database connected",
-		"host", cfg.Postgres.Host,
-		"port", cfg.Postgres.Port,
-		"database", cfg.Postgres.Database)
 
 	return db, nil
 }
 
 // initRedis 初始化 Redis 连接
 func initRedis(cfg *config.Config) (redis.UniversalClient, error) {
-	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    cfg.Redis.Addresses,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-		PoolSize: cfg.Redis.PoolSize,
-	})
+	client := infra.NewRedisUniversalClient(&cfg.Redis)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -160,8 +131,6 @@ func initRedis(cfg *config.Config) (redis.UniversalClient, error) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to ping redis: %w", err)
 	}
-
-	logger.Info("redis connected", "addresses", cfg.Redis.Addresses)
 
 	return client, nil
 }

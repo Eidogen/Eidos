@@ -8,8 +8,8 @@ import (
 
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/jobs"
 	commonv1 "github.com/eidos-exchange/eidos/proto/common"
@@ -24,13 +24,14 @@ type TradingClient struct {
 }
 
 // NewTradingClient 创建交易服务客户端
-func NewTradingClient(addr string) (*TradingClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+// 使用企业级默认配置：keepalive、负载均衡、拦截器（tracing/metrics/logging）
+func NewTradingClient(addr string, enableTracing bool) (*TradingClient, error) {
+	conn, err := commonGrpc.DialWithTimeout(
+		context.Background(),
+		addr,
+		"eidos-jobs",
+		10*time.Second,
+		enableTracing,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("connect to trading service: %w", err)

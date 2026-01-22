@@ -10,9 +10,9 @@ import (
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	commonv1 "github.com/eidos-exchange/eidos/proto/common"
@@ -59,13 +59,14 @@ func DefaultRiskClientConfig(addr string) *RiskClientConfig {
 }
 
 // NewRiskClient 创建风控服务客户端（自行管理连接）
-func NewRiskClient(cfg *RiskClientConfig) (*RiskClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ConnectTimeout)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, cfg.Addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+// 使用企业级默认配置：keepalive、负载均衡、拦截器（tracing/metrics/logging）
+func NewRiskClient(cfg *RiskClientConfig, enableTracing bool) (*RiskClient, error) {
+	conn, err := commonGrpc.DialWithTimeout(
+		context.Background(),
+		cfg.Addr,
+		"eidos-trading",
+		cfg.ConnectTimeout,
+		enableTracing,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("connect to risk service: %w", err)

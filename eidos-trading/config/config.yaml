@@ -24,9 +24,10 @@ postgres:
   database: eidos_trading
   user: eidos
   password: eidos123
-  max_connections: 100
-  max_idle_conns: 10
-  conn_max_lifetime: 3600
+  max_connections: 100     # 最大连接数
+  max_idle_conns: 10       # 最大空闲连接数
+  conn_max_lifetime: 3600  # 连接最大生命周期-秒
+  conn_max_idle_time: 300  # 空闲连接最大存活时间-秒
 
 # Redis Configuration
 redis:
@@ -34,7 +35,14 @@ redis:
     - localhost:6379
   password: ""
   db: 0
-  pool_size: 100
+  pool_size: 100           # 连接池大小
+  min_idle_conns: 10       # 最小空闲连接数 (默认: 10)
+  max_idle_conns: 50       # 最大空闲连接数 (默认: 50)
+  conn_max_lifetime: 1800  # 连接最大生命周期-秒 (默认: 30分钟)
+  conn_max_idle_time: 300  # 空闲连接最大存活时间-秒 (默认: 5分钟)
+  dial_timeout: 5          # 连接超时-秒 (默认: 5)
+  read_timeout: 3          # 读取超时-秒 (默认: 3)
+  write_timeout: 3         # 写入超时-秒 (默认: 3)
 
 # Kafka Configuration
 kafka:
@@ -154,6 +162,14 @@ metrics:
 log:
   level: info
   format: color
+
+# OpenTelemetry Tracing (Jaeger)
+tracing:
+  enabled: false                    # 是否启用链路追踪
+  endpoint: ${TRACING_ENDPOINT:localhost:4317}  # OTLP gRPC 端点
+  sample_rate: 1.0                  # 采样率 (0.0-1.0), 生产环境建议 0.1
+  insecure: true                    # 是否使用不安全连接
+  timeout_sec: 5                    # 连接超时（秒）
 
 # Health Check
 health:

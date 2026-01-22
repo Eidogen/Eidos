@@ -106,7 +106,7 @@ func TestNewMatchingClient(t *testing.T) {
 		RequestTimeout: 3 * time.Second,
 	}
 
-	client, err := NewMatchingClient(cfg, logger)
+	client, err := NewMatchingClient(cfg, logger, false)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -121,9 +121,17 @@ func TestNewMatchingClient_ConnectionFailed(t *testing.T) {
 		RequestTimeout: 100 * time.Millisecond,
 	}
 
-	client, err := NewMatchingClient(cfg, logger)
+	// gRPC 连接是惰性的，创建客户端不会立即失败
+	// 只有在实际发起 RPC 请求时才会失败
+	client, err := NewMatchingClient(cfg, logger, false)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+	defer client.Close()
+
+	// 实际请求时应该失败
+	ctx := context.Background()
+	_, err = client.GetSnapshot(ctx, "BTC-USDC")
 	assert.Error(t, err)
-	assert.Nil(t, client)
 }
 
 func TestMatchingClient_GetSnapshot(t *testing.T) {
@@ -134,7 +142,7 @@ func TestMatchingClient_GetSnapshot(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
-	client, err := NewMatchingClient(cfg, logger)
+	client, err := NewMatchingClient(cfg, logger, false)
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -170,7 +178,7 @@ func TestMatchingClient_GetDepth(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
-	client, err := NewMatchingClient(cfg, logger)
+	client, err := NewMatchingClient(cfg, logger, false)
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -192,7 +200,7 @@ func TestMatchingClient_HealthCheck(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
-	client, err := NewMatchingClient(cfg, logger)
+	client, err := NewMatchingClient(cfg, logger, false)
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -213,7 +221,7 @@ func TestMatchingClient_Close(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := DefaultMatchingClientConfig(addr)
 
-	client, err := NewMatchingClient(cfg, logger)
+	client, err := NewMatchingClient(cfg, logger, false)
 	require.NoError(t, err)
 
 	// 关闭连接

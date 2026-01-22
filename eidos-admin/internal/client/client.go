@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 
 	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
+	commonGrpc "github.com/eidos-exchange/eidos/eidos-common/pkg/grpc"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
@@ -273,26 +272,14 @@ func (m *ClientManager) Jobs() *JobsClient {
 	return m.jobs
 }
 
-// defaultDialOptions returns default gRPC dial options
-func defaultDialOptions() []grpc.DialOption {
-	return []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                10 * time.Second,
-			Timeout:             3 * time.Second,
-			PermitWithoutStream: true,
-		}),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(10*1024*1024), // 10MB
-			grpc.MaxCallSendMsgSize(10*1024*1024), // 10MB
-		),
-	}
-}
-
-// dial creates a gRPC connection with default options
+// dial creates a gRPC connection with enterprise-grade default options
+// Uses commonGrpc.DialWithTimeout which includes:
+// - keepalive (30s/10s)
+// - load balancing (round_robin)
+// - message size limits (16MB)
+// - interceptors (tracing/metrics/logging)
 func dial(ctx context.Context, target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	return grpc.DialContext(ctx, target, defaultDialOptions()...)
+	// Note: tracing is disabled here as admin service manages its own tracing
+	// through the Infrastructure setup
+	return commonGrpc.DialWithTimeout(ctx, target, "eidos-admin", 10*time.Second, false)
 }

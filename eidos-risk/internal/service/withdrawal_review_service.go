@@ -179,7 +179,9 @@ func (s *WithdrawalReviewService) CreateReview(ctx context.Context, req *CreateR
 	if autoDecision == model.AutoDecisionAutoApprove {
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Small delay for consistency
-			if err := s.Approve(context.Background(), review.ReviewID, "system", "Auto-approved (low risk)"); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := s.Approve(ctx, review.ReviewID, "system", "Auto-approved (low risk)"); err != nil {
 				logger.Error("auto-approve failed", "error", err)
 			}
 		}()

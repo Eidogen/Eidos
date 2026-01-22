@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -23,6 +22,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	marketv1 "github.com/eidos-exchange/eidos/proto/market/v1"
@@ -164,6 +164,9 @@ func (a *EnhancedApp) initInfrastructure(ctx context.Context) error {
 	sqlDB.SetMaxOpenConns(a.cfg.Postgres.MaxConnections)
 	sqlDB.SetMaxIdleConns(a.cfg.Postgres.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(time.Duration(a.cfg.Postgres.ConnMaxLifetime) * time.Second)
+	if a.cfg.Postgres.ConnMaxIdleTime > 0 {
+		sqlDB.SetConnMaxIdleTime(time.Duration(a.cfg.Postgres.ConnMaxIdleTime) * time.Second)
+	}
 
 	a.db = db
 	a.logger.Info("postgres connected")
@@ -357,56 +360,36 @@ func (a *EnhancedApp) startGRPCServer() error {
 	return nil
 }
 
-// startHTTPServer starts the HTTP server
+// startHTTPServer starts the HTTP server using unified infra package
 func (a *EnhancedApp) startHTTPServer() error {
-	mux := http.NewServeMux()
-
-	// Prometheus metrics endpoint
-	mux.Handle("/metrics", promhttp.Handler())
-
-	// Health check endpoint
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+	// 使用统一基础设施包初始化 HTTP 服务器
+	a.httpServer = infra.NewHTTPServer(&infra.HTTPServerConfig{
+		Port:           a.cfg.Service.HTTPPort,
+		DB:             a.db,
+		RedisUniversal: a.redisClient,
+		EnableMetrics:  true,
+		EnableHealth:   true,
+		// 自定义健康检查：检查缓存管理器
+		CustomChecker: func(ctx context.Context) error {
+			if a.cacheManager == nil {
+				return nil
+			}
+			return a.cacheManager.HealthCheck(ctx)
+		},
+		// 额外路由：stats 端点
+		AdditionalRoutes: func(mux *http.ServeMux) {
+			mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				stats := fmt.Sprintf(`{"status":"ok","timestamp":%d,"cache_enabled":%t}`,
+					time.Now().UnixMilli(), a.cacheManager != nil)
+				w.Write([]byte(stats))
+			})
+		},
 	})
 
-	// Ready check endpoint
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		// Check cache manager health
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
-		if err := a.cacheManager.HealthCheck(ctx); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("Redis not ready"))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	// Stats endpoint
-	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		// 返回服务状态统计
-		stats := fmt.Sprintf(`{"status":"ok","timestamp":%d,"cache_enabled":%t}`,
-			time.Now().UnixMilli(), a.cacheManager != nil)
-		w.Write([]byte(stats))
-	})
-
-	a.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
-		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	go func() {
-		a.logger.Info("http server started", "port", a.cfg.Service.HTTPPort)
-		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.logger.Error("http server error", "error", err)
-		}
-	}()
+	// 启动 HTTP 服务器
+	infra.StartHTTPServer(a.httpServer)
 
 	return nil
 }
@@ -428,7 +411,7 @@ func (a *EnhancedApp) initMatchingClient() error {
 		RequestTimeout: a.cfg.GetMatchingRequestTimeout(),
 	}
 
-	matchingClient, err := client.NewMatchingClient(cfg, a.logger)
+	matchingClient, err := client.NewMatchingClient(cfg, a.logger, a.cfg.Tracing.Enabled)
 	if err != nil {
 		return fmt.Errorf("create matching client: %w", err)
 	}

@@ -23,6 +23,7 @@ type Config struct {
 	WebSocket   WebSocketConfig                `yaml:"websocket" json:"websocket"`
 	Risk        RiskConfig                     `yaml:"risk" json:"risk"`
 	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Tracing     commonConfig.TracingConfig     `yaml:"tracing" json:"tracing"`
 }
 
 // ServiceConfig 服务配置
@@ -296,5 +297,15 @@ func overrideFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("WS_ENABLE_PRIVATE_AUTH"); v != "" {
 		cfg.WebSocket.EnablePrivateAuth = strings.ToLower(v) == "true"
+	}
+
+	// 链路追踪配置 (支持 OTEL 标准环境变量)
+	if v := os.Getenv("TRACING_ENABLED"); v != "" {
+		cfg.Tracing.Enabled = strings.ToLower(v) == "true"
+	}
+	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
+	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
+		cfg.Tracing.Endpoint = endpoint
 	}
 }

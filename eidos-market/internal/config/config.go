@@ -19,6 +19,7 @@ type Config struct {
 	Kline       KlineConfig                    `yaml:"kline" json:"kline"`
 	Aggregator  AggregatorConfig               `yaml:"aggregator" json:"aggregator"`
 	Log         commonConfig.LogConfig         `yaml:"log" json:"log"`
+	Tracing     commonConfig.TracingConfig     `yaml:"tracing" json:"tracing"`
 	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 }
 
@@ -196,6 +197,16 @@ func (c *Config) applyEnvOverrides() {
 	// Log
 	if v := os.Getenv("LOG_LEVEL"); v != "" {
 		c.Log.Level = v
+	}
+
+	// 链路追踪配置 (支持 OTEL 标准环境变量)
+	if v := os.Getenv("TRACING_ENABLED"); v != "" {
+		c.Tracing.Enabled = v == "true"
+	}
+	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
+		c.Tracing.Endpoint = endpoint
+	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
+		c.Tracing.Endpoint = endpoint
 	}
 }
 

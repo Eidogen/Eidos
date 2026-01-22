@@ -545,8 +545,8 @@ func TestNewMarketClientWithTarget_Success(t *testing.T) {
 	}()
 	defer grpcServer.Stop()
 
-	// 使用 WithTarget 创建客户端
-	client, err := NewMarketClientWithTarget(lis.Addr().String())
+	// 使用 WithTarget 创建客户端（禁用 tracing 用于测试）
+	client, err := NewMarketClientWithTarget(lis.Addr().String(), false)
 	require.NoError(t, err)
 	defer client.Close()
 

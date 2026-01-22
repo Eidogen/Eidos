@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +34,8 @@ func TestSetDefaults(t *testing.T) {
 		assert.Equal(t, 30, cfg.Settlement.RetryBackoff)
 
 		assert.Equal(t, "info", cfg.Log.Level)
-		assert.Equal(t, "json", cfg.Log.Format)
+		// Log.Format 没有默认值设置
+		assert.Equal(t, "", cfg.Log.Format)
 	})
 
 	t.Run("partial config", func(t *testing.T) {
@@ -184,7 +186,7 @@ func TestConfigStructs(t *testing.T) {
 	})
 
 	t.Run("PostgresConfig", func(t *testing.T) {
-		cfg := PostgresConfig{
+		cfg := commonConfig.PostgresConfig{
 			Host:            "db.example.com",
 			Port:            5432,
 			Database:        "eidos_chain",
@@ -201,7 +203,7 @@ func TestConfigStructs(t *testing.T) {
 	})
 
 	t.Run("RedisConfig", func(t *testing.T) {
-		cfg := RedisConfig{
+		cfg := commonConfig.RedisConfig{
 			Addresses: []string{"redis1:6379", "redis2:6379"},
 			Password:  "redis_password",
 			DB:        0,
@@ -213,7 +215,7 @@ func TestConfigStructs(t *testing.T) {
 	})
 
 	t.Run("KafkaConfig", func(t *testing.T) {
-		cfg := KafkaConfig{
+		cfg := commonConfig.KafkaConfig{
 			Brokers:  []string{"kafka1:9092", "kafka2:9092"},
 			GroupID:  "eidos-chain",
 			ClientID: "eidos-chain-1",

@@ -76,6 +76,7 @@ type PostgresConfig struct {
 	MaxConnections  int    `yaml:"max_connections" json:"max_connections"`
 	MaxIdleConns    int    `yaml:"max_idle_conns" json:"max_idle_conns"`
 	ConnMaxLifetime int    `yaml:"conn_max_lifetime" json:"conn_max_lifetime"` // 秒
+	ConnMaxIdleTime int    `yaml:"conn_max_idle_time" json:"conn_max_idle_time"` // 秒，空闲连接最大存活时间
 }
 
 // DSN 返回 GORM/sql 连接字符串
@@ -97,10 +98,17 @@ func (c *PostgresConfig) MigrateURL() string {
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Addresses []string `yaml:"addresses" json:"addresses"`
-	Password  string   `yaml:"password" json:"password"`
-	DB        int      `yaml:"db" json:"db"`
-	PoolSize  int      `yaml:"pool_size" json:"pool_size"`
+	Addresses       []string `yaml:"addresses" json:"addresses"`
+	Password        string   `yaml:"password" json:"password"`
+	DB              int      `yaml:"db" json:"db"`
+	PoolSize        int      `yaml:"pool_size" json:"pool_size"`
+	MinIdleConns    int      `yaml:"min_idle_conns" json:"min_idle_conns"`       // 最小空闲连接数
+	MaxIdleConns    int      `yaml:"max_idle_conns" json:"max_idle_conns"`       // 最大空闲连接数
+	ConnMaxLifetime int      `yaml:"conn_max_lifetime" json:"conn_max_lifetime"` // 连接最大生命周期（秒）
+	ConnMaxIdleTime int      `yaml:"conn_max_idle_time" json:"conn_max_idle_time"` // 空闲连接最大存活时间（秒）
+	DialTimeout     int      `yaml:"dial_timeout" json:"dial_timeout"`           // 连接超时（秒）
+	ReadTimeout     int      `yaml:"read_timeout" json:"read_timeout"`           // 读取超时（秒）
+	WriteTimeout    int      `yaml:"write_timeout" json:"write_timeout"`         // 写入超时（秒）
 }
 
 // KafkaConfig Kafka 配置
@@ -206,5 +214,35 @@ func DefaultLogConfig() LogConfig {
 	return LogConfig{
 		Level:  "info",
 		Format: "json",
+	}
+}
+
+// TracingConfig OpenTelemetry 链路追踪配置
+type TracingConfig struct {
+	Enabled     bool    `yaml:"enabled" json:"enabled"`           // 是否启用链路追踪
+	Endpoint    string  `yaml:"endpoint" json:"endpoint"`         // OTLP 端点地址 (如 localhost:4317)
+	SampleRate  float64 `yaml:"sample_rate" json:"sample_rate"`   // 采样率 (0.0 - 1.0)
+	Insecure    bool    `yaml:"insecure" json:"insecure"`         // 是否使用不安全连接
+	TimeoutSec  int     `yaml:"timeout_sec" json:"timeout_sec"`   // 连接超时（秒）
+}
+
+// DefaultTracingConfig 返回默认链路追踪配置
+// 支持 OTEL_EXPORTER_OTLP_ENDPOINT (OpenTelemetry 标准) 和 TRACING_ENDPOINT 两种环境变量
+func DefaultTracingConfig() TracingConfig {
+	// 优先使用 OTEL 标准环境变量
+	endpoint := GetEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	if endpoint == "" {
+		endpoint = GetEnv("TRACING_ENDPOINT", "localhost:4317")
+	}
+	// 移除 http:// 或 https:// 前缀，因为 OTLP gRPC 只需要 host:port
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+
+	return TracingConfig{
+		Enabled:    GetEnvBool("TRACING_ENABLED", false),
+		Endpoint:   endpoint,
+		SampleRate: 1.0,
+		Insecure:   true,
+		TimeoutSec: 5,
 	}
 }

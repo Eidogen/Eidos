@@ -38,6 +38,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "50051:50051"
       - "8081:8080"   # HTTP metrics & health
@@ -60,6 +62,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-trading
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50051
@@ -94,6 +100,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "50052:50052"
       - "8082:8080"   # HTTP metrics & health
@@ -110,6 +118,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-matching
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50052
@@ -148,6 +160,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "50053:50053"
       - "8083:8080"   # HTTP metrics & health
@@ -170,6 +184,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-market
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50053
@@ -204,6 +222,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "50054:50054"
       - "8084:8080"   # HTTP metrics & health
@@ -226,6 +246,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-chain
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50054
@@ -263,6 +287,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "50055:50055"
       - "8085:8080"   # HTTP metrics & health
@@ -285,6 +311,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-risk
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50055
@@ -319,6 +349,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
       eidos-trading:
         condition: service_started
     ports:
@@ -343,6 +375,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-jobs
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       SERVICE_GRPC_PORT: 50056
@@ -381,6 +417,8 @@ services:
         condition: service_healthy
       nacos:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     ports:
       - "8088:8088"
     environment:
@@ -399,6 +437,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-admin
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -428,6 +470,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
       eidos-trading:
         condition: service_started
       eidos-matching:
@@ -448,6 +492,10 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
       NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-api
       # 服务配置
       SERVICE_ENV: ${ENV:-dev}
       LOG_LEVEL: ${LOG_LEVEL:-info}

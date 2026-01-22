@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -145,7 +145,7 @@ func (m *NonceManager) ConfirmNonce(ctx context.Context, nonce uint64, txHash st
 	m.pendingTxs[nonce] = txHash
 
 	// 添加到 Redis 待确认队列
-	err := m.redis.ZAdd(ctx, m.pendingKey(), &redis.Z{
+	err := m.redis.ZAdd(ctx, m.pendingKey(), redis.Z{
 		Score:  float64(time.Now().Unix()),
 		Member: fmt.Sprintf("%d:%s", nonce, txHash),
 	}).Err()

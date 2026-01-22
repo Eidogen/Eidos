@@ -16,6 +16,25 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
+// OrderedTopics 需要强制 Partition Key 的 Topic 列表
+// 这些 Topic 的消息必须带有 Key，以保证同一 Key 的消息有序处理
+// Key 选择规则：
+//   - orders, cancel-requests, order-updates, trades, settlements: 使用 market_symbol (如 BTC-USDT)
+//   - withdrawals, balance-updates, deposits: 使用 user_id
+var OrderedTopics = map[string]string{
+	"orders":           "market_symbol", // 订单消息
+	"cancel-requests":  "market_symbol", // 撤单请求
+	"order-updates":    "market_symbol", // 订单更新
+	"trades":           "market_symbol", // 成交消息
+	"settlements":      "market_symbol", // 结算消息
+	"withdrawals":      "user_id",       // 提现请求
+	"balance-updates":  "user_id",       // 余额更新
+	"deposits":         "user_id",       // 充值事件
+}
+
+// ErrPartitionKeyRequired 需要 Partition Key 错误
+var ErrPartitionKeyRequired = errors.New("partition key is required for ordered topic")
+
 // Producer Kafka 生产者
 type Producer struct {
 	config       *ProducerConfig
@@ -36,6 +55,9 @@ type Producer struct {
 
 	// 指标
 	metrics *ProducerMetrics
+
+	// 是否强制校验 Partition Key
+	enforcePartitionKey bool
 }
 
 // ProducerMetrics 生产者指标
@@ -91,14 +113,15 @@ func NewProducer(cfg *ProducerConfig) (*Producer, error) {
 	}
 
 	p := &Producer{
-		config:        cfg,
-		client:        client,
-		syncProducer:  syncProducer,
-		asyncProducer: asyncProducer,
-		batchMessages: make([]*Message, 0, cfg.Batch.Size),
-		batchCh:       make(chan *Message, cfg.ChannelBufferSize),
-		closeCh:       make(chan struct{}),
-		metrics:       &ProducerMetrics{},
+		config:              cfg,
+		client:              client,
+		syncProducer:        syncProducer,
+		asyncProducer:       asyncProducer,
+		batchMessages:       make([]*Message, 0, cfg.Batch.Size),
+		batchCh:             make(chan *Message, cfg.ChannelBufferSize),
+		closeCh:             make(chan struct{}),
+		metrics:             &ProducerMetrics{},
+		enforcePartitionKey: true, // 默认启用 Partition Key 强制校验
 	}
 
 	// 启动批量发送协程
@@ -243,6 +266,28 @@ func buildTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+// validatePartitionKey 校验 Partition Key
+// 对于需要保证局部顺序性的 Topic，必须提供 Key
+func (p *Producer) validatePartitionKey(msg *Message) error {
+	if !p.enforcePartitionKey {
+		return nil
+	}
+
+	if keyType, isOrdered := OrderedTopics[msg.Topic]; isOrdered {
+		if msg.Key == nil || len(msg.Key) == 0 {
+			return fmt.Errorf("%w: topic '%s' requires partition key (expected: %s)",
+				ErrPartitionKeyRequired, msg.Topic, keyType)
+		}
+	}
+	return nil
+}
+
+// SetEnforcePartitionKey 设置是否强制校验 Partition Key
+// 生产环境建议开启，测试环境可以关闭
+func (p *Producer) SetEnforcePartitionKey(enforce bool) {
+	p.enforcePartitionKey = enforce
+}
+
 // Send 同步发送单条消息
 func (p *Producer) Send(ctx context.Context, msg *Message) (*SendResult, error) {
 	if atomic.LoadInt32(&p.closed) == 1 {
@@ -255,6 +300,11 @@ func (p *Producer) Send(ctx context.Context, msg *Message) (*SendResult, error) 
 
 	if msg.Topic == "" {
 		return nil, errors.New("message topic is required")
+	}
+
+	// 校验 Partition Key (保证局部顺序性)
+	if err := p.validatePartitionKey(msg); err != nil {
+		return nil, err
 	}
 
 	producerMsg := p.buildProducerMessage(msg)
@@ -306,6 +356,11 @@ func (p *Producer) SendAsync(msg *Message) error {
 
 	if msg.Topic == "" {
 		return errors.New("message topic is required")
+	}
+
+	// 校验 Partition Key (保证局部顺序性)
+	if err := p.validatePartitionKey(msg); err != nil {
+		return err
 	}
 
 	producerMsg := p.buildProducerMessage(msg)
