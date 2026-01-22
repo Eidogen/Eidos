@@ -118,17 +118,8 @@ log_info "Checking Infrastructure Components..."
 echo ""
 
 # PostgreSQL
-echo -n "  PostgreSQL ($POSTGRES_HOST:$POSTGRES_PORT): "
-if check_tcp_port "$POSTGRES_HOST" "$POSTGRES_PORT"; then
-    # Try to connect and run a simple query
-    if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; then
-        log_success "OK"
-    else
-        log_warn "Port open but query failed"
-    fi
-else
-    log_fail "Not reachable"
-fi
+log_info "Verifying PostgreSQL databases..."
+for db in eidos eidos_trading eidos_chain eidos_risk eidos_jobs eidos_admin; do echo -n "  DB $db: "; if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$db" -c "SELECT 1" >/dev/null 2>&1; then log_success "OK"; else log_warn "Failed to connect"; fi done
 
 # TimescaleDB
 echo -n "  TimescaleDB ($TIMESCALEDB_HOST:$TIMESCALEDB_PORT): "

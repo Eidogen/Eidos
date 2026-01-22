@@ -13,8 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/eidos-exchange/eidos/eidos-api/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/client"
@@ -24,7 +22,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-api/internal/router"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/ws"
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 )
 
 // App 应用实例
@@ -36,20 +34,14 @@ type App struct {
 	httpServer *http.Server
 	engine     *gin.Engine
 
-	// Nacos 组件
-	nacosClient     *nacos.Client
-	nacosRegistry   *nacos.Registry
-	nacosDiscovery  *nacos.Discovery
-	serviceInstance *nacos.ServiceInstance
+	// 统一服务发现基础设施
+	infra *discovery.Infrastructure
 
 	// 依赖组件
 	redis         *redis.Client
 	tradingClient *client.TradingClient
-	tradingConn   *grpc.ClientConn
 	marketClient  *client.MarketClient
-	marketConn    *grpc.ClientConn
 	riskClient    *client.RiskClient
-	riskConn      *grpc.ClientConn
 
 	// Handlers
 	healthHandler     *handler.HealthHandler
@@ -120,9 +112,6 @@ func (a *App) Stop(ctx context.Context) error {
 		a.healthHandler.SetReady(false)
 	}
 
-	// 从 Nacos 注销服务
-	a.stopNacos()
-
 	// 停止 Redis Pub/Sub 订阅器
 	if a.wsSubscriber != nil {
 		a.wsSubscriber.Stop()
@@ -140,20 +129,10 @@ func (a *App) Stop(ctx context.Context) error {
 		}
 	}
 
-	// 关闭 gRPC 连接
-	if a.tradingConn != nil {
-		if err := a.tradingConn.Close(); err != nil {
-			a.logger.Error("trading gRPC connection close error", "error", err)
-		}
-	}
-	if a.marketConn != nil {
-		if err := a.marketConn.Close(); err != nil {
-			a.logger.Error("market gRPC connection close error", "error", err)
-		}
-	}
-	if a.riskConn != nil {
-		if err := a.riskConn.Close(); err != nil {
-			a.logger.Error("risk gRPC connection close error", "error", err)
+	// 关闭服务发现基础设施（会自动注销 Nacos 服务和关闭 gRPC 连接）
+	if a.infra != nil {
+		if err := a.infra.Close(); err != nil {
+			a.logger.Error("close infrastructure failed", "error", err)
 		}
 	}
 
@@ -197,69 +176,73 @@ func (a *App) initDependencies(ctx context.Context) error {
 	}
 	a.logger.Info("redis connected", "addr", a.cfg.RedisAddr())
 
-	// 初始化 Nacos (如果启用)
+	// 初始化统一服务发现基础设施 (Nacos 必须启用)
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, 0, a.cfg.Service.HTTPPort)
+
+	// 设置服务元数据
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	opts.WithMetadata("protocol", "http")
+	opts.WithDependencies("eidos-trading", "eidos-market", "eidos-risk")
+	opts.WithKafkaTopics(
+		[]string{"orders", "cancel-requests"},
+		[]string{"order-updates", "balance-updates"},
+	)
+	opts.Logger = a.logger
+
 	var err error
-	if a.cfg.Nacos.Enabled {
-		if err := a.initNacos(); err != nil {
-			return fmt.Errorf("init nacos: %w", err)
-		}
-	}
-
-	// 初始化 gRPC 连接
-	tradingAddr := a.cfg.GRPCClients.Trading.Addr
-	marketAddr := a.cfg.GRPCClients.Market.Addr
-	riskAddr := a.cfg.GRPCClients.Risk.Addr
-
-	// 如果启用 Nacos，使用 Nacos 服务发现
-	if a.cfg.Nacos.Enabled {
-		tradingAddr = nacos.BuildTarget("eidos-trading")
-		marketAddr = nacos.BuildTarget("eidos-market")
-		riskAddr = nacos.BuildTarget("eidos-risk")
-		a.logger.Info("using nacos service discovery",
-			"trading", tradingAddr,
-			"market", marketAddr,
-			"risk", riskAddr)
-	}
-
-	a.tradingConn, err = grpc.NewClient(
-		tradingAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-	)
+	a.infra, err = discovery.NewInfrastructure(opts)
 	if err != nil {
-		return fmt.Errorf("grpc dial trading: %w", err)
+		return fmt.Errorf("init infrastructure: %w", err)
 	}
-	a.logger.Info("trading gRPC connected", "addr", tradingAddr)
 
-	// 初始化 Trading Client
-	a.tradingClient = client.NewTradingClient(a.tradingConn)
-
-	// 初始化 Market gRPC 连接
-	a.marketConn, err = grpc.NewClient(
-		marketAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+	a.logger.Info("service registered to nacos",
+		"service", a.cfg.Service.Name,
+		"httpPort", a.cfg.Service.HTTPPort,
 	)
-	if err != nil {
-		return fmt.Errorf("grpc dial market: %w", err)
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		a.logger.Warn("failed to publish config to nacos", "error", err)
 	}
-	a.logger.Info("market gRPC connected", "addr", marketAddr)
 
-	// 初始化 Market Client
-	a.marketClient = client.NewMarketClient(a.marketConn)
+	// 初始化 Trading Client（通过服务发现）
+	tradingConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceTrading)
+	if err != nil {
+		return fmt.Errorf("get trading connection: %w", err)
+	}
+	a.tradingClient = client.NewTradingClient(tradingConn)
+	a.logger.Info("trading client initialized via service discovery",
+		"service", discovery.ServiceTrading,
+		"mode", a.getServiceDiscoveryMode(),
+	)
 
-	// 初始化 Risk gRPC 连接 (可选，风控服务不可用时继续运行)
-	if riskAddr != "" {
-		a.riskConn, err = grpc.NewClient(
-			riskAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-		)
+	// 初始化 Market Client（通过服务发现）
+	marketConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceMarket)
+	if err != nil {
+		return fmt.Errorf("get market connection: %w", err)
+	}
+	a.marketClient = client.NewMarketClient(marketConn)
+	a.logger.Info("market client initialized via service discovery",
+		"service", discovery.ServiceMarket,
+		"mode", a.getServiceDiscoveryMode(),
+	)
+
+	// 初始化 Risk Client（通过服务发现，可选）
+	if a.cfg.GRPCClients.Risk.Addr != "" {
+		riskConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceRisk)
 		if err != nil {
-			a.logger.Warn("risk gRPC connection failed, continuing without risk service", "error", err)
+			a.logger.Warn("risk connection failed, continuing without risk service", "error", err)
 		} else {
-			a.logger.Info("risk gRPC connected", "addr", riskAddr)
-			a.riskClient = client.NewRiskClient(a.riskConn)
+			a.riskClient = client.NewRiskClient(riskConn)
+			a.logger.Info("risk client initialized via service discovery",
+				"service", discovery.ServiceRisk,
+				"mode", a.getServiceDiscoveryMode(),
+			)
 		}
 	}
 
@@ -306,6 +289,14 @@ func (a *App) initDependencies(ctx context.Context) error {
 	return nil
 }
 
+// getServiceDiscoveryMode 返回当前服务发现模式
+func (a *App) getServiceDiscoveryMode() string {
+	if a.infra != nil && a.infra.IsNacosEnabled() {
+		return "nacos"
+	}
+	return "static"
+}
+
 // initHTTPServer 初始化 HTTP 服务
 func (a *App) initHTTPServer() {
 	// 设置 Gin 模式
@@ -350,84 +341,6 @@ func (a *App) Engine() *gin.Engine {
 	return a.engine
 }
 
-// initNacos 初始化 Nacos 客户端、服务注册和服务发现
-func (a *App) initNacos() error {
-	// 创建 Nacos 客户端
-	nacosCfg := &nacos.Config{
-		ServerAddr: a.cfg.Nacos.ServerAddr,
-		Namespace:  a.cfg.Nacos.Namespace,
-		Group:      a.cfg.Nacos.Group,
-		Username:   a.cfg.Nacos.Username,
-		Password:   a.cfg.Nacos.Password,
-		LogDir:     a.cfg.Nacos.LogDir,
-		CacheDir:   a.cfg.Nacos.CacheDir,
-		LogLevel:   "warn",
-		TimeoutMs:  5000,
-	}
-
-	var err error
-	a.nacosClient, err = nacos.NewClient(nacosCfg)
-	if err != nil {
-		return fmt.Errorf("create nacos client: %w", err)
-	}
-	a.logger.Info("nacos client created", "server", a.cfg.Nacos.ServerAddr)
-
-	// 创建服务发现器
-	a.nacosDiscovery = nacos.NewDiscovery(a.nacosClient)
-
-	// 注册 gRPC Resolver (用于服务发现)
-	nacos.RegisterResolver(a.nacosDiscovery, a.cfg.Nacos.Group)
-	a.logger.Info("nacos gRPC resolver registered")
-
-	// 创建服务注册器
-	a.nacosRegistry = nacos.NewRegistry(a.nacosClient)
-
-	// 注册当前服务实例
-	a.serviceInstance = nacos.DefaultServiceInstance(
-		a.cfg.Service.Name,
-		uint64(a.cfg.Service.HTTPPort),
-	)
-	a.serviceInstance.GroupName = a.cfg.Nacos.Group
-	a.serviceInstance.Metadata = map[string]string{
-		"env":      a.cfg.Service.Env,
-		"protocol": "http",
-	}
-
-	if err := a.nacosRegistry.Register(a.serviceInstance); err != nil {
-		return fmt.Errorf("register service: %w", err)
-	}
-	a.logger.Info("service registered to nacos",
-		"name", a.serviceInstance.ServiceName,
-		"ip", a.serviceInstance.IP,
-		"port", a.serviceInstance.Port)
-
-	return nil
-}
-
-// stopNacos 停止 Nacos 相关组件
-func (a *App) stopNacos() {
-	// 注销服务
-	if a.nacosRegistry != nil && a.serviceInstance != nil {
-		if err := a.nacosRegistry.Deregister(a.serviceInstance); err != nil {
-			a.logger.Error("deregister service from nacos failed", "error", err)
-		} else {
-			a.logger.Info("service deregistered from nacos")
-		}
-	}
-
-	// 取消所有订阅
-	if a.nacosDiscovery != nil {
-		if err := a.nacosDiscovery.UnsubscribeAll(); err != nil {
-			a.logger.Error("unsubscribe all services failed", "error", err)
-		}
-	}
-
-	// 关闭 Nacos 客户端
-	if a.nacosClient != nil {
-		a.nacosClient.Close()
-		a.logger.Info("nacos client closed")
-	}
-}
 
 // redisHealthAdapter 适配 Redis 健康检查接口
 type redisHealthAdapter struct {

@@ -60,9 +60,10 @@ func EnsureDatabase(host string, port int, user, password, dbname string) error 
 
 // Migrator 迁移器
 type Migrator struct {
-	db          *sql.DB
-	logger      *slog.Logger
-	serviceName string
+	db             *sql.DB
+	logger         *slog.Logger
+	serviceName    string
+	migrationTable string
 }
 
 // NewMigrator 创建迁移器
@@ -71,10 +72,16 @@ func NewMigrator(db *sql.DB, serviceName string, logger *slog.Logger) *Migrator 
 		logger = slog.Default()
 	}
 	return &Migrator{
-		db:          db,
-		logger:      logger,
-		serviceName: serviceName,
+		db:             db,
+		logger:         logger,
+		serviceName:    serviceName,
+		migrationTable: "schema_migrations_" + serviceName,
 	}
+}
+
+// SetMigrationTable 设置自定义迁移表名
+func (m *Migrator) SetMigrationTable(table string) {
+	m.migrationTable = table
 }
 
 // AutoMigrate 从 embed.FS 自动执行迁移
@@ -93,8 +100,9 @@ func (m *Migrator) AutoMigrate(migrationsFS embed.FS, migrationsPath string) err
 	defer source.Close()
 
 	// 创建 postgres 驱动
-	// 注意: 不能调用 driver.Close()，因为它会关闭我们传入的外部 *sql.DB
-	driver, err := postgres.WithInstance(m.db, &postgres.Config{})
+	driver, err := postgres.WithInstance(m.db, &postgres.Config{
+		MigrationsTable: m.migrationTable,
+	})
 	if err != nil {
 		return fmt.Errorf("create postgres driver failed: %w", err)
 	}

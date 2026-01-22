@@ -121,8 +121,15 @@ func NewReconciliationService(
 	cfg *ReconciliationServiceConfig,
 ) *ReconciliationService {
 	batchSize := 100
-	if cfg != nil && cfg.BatchSize > 0 {
-		batchSize = cfg.BatchSize
+	var chainID int64 = 1 // 默认 chainID
+
+	if cfg != nil {
+		if cfg.BatchSize > 0 {
+			batchSize = cfg.BatchSize
+		}
+		if cfg.ChainID > 0 {
+			chainID = cfg.ChainID
+		}
 	}
 
 	return &ReconciliationService{
@@ -131,7 +138,7 @@ func NewReconciliationService(
 		balanceProvider:    balanceProvider,
 		tasks:              make(map[string]*ReconciliationTask),
 		batchSize:          batchSize,
-		chainID:            cfg.ChainID,
+		chainID:            chainID,
 	}
 }
 

@@ -1,10 +1,15 @@
 package nacos
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
@@ -50,6 +55,14 @@ type Client struct {
 func NewClient(cfg *Config) (*Client, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
+	}
+
+	// 自动创建命名空间（如果不存在且不是 public）
+	if cfg.Namespace != "" && cfg.Namespace != "public" {
+		if err := ensureNamespaceExists(cfg.ServerAddr, cfg.Namespace, cfg.Username, cfg.Password); err != nil {
+			// 仅警告，不阻止启动（可能是权限问题或网络问题）
+			fmt.Printf("Warning: failed to ensure namespace exists: %v\n", err)
+		}
 	}
 
 	// 解析服务器地址
@@ -131,6 +144,97 @@ func (c *Client) Close() {
 	if c.namingClient != nil {
 		c.namingClient.CloseClient()
 	}
+}
+
+// ensureNamespaceExists 确保命名空间存在，如果不存在则创建
+func ensureNamespaceExists(serverAddr, namespace, username, password string) error {
+	// 构建 Nacos HTTP API URL
+	host := serverAddr
+	if !strings.Contains(host, "://") {
+		host = "http://" + host
+	}
+
+	// 移除端口后面可能的路径
+	baseURL := strings.TrimSuffix(host, "/")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// 1. 检查命名空间是否已存在
+	checkURL := baseURL + "/nacos/v1/console/namespaces"
+	req, err := http.NewRequest("GET", checkURL, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	if username != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("check namespaces: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response: %w", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Code int `json:"code"`
+		Data []struct {
+			Namespace string `json:"namespace"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+
+	// 检查命名空间是否已存在
+	for _, ns := range result.Data {
+		if ns.Namespace == namespace {
+			return nil // 命名空间已存在
+		}
+	}
+
+	// 2. 创建命名空间
+	createURL := baseURL + "/nacos/v1/console/namespaces"
+	data := url.Values{}
+	data.Set("customNamespaceId", namespace)
+	data.Set("namespaceName", namespace)
+	data.Set("namespaceDesc", "Auto-created by Eidos")
+
+	req, err = http.NewRequest("POST", createURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if username != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err = client.Do(req)
+	if err != nil {
+		return fmt.Errorf("create namespace: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response: %w", err)
+	}
+
+	// 检查是否创建成功
+	if string(body) == "true" {
+		fmt.Printf("Nacos namespace '%s' created successfully\n", namespace)
+		return nil
+	}
+
+	return fmt.Errorf("failed to create namespace: %s", string(body))
 }
 
 // NamingClient 返回底层的 naming client

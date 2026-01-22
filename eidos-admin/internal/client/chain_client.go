@@ -11,8 +11,9 @@ import (
 
 // ChainClient wraps the chain service gRPC client
 type ChainClient struct {
-	conn   *grpc.ClientConn
-	client chainv1.ChainServiceClient
+	conn     *grpc.ClientConn
+	client   chainv1.ChainServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewChainClient creates a new chain client
@@ -22,14 +23,24 @@ func NewChainClient(ctx context.Context, target string) (*ChainClient, error) {
 		return nil, err
 	}
 	return &ChainClient{
-		conn:   conn,
-		client: chainv1.NewChainServiceClient(conn),
+		conn:     conn,
+		client:   chainv1.NewChainServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewChainClientFromConn creates a chain client from an existing connection (service discovery mode)
+func NewChainClientFromConn(conn *grpc.ClientConn) *ChainClient {
+	return &ChainClient{
+		conn:     conn,
+		client:   chainv1.NewChainServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // Close closes the connection
 func (c *ChainClient) Close() error {
-	if c.conn != nil {
+	if c.ownsConn && c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil

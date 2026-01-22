@@ -11,8 +11,9 @@ import (
 
 // TradingClient wraps the trading service gRPC client
 type TradingClient struct {
-	conn   *grpc.ClientConn
-	client tradingv1.TradingServiceClient
+	conn     *grpc.ClientConn
+	client   tradingv1.TradingServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewTradingClient creates a new trading client
@@ -22,14 +23,24 @@ func NewTradingClient(ctx context.Context, target string) (*TradingClient, error
 		return nil, err
 	}
 	return &TradingClient{
-		conn:   conn,
-		client: tradingv1.NewTradingServiceClient(conn),
+		conn:     conn,
+		client:   tradingv1.NewTradingServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewTradingClientFromConn creates a trading client from an existing connection (service discovery mode)
+func NewTradingClientFromConn(conn *grpc.ClientConn) *TradingClient {
+	return &TradingClient{
+		conn:     conn,
+		client:   tradingv1.NewTradingServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // Close closes the connection
 func (c *TradingClient) Close() error {
-	if c.conn != nil {
+	if c.ownsConn && c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil

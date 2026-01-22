@@ -52,11 +52,7 @@ func DefaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: commonConfig.NacosConfig{
-			ServerAddr: "nacos:8848",
-			Namespace:  "eidos-dev",
-			Group:      "EIDOS_GROUP",
-		},
+		Nacos: commonConfig.DefaultNacosConfig(),
 		Matching: commonConfig.ClientConfig{
 			Addr: "eidos-matching:50052",
 		},

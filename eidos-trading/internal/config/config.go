@@ -184,11 +184,7 @@ func defaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: commonConfig.NacosConfig{
-			ServerAddr: "127.0.0.1:8848",
-			Namespace:  "public",
-			Group:      "EIDOS_GROUP",
-		},
+		Nacos: commonConfig.DefaultNacosConfig(),
 		Postgres: commonConfig.PostgresConfig{
 			Host:            "localhost",
 			Port:            5432,
@@ -288,7 +284,9 @@ func defaultConfig() *Config {
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) {
 	// Nacos 配置
-	// Nacos 配置
+	if v := os.Getenv("NACOS_ENABLED"); v != "" {
+		cfg.Nacos.Enabled = v == "true"
+	}
 	if addr := os.Getenv("NACOS_SERVER_ADDR"); addr != "" {
 		cfg.Nacos.ServerAddr = addr
 	}

@@ -91,7 +91,37 @@ func Load(path string) (*Config, error) {
 	// 设置默认值
 	cfg.setDefaults()
 
+	// 环境变量覆盖
+	cfg.applyEnvOverrides()
+
 	return &cfg, nil
+}
+
+// applyEnvOverrides 应用环境变量覆盖
+func (c *Config) applyEnvOverrides() {
+	// Nacos
+	if v := os.Getenv("NACOS_ENABLED"); v != "" {
+		c.Nacos.Enabled = v == "true"
+	}
+	if v := os.Getenv("NACOS_SERVER_ADDR"); v != "" {
+		c.Nacos.ServerAddr = v
+	}
+	if v := os.Getenv("NACOS_NAMESPACE"); v != "" {
+		c.Nacos.Namespace = v
+	}
+	if v := os.Getenv("NACOS_GROUP"); v != "" {
+		c.Nacos.Group = v
+	}
+
+	// 数据库
+	if v := os.Getenv("DB_HOST"); v != "" {
+		// Matching doesn't use Postgres directly, but for consistency if added later
+	}
+
+	// Kafka
+	if v := os.Getenv("KAFKA_BROKERS"); v != "" {
+		c.Kafka.Brokers = []string{v}
+	}
 }
 
 // setDefaults 设置默认值
@@ -108,6 +138,12 @@ func (c *Config) setDefaults() {
 	if c.Service.NodeID == "" {
 		hostname, _ := os.Hostname()
 		c.Service.NodeID = fmt.Sprintf("%s-%s", c.Service.Name, hostname)
+	}
+
+	// Nacos 默认配置
+	if c.Nacos.ServerAddr == "" {
+		defaultNacos := commonConfig.DefaultNacosConfig()
+		c.Nacos = defaultNacos
 	}
 
 	if c.Kafka.Consumer.MaxPollRecords == 0 {

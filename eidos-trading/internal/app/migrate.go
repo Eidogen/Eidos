@@ -15,6 +15,7 @@ func AutoMigrate(db *gorm.DB) error {
 	}
 
 	migrator := migrate.NewMigrator(sqlDB, "eidos-trading", logger.L())
+	// 注意: embed.FS 中的路径取决于 go:embed 的定义
 	if err := migrator.AutoMigrate(migrations.FS, "."); err != nil {
 		logger.Error("auto migration failed", "error", err)
 		return err

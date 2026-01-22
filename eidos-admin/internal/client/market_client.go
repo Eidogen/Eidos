@@ -10,8 +10,9 @@ import (
 
 // MarketClient wraps the market service gRPC client
 type MarketClient struct {
-	conn   *grpc.ClientConn
-	client marketv1.MarketServiceClient
+	conn     *grpc.ClientConn
+	client   marketv1.MarketServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewMarketClient creates a new market client
@@ -21,14 +22,24 @@ func NewMarketClient(ctx context.Context, target string) (*MarketClient, error) 
 		return nil, err
 	}
 	return &MarketClient{
-		conn:   conn,
-		client: marketv1.NewMarketServiceClient(conn),
+		conn:     conn,
+		client:   marketv1.NewMarketServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewMarketClientFromConn creates a market client from an existing connection (service discovery mode)
+func NewMarketClientFromConn(conn *grpc.ClientConn) *MarketClient {
+	return &MarketClient{
+		conn:     conn,
+		client:   marketv1.NewMarketServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // Close closes the connection
 func (c *MarketClient) Close() error {
-	if c.conn != nil {
+	if c.ownsConn && c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil

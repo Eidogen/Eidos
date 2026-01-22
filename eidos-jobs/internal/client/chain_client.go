@@ -19,8 +19,9 @@ import (
 
 // ChainClient 链服务客户端
 type ChainClient struct {
-	conn   *grpc.ClientConn
-	client chainpb.ChainServiceClient
+	conn     *grpc.ClientConn
+	client   chainpb.ChainServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewChainClient 创建链服务客户端
@@ -39,9 +40,20 @@ func NewChainClient(addr string) (*ChainClient, error) {
 	logger.Info("connected to eidos-chain", "addr", addr)
 
 	return &ChainClient{
-		conn:   conn,
-		client: chainpb.NewChainServiceClient(conn),
+		conn:     conn,
+		client:   chainpb.NewChainServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewChainClientFromConn 从现有连接创建客户端（服务发现模式）
+// 连接由外部管理（如 ServiceDiscovery），客户端不负责关闭
+func NewChainClientFromConn(conn *grpc.ClientConn) *ChainClient {
+	return &ChainClient{
+		conn:     conn,
+		client:   chainpb.NewChainServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // GetLatestBlockNumber 获取最新区块号
@@ -108,7 +120,8 @@ type BalanceRequest struct {
 
 // Close 关闭连接
 func (c *ChainClient) Close() error {
-	if c.conn != nil {
+	// 只有自己创建的连接才关闭
+	if c.ownsConn && c.conn != nil {
 		logger.Info("closing chain client connection")
 		return c.conn.Close()
 	}

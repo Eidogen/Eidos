@@ -18,8 +18,9 @@ import (
 
 // TradingClient 交易服务客户端
 type TradingClient struct {
-	conn   *grpc.ClientConn
-	client tradingpb.TradingServiceClient
+	conn     *grpc.ClientConn
+	client   tradingpb.TradingServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewTradingClient 创建交易服务客户端
@@ -38,9 +39,20 @@ func NewTradingClient(addr string) (*TradingClient, error) {
 	logger.Info("connected to eidos-trading", "addr", addr)
 
 	return &TradingClient{
-		conn:   conn,
-		client: tradingpb.NewTradingServiceClient(conn),
+		conn:     conn,
+		client:   tradingpb.NewTradingServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewTradingClientFromConn 从现有连接创建客户端（服务发现模式）
+// 连接由外部管理（如 ServiceDiscovery），客户端不负责关闭
+func NewTradingClientFromConn(conn *grpc.ClientConn) *TradingClient {
+	return &TradingClient{
+		conn:     conn,
+		client:   tradingpb.NewTradingServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // GetExpiredOrders 获取需要过期的订单
@@ -76,7 +88,8 @@ func (c *TradingClient) GetExpiredOrders(ctx context.Context, beforeTime int64, 
 
 // Close 关闭连接
 func (c *TradingClient) Close() error {
-	if c.conn != nil {
+	// 只有自己创建的连接才关闭
+	if c.ownsConn && c.conn != nil {
 		logger.Info("closing trading client connection")
 		return c.conn.Close()
 	}

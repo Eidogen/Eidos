@@ -142,6 +142,22 @@ type NacosConfig struct {
 	HeartbeatIntervalMs uint64 `yaml:"heartbeat_interval_ms" json:"heartbeat_interval_ms"`
 }
 
+// DefaultNacosConfig 返回默认 Nacos 配置
+func DefaultNacosConfig() NacosConfig {
+	return NacosConfig{
+		Enabled:             GetEnvBool("NACOS_ENABLED", true),
+		ServerAddr:          GetEnv("NACOS_SERVER_ADDR", "nacos:8848"),
+		Namespace:           GetEnv("NACOS_NAMESPACE", "eidos"),
+		Group:               GetEnv("NACOS_GROUP", "DEFAULT_GROUP"),
+		Username:            GetEnv("NACOS_USERNAME", ""),
+		Password:            GetEnv("NACOS_PASSWORD", ""),
+		LogDir:              GetEnv("NACOS_LOG_DIR", "/tmp/nacos/log"),
+		CacheDir:            GetEnv("NACOS_CACHE_DIR", "/tmp/nacos/cache"),
+		TimeoutMs:           uint64(GetEnvInt("NACOS_TIMEOUT_MS", 5000)),
+		HeartbeatIntervalMs: uint64(GetEnvInt("NACOS_HEARTBEAT_INTERVAL_MS", 5000)),
+	}
+}
+
 // GRPCConfig gRPC 服务配置
 type GRPCConfig struct {
 	Port int `yaml:"port" json:"port"`

@@ -30,9 +30,10 @@ var (
 
 // RiskClient 风控服务客户端
 type RiskClient struct {
-	conn           *grpc.ClientConn
-	client         riskpb.RiskServiceClient
-	cfg            *RiskClientConfig
+	conn     *grpc.ClientConn
+	client   riskpb.RiskServiceClient
+	cfg      *RiskClientConfig
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // RiskClientConfig 客户端配置
@@ -57,7 +58,7 @@ func DefaultRiskClientConfig(addr string) *RiskClientConfig {
 	}
 }
 
-// NewRiskClient 创建风控服务客户端
+// NewRiskClient 创建风控服务客户端（自行管理连接）
 func NewRiskClient(cfg *RiskClientConfig) (*RiskClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ConnectTimeout)
 	defer cancel()
@@ -75,10 +76,30 @@ func NewRiskClient(cfg *RiskClientConfig) (*RiskClient, error) {
 	)
 
 	return &RiskClient{
-		conn:   conn,
-		client: riskpb.NewRiskServiceClient(conn),
-		cfg:    cfg,
+		conn:     conn,
+		client:   riskpb.NewRiskServiceClient(conn),
+		cfg:      cfg,
+		ownsConn: true,
 	}, nil
+}
+
+// NewRiskClientFromConn 从现有连接创建客户端（服务发现模式）
+// 连接由外部管理（如 ServiceDiscovery），客户端不负责关闭
+func NewRiskClientFromConn(conn *grpc.ClientConn, cfg *RiskClientConfig) *RiskClient {
+	if cfg == nil {
+		cfg = &RiskClientConfig{
+			RequestTimeout: 3 * time.Second,
+			MaxRetries:     3,
+			RetryBackoff:   100 * time.Millisecond,
+			FailOpen:       false,
+		}
+	}
+	return &RiskClient{
+		conn:     conn,
+		client:   riskpb.NewRiskServiceClient(conn),
+		cfg:      cfg,
+		ownsConn: false,
+	}
 }
 
 // CheckOrderForService 订单风控检查 (实现 service.RiskClient 接口)
@@ -227,7 +248,8 @@ func (c *RiskClient) GetUserLimits(ctx context.Context, wallet string) (*riskpb.
 
 // Close 关闭连接
 func (c *RiskClient) Close() error {
-	if c.conn != nil {
+	// 只有自己创建的连接才关闭
+	if c.ownsConn && c.conn != nil {
 		logger.Info("closing risk client connection")
 		return c.conn.Close()
 	}

@@ -21,6 +21,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	marketv1 "github.com/eidos-exchange/eidos/proto/market/v1"
@@ -478,10 +480,12 @@ func (a *EnhancedApp) initNacos() error {
 		a.nacosConfigCenter = configCenter
 	}
 
-	// Register service
+	// Register service with dependencies
 	if err := a.nacosHelper.RegisterService(a.cfg.Service.Name, uint64(a.cfg.Service.GRPCPort), map[string]string{
-		"version": "2.0.0", // Enhanced version
-		"env":     a.cfg.Service.Env,
+		"version":       "2.0.0", // Enhanced version
+		"env":           a.cfg.Service.Env,
+		"dependencies":  "eidos-matching",
+		"kafka_consume": "trade-results,orderbook-updates",
 	}); err != nil {
 		return fmt.Errorf("register service: %w", err)
 	}
@@ -489,6 +493,19 @@ func (a *EnhancedApp) initNacos() error {
 	a.logger.Info("nacos service registered",
 		"service", a.cfg.Service.Name,
 		"port", a.cfg.Service.GRPCPort)
+
+	// 发布配置到 Nacos 配置中心
+	if a.nacosConfigCenter != nil {
+		dataId := a.cfg.Service.Name + ".yaml"
+		configData, err := yaml.Marshal(a.cfg)
+		if err != nil {
+			a.logger.Warn("failed to marshal config", "error", err)
+		} else if err := a.nacosConfigCenter.PublishConfig(dataId, string(configData)); err != nil {
+			a.logger.Warn("failed to publish config to nacos", "error", err)
+		} else {
+			a.logger.Info("config published to nacos", "dataId", dataId)
+		}
+	}
 
 	return nil
 }

@@ -17,8 +17,9 @@ import (
 
 // MarketClient 行情服务客户端
 type MarketClient struct {
-	conn   *grpc.ClientConn
-	client marketpb.MarketServiceClient
+	conn     *grpc.ClientConn
+	client   marketpb.MarketServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewMarketClient 创建行情服务客户端
@@ -37,9 +38,20 @@ func NewMarketClient(addr string) (*MarketClient, error) {
 	logger.Info("connected to eidos-market", "addr", addr)
 
 	return &MarketClient{
-		conn:   conn,
-		client: marketpb.NewMarketServiceClient(conn),
+		conn:     conn,
+		client:   marketpb.NewMarketServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewMarketClientFromConn 从现有连接创建客户端（服务发现模式）
+// 连接由外部管理（如 ServiceDiscovery），客户端不负责关闭
+func NewMarketClientFromConn(conn *grpc.ClientConn) *MarketClient {
+	return &MarketClient{
+		conn:     conn,
+		client:   marketpb.NewMarketServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // GetKlines 获取 K 线数据
@@ -116,7 +128,8 @@ func (c *MarketClient) GetMarkets(ctx context.Context) ([]string, error) {
 
 // Close 关闭连接
 func (c *MarketClient) Close() error {
-	if c.conn != nil {
+	// 只有自己创建的连接才关闭
+	if c.ownsConn && c.conn != nil {
 		logger.Info("closing market client connection")
 		return c.conn.Close()
 	}

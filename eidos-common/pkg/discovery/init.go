@@ -23,6 +23,8 @@ type InitOptions struct {
 	NacosGroup      string
 	NacosUsername   string
 	NacosPassword   string
+	NacosLogDir     string // Nacos 日志目录
+	NacosCacheDir   string // Nacos 缓存目录
 
 	// 当前服务端口 (用于注册)
 	GRPCPort int
@@ -37,6 +39,15 @@ type InitOptions struct {
 
 // InitOptionsFromNacosConfig 从 Nacos 配置创建选项
 func InitOptionsFromNacosConfig(cfg *config.NacosConfig, serviceName string, grpcPort, httpPort int) *InitOptions {
+	logDir := cfg.LogDir
+	if logDir == "" {
+		logDir = "/tmp/nacos/log"
+	}
+	cacheDir := cfg.CacheDir
+	if cacheDir == "" {
+		cacheDir = "/tmp/nacos/cache"
+	}
+
 	return &InitOptions{
 		ServiceName:     serviceName,
 		NacosEnabled:    cfg.Enabled,
@@ -45,6 +56,8 @@ func InitOptionsFromNacosConfig(cfg *config.NacosConfig, serviceName string, grp
 		NacosGroup:      cfg.Group,
 		NacosUsername:   cfg.Username,
 		NacosPassword:   cfg.Password,
+		NacosLogDir:     logDir,
+		NacosCacheDir:   cacheDir,
 		GRPCPort:        grpcPort,
 		HTTPPort:        httpPort,
 		Logger:          slog.Default(),
@@ -58,6 +71,37 @@ func (o *InitOptions) WithMetadata(key, value string) *InitOptions {
 	return o
 }
 
+// WithDependencies 设置服务依赖
+func (o *InitOptions) WithDependencies(deps ...string) *InitOptions {
+	if len(deps) > 0 {
+		o.Metadata["dependencies"] = joinStrings(deps, ",")
+	}
+	return o
+}
+
+// WithKafkaTopics 设置 Kafka 主题（生产和消费）
+func (o *InitOptions) WithKafkaTopics(produce, consume []string) *InitOptions {
+	if len(produce) > 0 {
+		o.Metadata["kafka_produce"] = joinStrings(produce, ",")
+	}
+	if len(consume) > 0 {
+		o.Metadata["kafka_consume"] = joinStrings(consume, ",")
+	}
+	return o
+}
+
+// joinStrings 用分隔符连接字符串
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
+}
+
 // Infrastructure 基础设施
 type Infrastructure struct {
 	ServiceDiscovery *ServiceDiscovery
@@ -67,6 +111,7 @@ type Infrastructure struct {
 
 	serviceName string
 	grpcPort    uint64
+	metadata    map[string]string
 	registered  bool
 }
 
@@ -80,9 +125,19 @@ func NewInfrastructure(opts *InitOptions) (*Infrastructure, error) {
 		Logger:      opts.Logger,
 		serviceName: opts.ServiceName,
 		grpcPort:    uint64(opts.GRPCPort),
+		metadata:    opts.Metadata,
 	}
 
 	// 创建服务发现配置 (Nacos 必须启用)
+	logDir := opts.NacosLogDir
+	if logDir == "" {
+		logDir = "/tmp/nacos/log"
+	}
+	cacheDir := opts.NacosCacheDir
+	if cacheDir == "" {
+		cacheDir = "/tmp/nacos/cache"
+	}
+
 	sdConfig := &Config{
 		NacosEnabled:        opts.NacosEnabled,
 		NacosServerAddr:     opts.NacosServerAddr,
@@ -90,8 +145,8 @@ func NewInfrastructure(opts *InitOptions) (*Infrastructure, error) {
 		NacosGroup:          opts.NacosGroup,
 		NacosUsername:       opts.NacosUsername,
 		NacosPassword:       opts.NacosPassword,
-		NacosLogDir:         "/tmp/nacos/log",
-		NacosCacheDir:       "/tmp/nacos/cache",
+		NacosLogDir:         logDir,
+		NacosCacheDir:       cacheDir,
 		LoadBalancingPolicy: "round_robin",
 	}
 
@@ -123,15 +178,19 @@ func NewInfrastructure(opts *InitOptions) (*Infrastructure, error) {
 }
 
 // RegisterService 注册当前服务到 Nacos
-func (infra *Infrastructure) RegisterService(metadata map[string]string) error {
+func (infra *Infrastructure) RegisterService(extraMetadata map[string]string) error {
 	if infra.registered {
 		return nil
 	}
 
-	if metadata == nil {
-		metadata = make(map[string]string)
+	// 合并 Infrastructure 保存的元数据和额外元数据
+	metadata := make(map[string]string)
+	for k, v := range infra.metadata {
+		metadata[k] = v
 	}
-	metadata["version"] = "1.0.0"
+	for k, v := range extraMetadata {
+		metadata[k] = v
+	}
 
 	if err := infra.ServiceDiscovery.RegisterService(infra.serviceName, infra.grpcPort, metadata); err != nil {
 		return err
@@ -207,5 +266,27 @@ func (infra *Infrastructure) LoadConfigWithWatch(dataId string, target interface
 	if infra.ConfigLoader != nil {
 		return infra.ConfigLoader.LoadConfigWithWatch(dataId, target, onChange)
 	}
+	return nil
+}
+
+// PublishServiceConfig 将服务配置发布到 Nacos 配置中心
+func (infra *Infrastructure) PublishServiceConfig(config interface{}) error {
+	if infra.ConfigLoader == nil {
+		infra.Logger.Warn("config loader not available, skipping config publish")
+		return nil
+	}
+
+	dataId := infra.serviceName + ".yaml"
+	if err := infra.ConfigLoader.PublishConfig(dataId, config); err != nil {
+		infra.Logger.Warn("failed to publish service config",
+			"dataId", dataId,
+			"error", err,
+		)
+		return err
+	}
+
+	infra.Logger.Info("service config published to nacos",
+		"dataId", dataId,
+	)
 	return nil
 }

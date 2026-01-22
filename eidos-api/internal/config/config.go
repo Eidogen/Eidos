@@ -159,10 +159,7 @@ func defaultConfig() *Config {
 			HTTPPort: 8080,
 			Env:      "dev",
 		},
-		Nacos: commonConfig.NacosConfig{
-			Namespace: "public",
-			Group:     "EIDOS_GROUP",
-		},
+		Nacos: commonConfig.DefaultNacosConfig(),
 		Redis: commonConfig.RedisConfig{
 			Addresses: []string{"localhost:6379"},
 			PoolSize:  100,

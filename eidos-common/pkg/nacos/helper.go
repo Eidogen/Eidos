@@ -54,7 +54,19 @@ func (h *ServiceHelper) RegisterService(serviceName string, port uint64, metadat
 	if metadata != nil {
 		instance.Metadata = metadata
 	}
-	return h.registry.Register(instance)
+
+	// 添加重试逻辑，解决 Nacos 启动瞬间客户端状态可能为 STARTING 的问题
+	var err error
+	for i := 0; i < 5; i++ {
+		err = h.registry.Register(instance)
+		if err == nil {
+			return nil
+		}
+		if i < 4 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+	return fmt.Errorf("register service failed after 5 retries: %w", err)
 }
 
 // DeregisterAll 注销所有服务

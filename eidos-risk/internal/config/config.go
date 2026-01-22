@@ -75,10 +75,41 @@ func Load(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// 设置默认值
-	setDefaults(&cfg)
+	// 环境变量覆盖
+	overrideFromEnv(&cfg)
 
 	return &cfg, nil
+}
+
+// overrideFromEnv 从环境变量覆盖配置
+func overrideFromEnv(cfg *Config) {
+	// Nacos
+	if v := os.Getenv("NACOS_ENABLED"); v != "" {
+		cfg.Nacos.Enabled = v == "true"
+	}
+	if v := os.Getenv("NACOS_SERVER_ADDR"); v != "" {
+		cfg.Nacos.ServerAddr = v
+	}
+	if v := os.Getenv("NACOS_NAMESPACE"); v != "" {
+		cfg.Nacos.Namespace = v
+	}
+	if v := os.Getenv("NACOS_GROUP"); v != "" {
+		cfg.Nacos.Group = v
+	}
+	if v := os.Getenv("NACOS_USERNAME"); v != "" {
+		cfg.Nacos.Username = v
+	}
+	if v := os.Getenv("NACOS_PASSWORD"); v != "" {
+		cfg.Nacos.Password = v
+	}
+
+	// 数据库
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.Postgres.Host = v
+	}
+	if v := os.Getenv("DB_DATABASE"); v != "" {
+		cfg.Postgres.Database = v
+	}
 }
 
 // setDefaults 设置默认值
@@ -94,6 +125,11 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Service.Env == "" {
 		cfg.Service.Env = "dev"
+	}
+
+	// Nacos 默认配置
+	if cfg.Nacos.ServerAddr == "" {
+		cfg.Nacos = commonConfig.DefaultNacosConfig()
 	}
 
 	if cfg.Postgres.Port == 0 {

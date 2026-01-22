@@ -15,8 +15,9 @@ import (
 
 // MatchingClient 撮合服务客户端
 type MatchingClient struct {
-	conn   *grpc.ClientConn
-	client matchingpb.MatchingServiceClient
+	conn      *grpc.ClientConn
+	client    matchingpb.MatchingServiceClient
+	ownsConn  bool // 是否拥有连接（用于关闭时判断）
 }
 
 // MatchingClientConfig 客户端配置
@@ -39,7 +40,7 @@ func DefaultMatchingClientConfig(addr string) *MatchingClientConfig {
 	}
 }
 
-// NewMatchingClient 创建撮合服务客户端
+// NewMatchingClient 创建撮合服务客户端（自行管理连接）
 func NewMatchingClient(cfg *MatchingClientConfig) (*MatchingClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ConnectTimeout)
 	defer cancel()
@@ -57,9 +58,20 @@ func NewMatchingClient(cfg *MatchingClientConfig) (*MatchingClient, error) {
 	)
 
 	return &MatchingClient{
-		conn:   conn,
-		client: matchingpb.NewMatchingServiceClient(conn),
+		conn:     conn,
+		client:   matchingpb.NewMatchingServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewMatchingClientFromConn 从现有连接创建客户端（服务发现模式）
+// 连接由外部管理（如 ServiceDiscovery），客户端不负责关闭
+func NewMatchingClientFromConn(conn *grpc.ClientConn) *MatchingClient {
+	return &MatchingClient{
+		conn:     conn,
+		client:   matchingpb.NewMatchingServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // GetOrderbook 获取订单簿快照
@@ -85,7 +97,8 @@ func (c *MatchingClient) HealthCheck(ctx context.Context) (*matchingpb.HealthChe
 
 // Close 关闭连接
 func (c *MatchingClient) Close() error {
-	if c.conn != nil {
+	// 只有自己创建的连接才关闭
+	if c.ownsConn && c.conn != nil {
 		logger.Info("closing matching client connection")
 		return c.conn.Close()
 	}

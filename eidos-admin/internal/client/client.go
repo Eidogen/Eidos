@@ -12,12 +12,14 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	commonConfig "github.com/eidos-exchange/eidos/eidos-common/pkg/config"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
 // ClientManager manages all gRPC client connections
 type ClientManager struct {
-	cfg *commonConfig.GRPCClientsConfig
+	cfg   *commonConfig.GRPCClientsConfig
+	infra *discovery.Infrastructure // 服务发现基础设施
 
 	mu          sync.RWMutex
 	connections map[string]*grpc.ClientConn
@@ -38,8 +40,109 @@ func NewClientManager(cfg *commonConfig.GRPCClientsConfig) *ClientManager {
 	}
 }
 
+// NewClientManagerWithDiscovery creates a new ClientManager with service discovery
+func NewClientManagerWithDiscovery(cfg *commonConfig.GRPCClientsConfig, infra *discovery.Infrastructure) *ClientManager {
+	return &ClientManager{
+		cfg:         cfg,
+		infra:       infra,
+		connections: make(map[string]*grpc.ClientConn),
+	}
+}
+
 // Connect establishes connections to all services
 func (m *ClientManager) Connect(ctx context.Context) error {
+	// 如果有服务发现基础设施，使用服务发现模式
+	if m.infra != nil {
+		return m.connectWithDiscovery(ctx)
+	}
+	return m.connectDirect(ctx)
+}
+
+// connectWithDiscovery 使用服务发现连接
+func (m *ClientManager) connectWithDiscovery(ctx context.Context) error {
+	mode := m.getServiceDiscoveryMode()
+
+	// Trading
+	tradingConn, err := m.infra.GetServiceConnection(ctx, discovery.ServiceTrading)
+	if err != nil {
+		logger.Warn("failed to connect to trading service via discovery",
+			"service", discovery.ServiceTrading,
+			"mode", mode,
+			"error", err)
+	} else {
+		m.trading = NewTradingClientFromConn(tradingConn)
+		logger.Info("trading client initialized via service discovery",
+			"service", discovery.ServiceTrading,
+			"mode", mode,
+		)
+	}
+
+	// Matching
+	matchingConn, err := m.infra.GetServiceConnection(ctx, discovery.ServiceMatching)
+	if err != nil {
+		logger.Warn("failed to connect to matching service via discovery",
+			"service", discovery.ServiceMatching,
+			"mode", mode,
+			"error", err)
+	} else {
+		m.matching = NewMatchingClientFromConn(matchingConn)
+		logger.Info("matching client initialized via service discovery",
+			"service", discovery.ServiceMatching,
+			"mode", mode,
+		)
+	}
+
+	// Market
+	marketConn, err := m.infra.GetServiceConnection(ctx, discovery.ServiceMarket)
+	if err != nil {
+		logger.Warn("failed to connect to market service via discovery",
+			"service", discovery.ServiceMarket,
+			"mode", mode,
+			"error", err)
+	} else {
+		m.market = NewMarketClientFromConn(marketConn)
+		logger.Info("market client initialized via service discovery",
+			"service", discovery.ServiceMarket,
+			"mode", mode,
+		)
+	}
+
+	// Chain
+	chainConn, err := m.infra.GetServiceConnection(ctx, discovery.ServiceChain)
+	if err != nil {
+		logger.Warn("failed to connect to chain service via discovery",
+			"service", discovery.ServiceChain,
+			"mode", mode,
+			"error", err)
+	} else {
+		m.chain = NewChainClientFromConn(chainConn)
+		logger.Info("chain client initialized via service discovery",
+			"service", discovery.ServiceChain,
+			"mode", mode,
+		)
+	}
+
+	// Risk
+	riskConn, err := m.infra.GetServiceConnection(ctx, discovery.ServiceRisk)
+	if err != nil {
+		logger.Warn("failed to connect to risk service via discovery",
+			"service", discovery.ServiceRisk,
+			"mode", mode,
+			"error", err)
+	} else {
+		m.risk = NewRiskClientFromConn(riskConn)
+		logger.Info("risk client initialized via service discovery",
+			"service", discovery.ServiceRisk,
+			"mode", mode,
+		)
+	}
+
+	logger.Info("gRPC clients initialized via service discovery", "mode", mode)
+	return nil
+}
+
+// connectDirect 直接连接（无服务发现）
+func (m *ClientManager) connectDirect(ctx context.Context) error {
 	var err error
 
 	// Trading
@@ -83,6 +186,14 @@ func (m *ClientManager) Connect(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// getServiceDiscoveryMode 返回当前服务发现模式
+func (m *ClientManager) getServiceDiscoveryMode() string {
+	if m.infra != nil && m.infra.IsNacosEnabled() {
+		return "nacos"
+	}
+	return "static"
 }
 
 // ConnectJobs connects to jobs service (optional)

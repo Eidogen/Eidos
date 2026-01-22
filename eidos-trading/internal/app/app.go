@@ -20,11 +20,11 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/id"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
-	"github.com/eidos-exchange/eidos/eidos-common/pkg/nacos"
 	pb "github.com/eidos-exchange/eidos/proto/trading/v1"
 
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/cache"
@@ -46,10 +46,10 @@ type App struct {
 	cfg *config.Config
 
 	// 基础设施
-	db          *gorm.DB
-	rdb         *redis.Client
-	nacosHelper *nacos.ServiceHelper
-	idGen       *id.Generator
+	db    *gorm.DB
+	rdb   *redis.Client
+	infra *discovery.Infrastructure // 统一服务发现基础设施
+	idGen *id.Generator
 
 	// gRPC
 	grpcServer   *grpc.Server
@@ -174,20 +174,35 @@ func (a *App) Run() error {
 func (a *App) initInfra() error {
 	var err error
 
-	// 初始化 Nacos
-	if a.cfg.Nacos.Enabled {
-		a.nacosHelper, err = initNacos(a.cfg)
-		if err != nil {
-			return fmt.Errorf("init nacos: %w", err)
-		}
+	// 初始化统一服务发现基础设施 (Nacos 必须启用)
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, serviceName, a.cfg.Service.GRPCPort, a.cfg.Service.HTTPPort)
 
-		if err := a.nacosHelper.RegisterService(serviceName, uint64(a.cfg.Service.GRPCPort), map[string]string{
-			"version": "1.0.0",
-			"env":     a.cfg.Service.Env,
-		}); err != nil {
-			return fmt.Errorf("register nacos: %w", err)
-		}
-		logger.Info("service registered to nacos")
+	// 设置服务元数据
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	opts.WithDependencies("eidos-matching", "eidos-risk")
+	opts.WithKafkaTopics(
+		[]string{"orders", "cancel-requests", "settlements", "withdrawals"},
+		[]string{"trade-results", "order-cancelled", "deposits", "settlement-confirmed", "withdrawal-confirmed"},
+	)
+
+	a.infra, err = discovery.NewInfrastructure(opts)
+	if err != nil {
+		return fmt.Errorf("init infrastructure: %w", err)
+	}
+
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+	logger.Info("service registered to nacos",
+		"service", serviceName,
+		"grpcPort", a.cfg.Service.GRPCPort,
+	)
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		logger.Warn("failed to publish config to nacos", "error", err)
 	}
 
 	// 确保数据库存在
@@ -285,43 +300,59 @@ func (a *App) initPublishers() {
 
 // initClients 初始化外部服务客户端
 func (a *App) initClients() error {
-	// 初始化 eidos-matching 客户端
+	ctx := context.Background()
+
+	// 初始化 eidos-matching 客户端（通过服务发现）
 	if a.cfg.Matching.Enabled {
-		cfg := client.DefaultMatchingClientConfig(a.cfg.Matching.Addr)
-		matchingClient, err := client.NewMatchingClient(cfg)
+		conn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceMatching)
 		if err != nil {
-			logger.Warn("failed to connect to eidos-matching, continuing without it",
-				"addr", a.cfg.Matching.Addr,
+			logger.Warn("failed to get connection to eidos-matching, continuing without it",
+				"service", discovery.ServiceMatching,
 				"error", err,
 			)
 			// 不返回错误，允许在没有 matching 服务的情况下启动
 		} else {
-			a.matchingClient = matchingClient
-			logger.Info("matching client initialized",
-				"addr", a.cfg.Matching.Addr,
+			a.matchingClient = client.NewMatchingClientFromConn(conn)
+			logger.Info("matching client initialized via service discovery",
+				"service", discovery.ServiceMatching,
+				"mode", a.getServiceDiscoveryMode(),
 			)
 		}
 	}
 
-	// 初始化 eidos-risk 客户端
+	// 初始化 eidos-risk 客户端（通过服务发现）
 	if a.cfg.Risk.Enabled {
-		cfg := client.DefaultRiskClientConfig(a.cfg.Risk.Addr)
-		riskClient, err := client.NewRiskClient(cfg)
+		conn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceRisk)
 		if err != nil {
-			logger.Warn("failed to connect to eidos-risk, continuing without it",
-				"addr", a.cfg.Risk.Addr,
+			logger.Warn("failed to get connection to eidos-risk, continuing without it",
+				"service", discovery.ServiceRisk,
 				"error", err,
 			)
 			// 不返回错误，允许在没有 risk 服务的情况下启动
 		} else {
-			a.riskClient = riskClient
-			logger.Info("risk client initialized",
-				"addr", a.cfg.Risk.Addr,
+			riskCfg := &client.RiskClientConfig{
+				RequestTimeout: 3 * time.Second,
+				MaxRetries:     3,
+				RetryBackoff:   100 * time.Millisecond,
+				FailOpen:       a.cfg.Risk.FailOpen,
+			}
+			a.riskClient = client.NewRiskClientFromConn(conn, riskCfg)
+			logger.Info("risk client initialized via service discovery",
+				"service", discovery.ServiceRisk,
+				"mode", a.getServiceDiscoveryMode(),
 			)
 		}
 	}
 
 	return nil
+}
+
+// getServiceDiscoveryMode 返回当前服务发现模式
+func (a *App) getServiceDiscoveryMode() string {
+	if a.infra != nil && a.infra.IsNacosEnabled() {
+		return "nacos"
+	}
+	return "static"
 }
 
 // initKafka 初始化 Kafka
@@ -606,10 +637,10 @@ func (a *App) shutdown() {
 		a.healthServer.SetServingStatus(serviceName, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	}
 
-	// 注销 Nacos 服务
-	if a.nacosHelper != nil {
-		if err := a.nacosHelper.DeregisterAll(); err != nil {
-			logger.Error("deregister nacos failed", "error", err)
+	// 关闭服务发现基础设施（会自动注销 Nacos 服务和关闭连接）
+	if a.infra != nil {
+		if err := a.infra.Close(); err != nil {
+			logger.Error("close infrastructure failed", "error", err)
 		}
 	}
 
@@ -729,17 +760,3 @@ func initRedis(cfg *config.Config) *redis.Client {
 	})
 }
 
-func initNacos(cfg *config.Config) (*nacos.ServiceHelper, error) {
-	nacosCfg := &nacos.Config{
-		ServerAddr: cfg.Nacos.ServerAddr,
-		Namespace:  cfg.Nacos.Namespace,
-		Group:      cfg.Nacos.Group,
-		Username:   cfg.Nacos.Username,
-		Password:   cfg.Nacos.Password,
-		LogDir:     cfg.Nacos.LogDir,
-		CacheDir:   cfg.Nacos.CacheDir,
-		LogLevel:   "warn",
-		TimeoutMs:  5000,
-	}
-	return nacos.NewServiceHelper(nacosCfg)
-}

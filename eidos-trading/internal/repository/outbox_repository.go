@@ -47,7 +47,7 @@ func (r *OutboxRepository) FetchAndClaim(ctx context.Context, limit int) ([]*mod
 		// SKIP LOCKED 会跳过已被其他事务锁定的行，避免等待
 		var ids []int64
 		err := tx.Raw(`
-			SELECT id FROM outbox_messages
+			SELECT id FROM trading_outbox_messages
 			WHERE status = ?
 			ORDER BY created_at ASC
 			LIMIT ?
@@ -64,7 +64,7 @@ func (r *OutboxRepository) FetchAndClaim(ctx context.Context, limit int) ([]*mod
 		// 2. 更新状态为 processing (标记已被当前实例认领)
 		now := time.Now().UnixMilli()
 		err = tx.Exec(`
-			UPDATE outbox_messages
+			UPDATE trading_outbox_messages
 			SET status = 'processing', updated_at = ?
 			WHERE id IN ?
 		`, now, ids).Error
@@ -117,7 +117,7 @@ func (r *OutboxRepository) MarkFailed(ctx context.Context, id int64, err error) 
 	now := time.Now().UnixMilli()
 	// 更新重试次数，如果超过最大重试次数则标记为 failed，否则回到 pending
 	result := r.db.WithContext(ctx).Exec(`
-		UPDATE outbox_messages
+		UPDATE trading_outbox_messages
 		SET retry_count = retry_count + 1,
 		    last_error = ?,
 		    updated_at = ?,
@@ -137,7 +137,7 @@ func (r *OutboxRepository) MarkFailed(ctx context.Context, id int64, err error) 
 func (r *OutboxRepository) RecoverStaleProcessing(ctx context.Context, staleThreshold time.Duration) (int64, error) {
 	threshold := time.Now().Add(-staleThreshold).UnixMilli()
 	result := r.db.WithContext(ctx).Exec(`
-		UPDATE outbox_messages
+		UPDATE trading_outbox_messages
 		SET status = 'pending', updated_at = ?
 		WHERE status = 'processing' AND updated_at < ?
 	`, time.Now().UnixMilli(), threshold)
@@ -154,9 +154,9 @@ func (r *OutboxRepository) CleanSent(ctx context.Context, beforeTime int64, batc
 
 	for {
 		result := r.db.WithContext(ctx).Exec(`
-			DELETE FROM outbox_messages
+			DELETE FROM trading_outbox_messages
 			WHERE id IN (
-				SELECT id FROM outbox_messages
+				SELECT id FROM trading_outbox_messages
 				WHERE status = 'sent' AND sent_at < ?
 				LIMIT ?
 			)

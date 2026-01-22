@@ -154,6 +154,11 @@ func applyDefaults(cfg *Config) {
 		cfg.Service.Env = "dev"
 	}
 
+	// Nacos 默认配置
+	if cfg.Nacos.ServerAddr == "" {
+		cfg.Nacos = commonConfig.DefaultNacosConfig()
+	}
+
 	// Postgres defaults
 	if cfg.Postgres.Host == "" {
 		cfg.Postgres.Host = "postgres"
@@ -300,6 +305,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("POSTGRES_DATABASE"); v != "" {
 		cfg.Postgres.Database = v
 	}
+	if v := os.Getenv("DB_DATABASE"); v != "" {
+		cfg.Postgres.Database = v
+	}
 
 	// Redis
 	if v := os.Getenv("REDIS_ADDR"); v != "" {
@@ -307,6 +315,20 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
 		cfg.Redis.Password = v
+	}
+
+	// Nacos
+	if v := os.Getenv("NACOS_ENABLED"); v != "" {
+		cfg.Nacos.Enabled = v == "true"
+	}
+	if v := os.Getenv("NACOS_SERVER_ADDR"); v != "" {
+		cfg.Nacos.ServerAddr = v
+	}
+	if v := os.Getenv("NACOS_NAMESPACE"); v != "" {
+		cfg.Nacos.Namespace = v
+	}
+	if v := os.Getenv("NACOS_GROUP"); v != "" {
+		cfg.Nacos.Group = v
 	}
 
 	// Log

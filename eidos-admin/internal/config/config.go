@@ -57,7 +57,35 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
+	// 环境变量覆盖
+	overrideFromEnv(cfg)
+
 	return cfg, nil
+}
+
+// overrideFromEnv 从环境变量覆盖配置
+func overrideFromEnv(cfg *Config) {
+	// Nacos
+	if v := os.Getenv("NACOS_ENABLED"); v != "" {
+		cfg.Nacos.Enabled = v == "true"
+	}
+	if v := os.Getenv("NACOS_SERVER_ADDR"); v != "" {
+		cfg.Nacos.ServerAddr = v
+	}
+	if v := os.Getenv("NACOS_NAMESPACE"); v != "" {
+		cfg.Nacos.Namespace = v
+	}
+	if v := os.Getenv("NACOS_GROUP"); v != "" {
+		cfg.Nacos.Group = v
+	}
+
+	// 数据库
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.Postgres.Host = v
+	}
+	if v := os.Getenv("DB_DATABASE"); v != "" {
+		cfg.Postgres.Database = v
+	}
 }
 
 func defaultConfig() *Config {
@@ -67,6 +95,7 @@ func defaultConfig() *Config {
 			HTTPPort: GetEnvInt("HTTP_PORT", 8088),
 			Env:      GetEnv("ENV", "dev"),
 		},
+		Nacos: commonConfig.DefaultNacosConfig(),
 		Postgres: commonConfig.PostgresConfig{
 			Host:            GetEnv("POSTGRES_HOST", "localhost"),
 			Port:            GetEnvInt("POSTGRES_PORT", 5432),

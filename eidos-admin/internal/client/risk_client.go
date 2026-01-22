@@ -11,8 +11,9 @@ import (
 
 // RiskClient wraps the risk service gRPC client
 type RiskClient struct {
-	conn   *grpc.ClientConn
-	client riskv1.RiskServiceClient
+	conn     *grpc.ClientConn
+	client   riskv1.RiskServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewRiskClient creates a new risk client
@@ -22,14 +23,24 @@ func NewRiskClient(ctx context.Context, target string) (*RiskClient, error) {
 		return nil, err
 	}
 	return &RiskClient{
-		conn:   conn,
-		client: riskv1.NewRiskServiceClient(conn),
+		conn:     conn,
+		client:   riskv1.NewRiskServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewRiskClientFromConn creates a risk client from an existing connection (service discovery mode)
+func NewRiskClientFromConn(conn *grpc.ClientConn) *RiskClient {
+	return &RiskClient{
+		conn:     conn,
+		client:   riskv1.NewRiskServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // Close closes the connection
 func (c *RiskClient) Close() error {
-	if c.conn != nil {
+	if c.ownsConn && c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil

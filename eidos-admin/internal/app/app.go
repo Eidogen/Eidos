@@ -21,6 +21,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/router"
 	"github.com/eidos-exchange/eidos/eidos-admin/internal/service"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
 )
 
@@ -31,6 +32,7 @@ type App struct {
 	redisClient   redis.UniversalClient
 	httpServer    *http.Server
 	engine        *gin.Engine
+	infra         *discovery.Infrastructure // 统一服务发现基础设施
 	clientManager *client.ClientManager
 	repos         *repositories
 }
@@ -58,15 +60,20 @@ func (a *App) Init() error {
 	a.engine.Use(middleware.CORS())
 	a.engine.Use(middleware.MetricsMiddleware())
 
-	// 初始化 gRPC 客户端管理器
-	a.clientManager = client.NewClientManager(&a.cfg.GRPCClients)
+	// 初始化服务发现基础设施
+	if err := a.initInfra(); err != nil {
+		return fmt.Errorf("init infrastructure: %w", err)
+	}
+
+	// 初始化 gRPC 客户端管理器（使用服务发现）
+	a.clientManager = client.NewClientManagerWithDiscovery(&a.cfg.GRPCClients, a.infra)
 	if err := a.clientManager.Connect(context.Background()); err != nil {
 		logger.Warn("failed to connect to some gRPC services", "error", err)
 	}
 
 	// 连接 Jobs 服务（可选）
-	if a.cfg.GRPCClients.Jobs.Addr != "" { // Changed from a.cfg.GRPCClients.Jobs != ""
-		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs.Addr); err != nil { // Changed from a.cfg.GRPCClients.Jobs
+	if a.cfg.GRPCClients.Jobs.Addr != "" {
+		if err := a.clientManager.ConnectJobs(context.Background(), a.cfg.GRPCClients.Jobs.Addr); err != nil {
 			logger.Warn("failed to connect to jobs service", "error", err)
 		}
 	}
@@ -100,6 +107,41 @@ func (a *App) Init() error {
 	logger.Info("app initialized",
 		"port", a.cfg.Service.HTTPPort,
 		"mode", a.cfg.Service.Env)
+
+	return nil
+}
+
+// initInfra 初始化服务发现基础设施
+func (a *App) initInfra() error {
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, 0, a.cfg.Service.HTTPPort)
+
+	// 设置服务元数据
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	opts.WithMetadata("protocol", "http")
+	// 管理后台依赖所有服务进行管理
+	opts.WithDependencies("eidos-trading", "eidos-matching", "eidos-market", "eidos-chain", "eidos-risk", "eidos-jobs")
+
+	var err error
+	a.infra, err = discovery.NewInfrastructure(opts)
+	if err != nil {
+		return fmt.Errorf("create infrastructure: %w", err)
+	}
+
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+
+	logger.Info("service registered to nacos",
+		"service", a.cfg.Service.Name,
+		"httpPort", a.cfg.Service.HTTPPort,
+	)
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		logger.Warn("failed to publish config to nacos", "error", err)
+	}
 
 	return nil
 }
@@ -253,6 +295,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 	if a.clientManager != nil {
 		if err := a.clientManager.Close(); err != nil {
 			logger.Warn("failed to close gRPC connections", "error", err)
+		}
+	}
+
+	// 关闭服务发现基础设施（会自动注销 Nacos 服务和关闭 gRPC 连接）
+	if a.infra != nil {
+		if err := a.infra.Close(); err != nil {
+			logger.Warn("failed to close infrastructure", "error", err)
 		}
 	}
 

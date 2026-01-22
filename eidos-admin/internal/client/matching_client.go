@@ -10,8 +10,9 @@ import (
 
 // MatchingClient wraps the matching service gRPC client
 type MatchingClient struct {
-	conn   *grpc.ClientConn
-	client matchingv1.MatchingServiceClient
+	conn     *grpc.ClientConn
+	client   matchingv1.MatchingServiceClient
+	ownsConn bool // 是否拥有连接（用于关闭时判断）
 }
 
 // NewMatchingClient creates a new matching client
@@ -21,14 +22,24 @@ func NewMatchingClient(ctx context.Context, target string) (*MatchingClient, err
 		return nil, err
 	}
 	return &MatchingClient{
-		conn:   conn,
-		client: matchingv1.NewMatchingServiceClient(conn),
+		conn:     conn,
+		client:   matchingv1.NewMatchingServiceClient(conn),
+		ownsConn: true,
 	}, nil
+}
+
+// NewMatchingClientFromConn creates a matching client from an existing connection (service discovery mode)
+func NewMatchingClientFromConn(conn *grpc.ClientConn) *MatchingClient {
+	return &MatchingClient{
+		conn:     conn,
+		client:   matchingv1.NewMatchingServiceClient(conn),
+		ownsConn: false,
+	}
 }
 
 // Close closes the connection
 func (c *MatchingClient) Close() error {
-	if c.conn != nil {
+	if c.ownsConn && c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil
