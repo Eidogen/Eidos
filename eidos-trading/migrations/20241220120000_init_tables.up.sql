@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS trading_orders (
     reject_reason VARCHAR(255),                      -- 拒绝原因
     freeze_token VARCHAR(20) NOT NULL,               -- 冻结的 Token
     freeze_amount DECIMAL(36, 18) NOT NULL,          -- 冻结数量
+    accepted_at BIGINT,                              -- 撮合引擎接受时间 (毫秒)
     created_at BIGINT NOT NULL,                      -- 创建时间 (毫秒)
     updated_at BIGINT NOT NULL,                      -- 更新时间 (毫秒)
     created_by VARCHAR(64),

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY eidos-trading/ ./eidos-trading/
 COPY eidos-common ./eidos-common
 COPY proto ./proto
 WORKDIR /app/eidos-trading
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/service ./cmd/main.go
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -o /bin/service ./cmd/main.go
 
 # Runtime stage
 FROM alpine:3.19

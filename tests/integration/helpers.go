@@ -89,9 +89,9 @@ func (h *TestHelper) GetGRPCConnection(ctx context.Context, serviceName, addr st
 		return conn, nil
 	}
 
-	conn, err := grpc.DialContext(ctx, addr,
+	// Use NewClient instead of DialContext for non-blocking connection
+	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s at %s: %w", serviceName, addr, err)
@@ -119,6 +119,14 @@ func GenerateOrderID() string {
 // GenerateWalletAddress generates a random wallet address for testing.
 func GenerateWalletAddress() string {
 	bytes := make([]byte, 20)
+	_, _ = rand.Read(bytes)
+	return "0x" + hex.EncodeToString(bytes)
+}
+
+// GenerateTxHash generates a random transaction hash for testing.
+// Returns a 66-character string (0x + 64 hex characters).
+func GenerateTxHash() string {
+	bytes := make([]byte, 32)
 	_, _ = rand.Read(bytes)
 	return "0x" + hex.EncodeToString(bytes)
 }
@@ -163,4 +171,18 @@ func MockSignature() []byte {
 // FormatDecimal formats a decimal value as a string.
 func FormatDecimal(value float64, precision int) string {
 	return fmt.Sprintf("%.*f", precision, value)
+}
+
+// SetBalance directly sets a balance in Redis for testing.
+// This bypasses the deposit flow and directly credits the account.
+func (h *TestHelper) SetBalance(ctx context.Context, wallet, token, amount string) error {
+	key := fmt.Sprintf("eidos:trading:balance:%s:%s", wallet, token)
+
+	// Set the balance hash fields
+	return h.redisClient.HSet(ctx, key, map[string]interface{}{
+		"settled_available": amount,
+		"settled_frozen":    "0",
+		"pending_available": "0",
+		"pending_frozen":    "0",
+	}).Err()
 }

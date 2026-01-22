@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
 	matchingv1 "github.com/eidos-exchange/eidos/proto/matching/v1"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/engine"
 	"github.com/eidos-exchange/eidos/eidos-matching/internal/metrics"
@@ -183,5 +184,172 @@ func (h *MatchingHandler) HealthCheck(ctx context.Context, req *matchingv1.Healt
 	return &matchingv1.HealthCheckResponse{
 		Healthy: true,
 		Markets: marketStatuses,
+	}, nil
+}
+
+// GetBestPrices 获取最佳买卖价格
+func (h *MatchingHandler) GetBestPrices(ctx context.Context, req *matchingv1.GetBestPricesRequest) (*matchingv1.GetBestPricesResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		metrics.RecordGRPCRequest("GetBestPrices", "OK", time.Since(startTime).Seconds())
+	}()
+
+	if req.Market == "" {
+		metrics.RecordGRPCRequest("GetBestPrices", "InvalidArgument", time.Since(startTime).Seconds())
+		return nil, status.Error(codes.InvalidArgument, "market is required")
+	}
+
+	eng, err := h.engineManager.GetEngine(req.Market)
+	if err != nil {
+		metrics.RecordGRPCRequest("GetBestPrices", "NotFound", time.Since(startTime).Seconds())
+		return nil, status.Errorf(codes.NotFound, "market not found: %s", req.Market)
+	}
+
+	depth, err := eng.GetDepth(1)
+	if err != nil {
+		metrics.RecordGRPCRequest("GetBestPrices", "Internal", time.Since(startTime).Seconds())
+		return nil, status.Errorf(codes.Internal, "get depth failed: %v", err)
+	}
+
+	resp := &matchingv1.GetBestPricesResponse{
+		Market: req.Market,
+	}
+
+	if len(depth.Bids) > 0 {
+		resp.BestBid = depth.Bids[0].Price.String()
+		resp.BestBidQty = depth.Bids[0].Size.String()
+	}
+
+	if len(depth.Asks) > 0 {
+		resp.BestAsk = depth.Asks[0].Price.String()
+		resp.BestAskQty = depth.Asks[0].Size.String()
+	}
+
+	// 计算价差
+	if len(depth.Bids) > 0 && len(depth.Asks) > 0 {
+		spread := depth.Asks[0].Price.Sub(depth.Bids[0].Price)
+		resp.Spread = spread.String()
+
+		midPrice := depth.Bids[0].Price.Add(depth.Asks[0].Price).Div(decimal.NewFromInt(2))
+		if !midPrice.IsZero() {
+			spreadPercent := spread.Div(midPrice).Mul(decimal.NewFromInt(100))
+			resp.SpreadPercent = spreadPercent.String()
+		}
+	}
+
+	return resp, nil
+}
+
+// ListMarkets 列出所有市场
+func (h *MatchingHandler) ListMarkets(ctx context.Context, req *matchingv1.ListMarketsRequest) (*matchingv1.ListMarketsResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		metrics.RecordGRPCRequest("ListMarkets", "OK", time.Since(startTime).Seconds())
+	}()
+
+	markets := h.engineManager.GetMarkets()
+	summaries := make([]*matchingv1.MarketSummary, 0, len(markets))
+
+	for _, market := range markets {
+		eng, err := h.engineManager.GetEngine(market)
+		if err != nil {
+			continue
+		}
+
+		stats := eng.GetStats()
+		obStats := stats.OrderBookStats
+
+		summaries = append(summaries, &matchingv1.MarketSummary{
+			Market:    market,
+			IsActive:  eng.IsRunning(),
+			BestBid:   obStats.BestBid.String(),
+			BestAsk:   obStats.BestAsk.String(),
+			LastPrice: obStats.LastPrice.String(),
+			UpdatedAt: time.Now().UnixMilli(),
+		})
+	}
+
+	return &matchingv1.ListMarketsResponse{
+		Markets: summaries,
+	}, nil
+}
+
+// GetMarketState 获取市场状态
+func (h *MatchingHandler) GetMarketState(ctx context.Context, req *matchingv1.GetMarketStateRequest) (*matchingv1.GetMarketStateResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		metrics.RecordGRPCRequest("GetMarketState", "OK", time.Since(startTime).Seconds())
+	}()
+
+	if req.Market == "" {
+		metrics.RecordGRPCRequest("GetMarketState", "InvalidArgument", time.Since(startTime).Seconds())
+		return nil, status.Error(codes.InvalidArgument, "market is required")
+	}
+
+	eng, err := h.engineManager.GetEngine(req.Market)
+	if err != nil {
+		metrics.RecordGRPCRequest("GetMarketState", "NotFound", time.Since(startTime).Seconds())
+		return nil, status.Errorf(codes.NotFound, "market not found: %s", req.Market)
+	}
+
+	stats := eng.GetStats()
+	obStats := stats.OrderBookStats
+
+	return &matchingv1.GetMarketStateResponse{
+		Market:        req.Market,
+		IsActive:      eng.IsRunning(),
+		BidOrderCount: int64(obStats.BidLevels),
+		AskOrderCount: int64(obStats.AskLevels),
+		BestBid:       obStats.BestBid.String(),
+		BestAsk:       obStats.BestAsk.String(),
+		LastPrice:     obStats.LastPrice.String(),
+		LastTradeTime: obStats.LastTradeAt,
+		LastSequence:  uint64(stats.OutputSequence),
+	}, nil
+}
+
+// GetMetrics 获取性能指标
+func (h *MatchingHandler) GetMetrics(ctx context.Context, req *matchingv1.GetMetricsRequest) (*matchingv1.GetMetricsResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		metrics.RecordGRPCRequest("GetMetrics", "OK", time.Since(startTime).Seconds())
+	}()
+
+	markets := h.engineManager.GetMarkets()
+	marketMetrics := make(map[string]*matchingv1.MarketMetrics, len(markets))
+
+	var totalOrders, totalTrades int64
+
+	for _, market := range markets {
+		eng, err := h.engineManager.GetEngine(market)
+		if err != nil {
+			continue
+		}
+
+		stats := eng.GetStats()
+		totalOrders += stats.OrdersProcessed
+		totalTrades += stats.TradesGenerated
+
+		marketMetrics[market] = &matchingv1.MarketMetrics{
+			Market:          market,
+			OrdersReceived:  stats.OrdersProcessed,
+			OrdersMatched:   stats.TradesGenerated,
+			OrdersCancelled: stats.CancelProcessed,
+			TradesExecuted:  stats.TradesGenerated,
+			AvgLatencyUs:    stats.AvgLatencyUs,
+			P99LatencyUs:    0, // TODO: 添加 P99 延迟统计
+			OrdersPerSecond: 0, // TODO: 添加 TPS 统计
+		}
+	}
+
+	return &matchingv1.GetMetricsResponse{
+		Markets: marketMetrics,
+		Global: &matchingv1.GlobalMetrics{
+			TotalOrders:  totalOrders,
+			TotalTrades:  totalTrades,
+			AvgLatencyUs: 0, // TODO: 计算全局平均延迟
+			P99LatencyUs: 0, // TODO: 计算全局 P99 延迟
+			StartTime:    time.Now().Add(-time.Hour).UnixMilli(), // 示例值
+		},
 	}, nil
 }

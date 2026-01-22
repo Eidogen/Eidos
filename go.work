@@ -1,8 +1,7 @@
-go 1.24.0
+go 1.25.6
 
 use (
 	./eidos-admin
-	./eidos-api
 	./eidos-chain
 	./eidos-common
 	./eidos-jobs
@@ -10,4 +9,6 @@ use (
 	./eidos-matching
 	./eidos-risk
 	./eidos-trading
+	./proto
+	./tests/integration
 )

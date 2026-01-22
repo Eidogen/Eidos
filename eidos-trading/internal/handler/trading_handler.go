@@ -109,6 +109,61 @@ func (h *TradingHandler) CancelOrder(ctx context.Context, req *pb.CancelOrderReq
 	return &emptypb.Empty{}, nil
 }
 
+// BatchCancelOrders 批量取消订单
+func (h *TradingHandler) BatchCancelOrders(ctx context.Context, req *pb.BatchCancelOrdersRequest) (*pb.BatchCancelOrdersResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+
+	var orderIDs []string
+
+	// 如果指定了订单ID列表，使用它们
+	if len(req.OrderIds) > 0 {
+		orderIDs = req.OrderIds
+	} else {
+		// 否则，查询符合条件的活跃订单
+		orders, err := h.orderService.ListOpenOrders(ctx, req.Wallet, req.Market)
+		if err != nil {
+			return nil, handleServiceError(err)
+		}
+
+		// 根据方向筛选
+		for _, order := range orders {
+			if req.Side != commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED {
+				side := protoToModelOrderSide(req.Side)
+				if order.Side != side {
+					continue
+				}
+			}
+			orderIDs = append(orderIDs, order.OrderID)
+		}
+	}
+
+	// 批量取消
+	var cancelledCount, failedCount int32
+	var failures []*pb.CancelFailure
+
+	for _, orderID := range orderIDs {
+		err := h.orderService.CancelOrder(ctx, req.Wallet, orderID)
+		if err != nil {
+			failedCount++
+			failures = append(failures, &pb.CancelFailure{
+				OrderId:      orderID,
+				ErrorCode:    "CANCEL_FAILED",
+				ErrorMessage: err.Error(),
+			})
+		} else {
+			cancelledCount++
+		}
+	}
+
+	return &pb.BatchCancelOrdersResponse{
+		CancelledCount: cancelledCount,
+		FailedCount:    failedCount,
+		Failures:       failures,
+	}, nil
+}
+
 // GetOrder 获取订单详情
 func (h *TradingHandler) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.Order, error) {
 	if req.OrderId == "" {
