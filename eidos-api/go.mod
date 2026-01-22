@@ -1,6 +1,6 @@
 module github.com/eidos-exchange/eidos/eidos-api
 
-go 1.24.0
+go 1.25.6
 
 require (
 	github.com/alicebob/miniredis/v2 v2.35.0
