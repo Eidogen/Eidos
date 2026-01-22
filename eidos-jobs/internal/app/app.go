@@ -63,8 +63,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -73,7 +75,9 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-jobs/internal/config"
@@ -93,6 +97,8 @@ type App struct {
 	db          *gorm.DB
 	redisClient redis.UniversalClient
 	grpcServer  *grpc.Server
+	httpServer  *http.Server             // HTTP 服务 (metrics + health)
+	infra       *discovery.Infrastructure // 统一服务发现基础设施
 
 	// 调度器
 	scheduler *scheduler.Scheduler
@@ -136,22 +142,27 @@ func (a *App) Run() error {
 		return fmt.Errorf("failed to init redis: %w", err)
 	}
 
-	// 3. 初始化仓储层
+	// 3. 初始化服务发现基础设施
+	if err := a.initInfra(); err != nil {
+		return fmt.Errorf("failed to init infrastructure: %w", err)
+	}
+
+	// 4. 初始化仓储层
 	a.initRepositories()
 
-	// 4. 初始化 gRPC 客户端 (可选，失败不阻止启动)
+	// 5. 初始化 gRPC 客户端 (可选，失败不阻止启动)
 	a.initClients()
 
-	// 5. 初始化调度器
+	// 6. 初始化调度器
 	a.initScheduler()
 
-	// 6. 注册任务
+	// 7. 注册任务
 	a.registerJobs()
 
-	// 7. 启动调度器
+	// 8. 启动调度器
 	a.scheduler.Start()
 
-	// 8. 启动 gRPC 服务
+	// 9. 启动 gRPC 服务
 	if err := a.startGRPC(); err != nil {
 		return fmt.Errorf("failed to start gRPC: %w", err)
 	}
@@ -163,6 +174,13 @@ func (a *App) Run() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	logger.Info("shutting down jobs service...")
 
+	// 停止 HTTP 服务器
+	if a.httpServer != nil {
+		if err := a.httpServer.Shutdown(ctx); err != nil {
+			logger.Error("http server shutdown error", "error", err)
+		}
+	}
+
 	// 停止接收新请求
 	if a.grpcServer != nil {
 		a.grpcServer.GracefulStop()
@@ -173,7 +191,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 		a.scheduler.Stop()
 	}
 
-	// 关闭 gRPC 客户端
+	// 关闭 gRPC 客户端（由于使用服务发现，连接由 infra 管理，这里只调用 Close 做清理）
 	if a.tradingClient != nil {
 		a.tradingClient.Close()
 	}
@@ -185,6 +203,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 	}
 	if a.chainClient != nil {
 		a.chainClient.Close()
+	}
+
+	// 关闭服务发现基础设施（会自动注销 Nacos 服务和关闭 gRPC 连接）
+	if a.infra != nil {
+		if err := a.infra.Close(); err != nil {
+			logger.Error("close infrastructure failed", "error", err)
+		}
 	}
 
 	// 关闭 Redis
@@ -273,6 +298,40 @@ func (a *App) initRedis() error { // 初始化 Redis 客户端
 	return nil
 }
 
+// initInfra 初始化服务发现基础设施
+func (a *App) initInfra() error {
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, a.cfg.Service.GRPCPort, a.cfg.Service.HTTPPort)
+
+	// 设置服务元数据
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	// 定时任务服务调用多个服务获取数据
+	opts.WithDependencies("eidos-trading", "eidos-matching", "eidos-market", "eidos-chain")
+
+	var err error
+	a.infra, err = discovery.NewInfrastructure(opts)
+	if err != nil {
+		return fmt.Errorf("create infrastructure: %w", err)
+	}
+
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+
+	logger.Info("service registered to nacos",
+		"service", a.cfg.Service.Name,
+		"grpcPort", a.cfg.Service.GRPCPort,
+	)
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		logger.Warn("failed to publish config to nacos", "error", err)
+	}
+
+	return nil
+}
+
 // initRepositories 初始化仓储层
 func (a *App) initRepositories() {
 	a.execRepo = repository.NewExecutionRepository(a.db)
@@ -286,55 +345,78 @@ func (a *App) initRepositories() {
 // initClients 初始化 gRPC 客户端
 // 客户端初始化失败不阻止服务启动，任务会使用 Mock 实现
 func (a *App) initClients() {
+	ctx := a.ctx
+	mode := a.getServiceDiscoveryMode()
+
 	// 1. Trading
-	if a.cfg.GRPCClients.Trading.Addr != "" {
-		tradingClient, err := client.NewTradingClient(a.cfg.GRPCClients.Trading.Addr)
-		if err != nil {
-			logger.Warn("failed to connect to trading service, using mock",
-				"addr", a.cfg.GRPCClients.Trading.Addr,
-				"error", err)
-		} else {
-			a.tradingClient = tradingClient
-		}
+	tradingConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceTrading)
+	if err != nil {
+		logger.Warn("failed to connect to trading service, using mock",
+			"service", discovery.ServiceTrading,
+			"mode", mode,
+			"error", err)
+	} else {
+		a.tradingClient = client.NewTradingClientFromConn(tradingConn)
+		logger.Info("trading client initialized via service discovery",
+			"service", discovery.ServiceTrading,
+			"mode", mode,
+		)
 	}
 
 	// 2. Matching
-	if a.cfg.GRPCClients.Matching.Addr != "" {
-		matchingClient, err := client.NewMatchingClient(a.cfg.GRPCClients.Matching.Addr, nil)
-		if err != nil {
-			logger.Warn("failed to connect to matching service, using mock",
-				"addr", a.cfg.GRPCClients.Matching.Addr,
-				"error", err)
-		} else {
-			a.matchingClient = matchingClient
-		}
+	matchingConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceMatching)
+	if err != nil {
+		logger.Warn("failed to connect to matching service, using mock",
+			"service", discovery.ServiceMatching,
+			"mode", mode,
+			"error", err)
+	} else {
+		a.matchingClient = client.NewMatchingClientFromConn(matchingConn, nil)
+		logger.Info("matching client initialized via service discovery",
+			"service", discovery.ServiceMatching,
+			"mode", mode,
+		)
 	}
 
 	// 3. Market
-	if a.cfg.GRPCClients.Market.Addr != "" {
-		marketClient, err := client.NewMarketClient(a.cfg.GRPCClients.Market.Addr)
-		if err != nil {
-			logger.Warn("failed to connect to market service, using mock",
-				"addr", a.cfg.GRPCClients.Market.Addr,
-				"error", err)
-		} else {
-			a.marketClient = marketClient
-		}
+	marketConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceMarket)
+	if err != nil {
+		logger.Warn("failed to connect to market service, using mock",
+			"service", discovery.ServiceMarket,
+			"mode", mode,
+			"error", err)
+	} else {
+		a.marketClient = client.NewMarketClientFromConn(marketConn)
+		logger.Info("market client initialized via service discovery",
+			"service", discovery.ServiceMarket,
+			"mode", mode,
+		)
 	}
 
 	// 4. Chain
-	if a.cfg.GRPCClients.Chain.Addr != "" {
-		chainClient, err := client.NewChainClient(a.cfg.GRPCClients.Chain.Addr)
-		if err != nil {
-			logger.Warn("failed to connect to chain service, using mock",
-				"addr", a.cfg.GRPCClients.Chain.Addr,
-				"error", err)
-		} else {
-			a.chainClient = chainClient
-		}
+	chainConn, err := a.infra.GetServiceConnection(ctx, discovery.ServiceChain)
+	if err != nil {
+		logger.Warn("failed to connect to chain service, using mock",
+			"service", discovery.ServiceChain,
+			"mode", mode,
+			"error", err)
+	} else {
+		a.chainClient = client.NewChainClientFromConn(chainConn)
+		logger.Info("chain client initialized via service discovery",
+			"service", discovery.ServiceChain,
+			"mode", mode,
+		)
 	}
 
-	logger.Info("gRPC clients initialized")
+	logger.Info("gRPC clients initialized", "mode", mode)
+}
+
+// getServiceDiscoveryMode 返回当前服务发现模式
+func (a *App) getServiceDiscoveryMode() string {
+	if a.infra != nil && a.infra.IsNacosEnabled() {
+		return "nacos"
+	}
+	return "static"
 }
 
 // initScheduler 初始化调度器
@@ -576,11 +658,15 @@ func (a *App) startGRPC() error {
 		return err
 	}
 
-	// 创建 gRPC 服务器
+	// 创建 gRPC 服务器 (带 metrics 拦截器)
 	a.grpcServer = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryUnaryServerInterceptor(),
 			middleware.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(a.cfg.Service.Name),
+		),
+		grpc.ChainStreamInterceptor(
+			metrics.StreamServerInterceptor(a.cfg.Service.Name),
 		),
 	)
 
@@ -608,7 +694,59 @@ func (a *App) startGRPC() error {
 		}
 	}()
 
+	// 启动 HTTP 服务 (metrics + health)
+	a.startHTTPServer()
+
 	return nil
+}
+
+// startHTTPServer 启动 HTTP 服务器 (metrics + health check)
+func (a *App) startHTTPServer() {
+	mux := http.NewServeMux()
+
+	// Prometheus metrics 端点
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// 健康检查端点 (HTTP)
+	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		// 检查数据库连接
+		if a.db != nil {
+			sqlDB, err := a.db.DB()
+			if err != nil || sqlDB.Ping() != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("DB NOT READY"))
+				return
+			}
+		}
+		// 检查 Redis 连接
+		if a.redisClient != nil {
+			if err := a.redisClient.Ping(r.Context()).Err(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("REDIS NOT READY"))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	a.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
+		Handler: mux,
+	}
+
+	go func() {
+		logger.Info("HTTP server listening (metrics + health)",
+			"port", a.cfg.Service.HTTPPort,
+		)
+		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("http server error", "error", err)
+		}
+	}()
 }
 
 // GetConfig 获取配置

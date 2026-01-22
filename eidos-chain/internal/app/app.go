@@ -47,18 +47,23 @@ import (
 	"syscall"
 	"time"
 
+	"net/http"
+
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/blockchain"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/handler"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/service"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	chainv1 "github.com/eidos-exchange/eidos/proto/chain/v1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -72,8 +77,10 @@ type App struct {
 	cfg *config.Config
 
 	// 基础设施
-	db    *gorm.DB
-	redis *redis.Client
+	infra      *discovery.Infrastructure // 统一服务发现基础设施
+	db         *gorm.DB
+	redis      *redis.Client
+	httpServer *http.Server // HTTP 服务 (metrics + health)
 
 	// 区块链
 	blockchainClient *blockchain.Client
@@ -112,6 +119,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 	app := &App{
 		cfg:    cfg,
 		stopCh: make(chan struct{}),
+	}
+
+	// 初始化服务发现
+	if err := app.initNacos(); err != nil {
+		return nil, fmt.Errorf("failed to init nacos: %w", err)
 	}
 
 	if err := app.initInfrastructure(); err != nil {
@@ -202,6 +214,13 @@ func (a *App) initInfrastructure() error {
 
 // initBlockchain 初始化区块链客户端
 func (a *App) initBlockchain() error {
+	// 检查是否配置了有效的 RPC URL
+	if a.cfg.Blockchain.RPCURL == "" || a.cfg.Blockchain.RPCURL == "http://localhost:8545" {
+		logger.Warn("blockchain RPC not configured or using default localhost, running in mock mode")
+		// Mock 模式下跳过区块链初始化
+		return nil
+	}
+
 	// 创建区块链客户端
 	rpcURLs := []string{a.cfg.Blockchain.RPCURL}
 
@@ -214,7 +233,8 @@ func (a *App) initBlockchain() error {
 		HealthCheckFreq: 30 * time.Second,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create blockchain client: %w", err)
+		logger.Warn("failed to create blockchain client, running in mock mode", "error", err)
+		return nil
 	}
 
 	a.blockchainClient = client
@@ -249,6 +269,9 @@ func (a *App) initRepositories() {
 
 // initServices 初始化服务
 func (a *App) initServices() error {
+	// Mock 模式检查
+	isMockMode := a.blockchainClient == nil
+
 	// 结算服务
 	a.settlementSvc = service.NewSettlementService(
 		a.settlementRepo,
@@ -293,7 +316,11 @@ func (a *App) initServices() error {
 		},
 	)
 
-	logger.Info("services initialized")
+	if isMockMode {
+		logger.Info("services initialized in mock mode (no blockchain connection)")
+	} else {
+		logger.Info("services initialized")
+	}
 	return nil
 }
 
@@ -337,6 +364,10 @@ func (a *App) initGRPC() {
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryUnaryServerInterceptor(),
 			middleware.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(a.cfg.Service.Name),
+		),
+		grpc.ChainStreamInterceptor(
+			metrics.StreamServerInterceptor(a.cfg.Service.Name),
 		),
 	)
 
@@ -391,13 +422,17 @@ func (a *App) Run() error {
 		return fmt.Errorf("failed to start kafka consumer: %w", err)
 	}
 
-	// 启动索引器
-	if err := a.indexerSvc.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start indexer: %w", err)
+	// 启动索引器 (仅在非 mock 模式下)
+	if a.blockchainClient != nil {
+		if err := a.indexerSvc.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start indexer: %w", err)
+		}
 	}
 
-	// 启动后台任务
-	go a.runBackgroundTasks(ctx)
+	// 启动后台任务 (仅在非 mock 模式下)
+	if a.blockchainClient != nil {
+		go a.runBackgroundTasks(ctx)
+	}
 
 	// 启动 gRPC 服务器
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", a.cfg.Service.GRPCPort))
@@ -413,6 +448,9 @@ func (a *App) Run() error {
 			logger.Error("gRPC server error", "error", err)
 		}
 	}()
+
+	// 启动 HTTP 服务 (metrics + health)
+	a.startHTTPServer()
 
 	// 等待退出信号
 	sigCh := make(chan os.Signal, 1)
@@ -467,11 +505,100 @@ func (a *App) runBackgroundTasks(ctx context.Context) {
 	}
 }
 
+// initNacos 初始化服务发现基础设施
+func (a *App) initNacos() error {
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, a.cfg.Service.GRPCPort, a.cfg.Service.HTTPPort)
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	// 链上服务不依赖其他内部服务，但与区块链交互
+	opts.WithKafkaTopics(
+		[]string{"deposits", "settlement-confirmed", "withdrawal-confirmed"},
+		[]string{"settlements", "withdrawals"},
+	)
+
+	var err error
+	a.infra, err = discovery.NewInfrastructure(opts)
+	if err != nil {
+		return fmt.Errorf("create infrastructure: %w", err)
+	}
+
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		logger.Warn("failed to publish config to nacos", "error", err)
+	}
+
+	logger.Info("service registered to nacos")
+	return nil
+}
+
+// startHTTPServer 启动 HTTP 服务器 (metrics + health check)
+func (a *App) startHTTPServer() {
+	mux := http.NewServeMux()
+
+	// Prometheus metrics 端点
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// 健康检查端点 (HTTP)
+	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		// 检查数据库连接
+		if a.db != nil {
+			sqlDB, err := a.db.DB()
+			if err != nil || sqlDB.Ping() != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("DB NOT READY"))
+				return
+			}
+		}
+		// 检查 Redis 连接
+		if a.redis != nil {
+			if err := a.redis.Ping(r.Context()).Err(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("REDIS NOT READY"))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	a.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
+		Handler: mux,
+	}
+
+	go func() {
+		logger.Info("HTTP server listening (metrics + health)",
+			"port", a.cfg.Service.HTTPPort,
+		)
+		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("http server error", "error", err)
+		}
+	}()
+}
+
 // shutdown 关闭应用
 func (a *App) shutdown() error {
 	logger.Info("shutting down...")
 
 	a.healthServer.SetServingStatus(a.cfg.Service.Name, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
+	// 停止 HTTP 服务器
+	if a.httpServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := a.httpServer.Shutdown(ctx); err != nil {
+			logger.Error("http server shutdown error", "error", err)
+		}
+	}
 
 	// 停止 Kafka 消费者
 	if a.kafkaConsumer != nil {
@@ -509,6 +636,11 @@ func (a *App) shutdown() error {
 		if sqlDB != nil {
 			sqlDB.Close()
 		}
+	}
+
+	// 关闭服务发现基础设施
+	if a.infra != nil {
+		a.infra.Close()
 	}
 
 	logger.Info("shutdown complete")

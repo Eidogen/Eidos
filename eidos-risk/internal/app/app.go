@@ -61,9 +61,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"time"
 
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
+	"github.com/eidos-exchange/eidos/eidos-common/pkg/metrics"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/middleware"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/migrate"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/cache"
@@ -73,6 +76,7 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/service"
 	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -87,9 +91,11 @@ type App struct {
 	cfg *config.Config
 
 	// 基础设施
+	infra       *discovery.Infrastructure // 统一服务发现基础设施
 	db          *gorm.DB
 	redisClient redis.UniversalClient
 	grpcServer  *grpc.Server
+	httpServer  *http.Server // HTTP 服务 (metrics + health)
 
 	// Kafka
 	kafkaProducer *kafka.Producer
@@ -118,33 +124,38 @@ func New(cfg *config.Config) *App {
 
 // Run 启动应用
 func (a *App) Run() error {
-	// 1. 确保数据库存在
+	// 1. 初始化服务发现基础设施
+	if err := a.initInfra(); err != nil {
+		return fmt.Errorf("failed to init infrastructure: %w", err)
+	}
+
+	// 2. 确保数据库存在
 	if err := migrate.EnsureDatabase(a.cfg.Postgres.Host, a.cfg.Postgres.Port, a.cfg.Postgres.User, a.cfg.Postgres.Password, a.cfg.Postgres.Database); err != nil {
 		return fmt.Errorf("failed to ensure database: %w", err)
 	}
 
-	// 2. 初始化数据库
+	// 3. 初始化数据库
 	if err := a.initDB(); err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
 
-	// 3. 初始化 Redis
+	// 4. 初始化 Redis
 	if err := a.initRedis(); err != nil {
 		return fmt.Errorf("failed to init redis: %w", err)
 	}
 
-	// 3. 初始化 Kafka
+	// 5. 初始化 Kafka
 	if err := a.initKafka(); err != nil {
 		logger.Warn("failed to init kafka, running without kafka", "error", err)
 	}
 
-	// 4. 初始化服务层
+	// 6. 初始化服务层
 	a.initServices()
 
-	// 5. 初始化缓存 (从数据库加载)
+	// 7. 初始化缓存 (从数据库加载)
 	a.warmupCache()
 
-	// 6. 启动 gRPC 服务
+	// 8. 启动 gRPC 服务
 	if err := a.startGRPC(); err != nil {
 		return fmt.Errorf("failed to start gRPC: %w", err)
 	}
@@ -155,6 +166,13 @@ func (a *App) Run() error {
 // Shutdown 优雅关闭
 func (a *App) Shutdown(ctx context.Context) error {
 	logger.Info("shutting down risk service...")
+
+	// 停止 HTTP 服务器
+	if a.httpServer != nil {
+		if err := a.httpServer.Shutdown(ctx); err != nil {
+			logger.Error("http server shutdown error", "error", err)
+		}
+	}
 
 	// 停止接收新请求
 	if a.grpcServer != nil {
@@ -184,8 +202,44 @@ func (a *App) Shutdown(ctx context.Context) error {
 		}
 	}
 
+	// 关闭服务发现基础设施
+	if a.infra != nil {
+		a.infra.Close()
+	}
+
 	a.cancel()
 	logger.Info("risk service stopped")
+	return nil
+}
+
+// initInfra 初始化服务发现基础设施
+func (a *App) initInfra() error {
+	opts := discovery.InitOptionsFromNacosConfig(&a.cfg.Nacos, a.cfg.Service.Name, a.cfg.Service.GRPCPort, a.cfg.Service.HTTPPort)
+	opts.WithMetadata("version", "1.0.0")
+	opts.WithMetadata("env", a.cfg.Service.Env)
+	// 风控服务是被依赖方，不主动依赖其他服务
+	opts.WithKafkaTopics(
+		[]string{"risk-alerts"},
+		[]string{"trade-results", "order-updates", "balance-updates"},
+	)
+
+	var err error
+	a.infra, err = discovery.NewInfrastructure(opts)
+	if err != nil {
+		return fmt.Errorf("create infrastructure: %w", err)
+	}
+
+	// 注册服务到 Nacos
+	if err := a.infra.RegisterService(nil); err != nil {
+		return fmt.Errorf("register service: %w", err)
+	}
+
+	// 发布配置到 Nacos 配置中心
+	if err := a.infra.PublishServiceConfig(a.cfg); err != nil {
+		logger.Warn("failed to publish config to nacos", "error", err)
+	}
+
+	logger.Info("service registered to nacos")
 	return nil
 }
 
@@ -369,11 +423,15 @@ func (a *App) startGRPC() error {
 		return err
 	}
 
-	// 创建 gRPC 服务器
+	// 创建 gRPC 服务器 (带 metrics 拦截器)
 	a.grpcServer = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryUnaryServerInterceptor(),
 			middleware.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(a.cfg.Service.Name),
+		),
+		grpc.ChainStreamInterceptor(
+			metrics.StreamServerInterceptor(a.cfg.Service.Name),
 		),
 	)
 
@@ -401,7 +459,59 @@ func (a *App) startGRPC() error {
 		}
 	}()
 
+	// 启动 HTTP 服务 (metrics + health)
+	a.startHTTPServer()
+
 	return nil
+}
+
+// startHTTPServer 启动 HTTP 服务器 (metrics + health check)
+func (a *App) startHTTPServer() {
+	mux := http.NewServeMux()
+
+	// Prometheus metrics 端点
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// 健康检查端点 (HTTP)
+	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		// 检查数据库连接
+		if a.db != nil {
+			sqlDB, err := a.db.DB()
+			if err != nil || sqlDB.Ping() != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("DB NOT READY"))
+				return
+			}
+		}
+		// 检查 Redis 连接
+		if a.redisClient != nil {
+			if err := a.redisClient.Ping(r.Context()).Err(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("REDIS NOT READY"))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	a.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", a.cfg.Service.HTTPPort),
+		Handler: mux,
+	}
+
+	go func() {
+		logger.Info("HTTP server listening (metrics + health)",
+			"port", a.cfg.Service.HTTPPort,
+		)
+		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("http server error", "error", err)
+		}
+	}()
 }
 
 // GetConfig 获取配置

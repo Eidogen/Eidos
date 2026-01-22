@@ -1,0 +1,472 @@
+# Eidos Trading System - Application Services
+# 应用服务: API 网关、交易、撮合、行情、链上、风控、定时任务、管理后台
+#
+# 使用方式:
+#   启动服务 (需先启动基础组件):
+#     docker-compose -f docker-compose.infra.yml -f docker-compose.services.yml up -d
+#
+#   仅启动特定服务:
+#     docker-compose -f docker-compose.infra.yml -f docker-compose.services.yml up -d eidos-trading eidos-matching
+#
+#   查看日志:
+#     docker-compose -f docker-compose.infra.yml -f docker-compose.services.yml logs -f
+#
+#   停止服务:
+#     docker-compose -f docker-compose.infra.yml -f docker-compose.services.yml down
+
+version: "3.8"
+
+services:
+  # ========================================
+  # Core Trading Services
+  # ========================================
+
+  # eidos-trading - 订单管理、清算、账户服务
+  eidos-trading:
+    image: eidos/eidos-trading:latest
+    build:
+      context: .
+      dockerfile: eidos-trading/Dockerfile
+    container_name: eidos-trading
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50051:50051"
+      - "8081:8080"   # HTTP metrics & health
+    environment:
+      # 数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${DB_DATABASE:-eidos}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos (服务注册)
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50051
+      SERVICE_HTTP_PORT: 8080
+      NODE_ID: 1
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 依赖服务地址 (静态配置，可通过 Nacos 服务发现替代)
+      MATCHING_ENABLED: "true"
+      MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
+      RISK_ENABLED: "true"
+      RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # eidos-matching - 撮合引擎
+  eidos-matching:
+    image: eidos/eidos-matching:latest
+    build:
+      context: .
+      dockerfile: eidos-matching/Dockerfile
+    container_name: eidos-matching
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50052:50052"
+      - "8082:8080"   # HTTP metrics & health
+    environment:
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50052
+      SERVICE_HTTP_PORT: 8080
+      NODE_ID: 1
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 依赖服务
+      RISK_ENABLED: "false"
+      RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50052"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
+  # Market Data Services
+  # ========================================
+
+  # eidos-market - 行情数据服务
+  eidos-market:
+    image: eidos/eidos-market:latest
+    build:
+      context: .
+      dockerfile: eidos-market/Dockerfile
+    container_name: eidos-market
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50053:50053"
+      - "8083:8080"   # HTTP metrics & health
+    environment:
+      # 数据库 (使用 TimescaleDB)
+      DB_HOST: ${MARKET_DB_HOST:-timescaledb}
+      DB_PORT: ${MARKET_DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${MARKET_DB_DATABASE:-eidos_market}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50053
+      SERVICE_HTTP_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50053"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
+  # Blockchain Services
+  # ========================================
+
+  # eidos-chain - 链上结算与索引
+  eidos-chain:
+    image: eidos/eidos-chain:latest
+    build:
+      context: .
+      dockerfile: eidos-chain/Dockerfile
+    container_name: eidos-chain
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50054:50054"
+      - "8084:8080"   # HTTP metrics & health
+    environment:
+      # 数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${DB_DATABASE:-eidos}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50054
+      SERVICE_HTTP_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 链上配置 (需要配置才能启用)
+      # RPC_URL: ${RPC_URL}
+      # PRIVATE_KEY: ${PRIVATE_KEY}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50054"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
+  # Risk Control Services
+  # ========================================
+
+  # eidos-risk - 风控服务
+  eidos-risk:
+    image: eidos/eidos-risk:latest
+    build:
+      context: .
+      dockerfile: eidos-risk/Dockerfile
+    container_name: eidos-risk
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "50055:50055"
+      - "8085:8080"   # HTTP metrics & health
+    environment:
+      # 数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${DB_DATABASE:-eidos}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50055
+      SERVICE_HTTP_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50055"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
+  # Background Jobs
+  # ========================================
+
+  # eidos-jobs - 定时任务服务
+  eidos-jobs:
+    image: eidos/eidos-jobs:latest
+    build:
+      context: .
+      dockerfile: eidos-jobs/Dockerfile
+    container_name: eidos-jobs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      eidos-trading:
+        condition: service_started
+    ports:
+      - "50056:50056"
+      - "8086:8080"   # HTTP metrics & health
+    environment:
+      # 数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${DB_DATABASE:-eidos}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      SERVICE_GRPC_PORT: 50056
+      SERVICE_HTTP_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 依赖服务地址
+      GRPC_TRADING_ADDR: ${GRPC_TRADING_ADDR:-eidos-trading:50051}
+      GRPC_MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
+      GRPC_MARKET_ADDR: ${GRPC_MARKET_ADDR:-eidos-market:50053}
+      GRPC_CHAIN_ADDR: ${GRPC_CHAIN_ADDR:-eidos-chain:50054}
+      GRPC_RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50056"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # ========================================
+  # Admin & Gateway Services
+  # ========================================
+
+  # eidos-admin - 管理后台
+  eidos-admin:
+    image: eidos/eidos-admin:latest
+    build:
+      context: .
+      dockerfile: eidos-admin/Dockerfile
+    container_name: eidos-admin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      # 数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-eidos}
+      DB_PASSWORD: ${DB_PASSWORD:-eidos123}
+      DB_DATABASE: ${DB_DATABASE:-eidos}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 依赖服务地址
+      GRPC_TRADING_ADDR: ${GRPC_TRADING_ADDR:-eidos-trading:50051}
+      GRPC_MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
+      GRPC_MARKET_ADDR: ${GRPC_MARKET_ADDR:-eidos-market:50053}
+      GRPC_CHAIN_ADDR: ${GRPC_CHAIN_ADDR:-eidos-chain:50054}
+      GRPC_RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+      GRPC_JOBS_ADDR: ${GRPC_JOBS_ADDR:-eidos-jobs:50056}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8088"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+  # eidos-api - REST + WebSocket API 网关
+  eidos-api:
+    image: eidos/eidos-api:latest
+    build:
+      context: .
+      dockerfile: eidos-api/Dockerfile
+    container_name: eidos-api
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      eidos-trading:
+        condition: service_started
+      eidos-matching:
+        condition: service_started
+      eidos-market:
+        condition: service_started
+      eidos-risk:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # EIP-712 签名配置
+      EIP712_MOCK_MODE: ${EIP712_MOCK_MODE:-true}
+      # 依赖服务地址
+      GRPC_TRADING_ADDR: ${GRPC_TRADING_ADDR:-eidos-trading:50051}
+      GRPC_MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
+      GRPC_MARKET_ADDR: ${GRPC_MARKET_ADDR:-eidos-market:50053}
+      GRPC_RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eidos-network
+
+networks:
+  eidos-network:
+    external: true
+    name: eidos_eidos-network
