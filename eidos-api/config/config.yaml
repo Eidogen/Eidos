@@ -13,6 +13,20 @@ nacos:
   password: ""
   timeout_ms: 5000
 
+# Kafka Configuration (订单/余额实时推送)
+kafka:
+  enabled: ${KAFKA_ENABLED:false}              # 开发环境默认禁用
+  brokers:
+    - ${KAFKA_BROKERS:localhost:9092}
+  group_id: eidos-api-group
+  client_id: eidos-api
+  consumer:
+    topics:
+      - order-updates
+      - balance-updates
+    auto_offset_reset: latest
+    max_poll_records: 100
+
 # Redis Configuration
 redis:
   addresses:

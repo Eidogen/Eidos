@@ -18,12 +18,14 @@ import (
 	"github.com/eidos-exchange/eidos/eidos-api/internal/client"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/handler"
+	apiKafka "github.com/eidos-exchange/eidos/eidos-api/internal/kafka"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/ratelimit"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/router"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/service"
 	"github.com/eidos-exchange/eidos/eidos-api/internal/ws"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/discovery"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/infra"
+	commonKafka "github.com/eidos-exchange/eidos/eidos-common/pkg/kafka"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/tracing"
 )
 
@@ -57,6 +59,9 @@ type App struct {
 	// WebSocket
 	wsHub        *ws.Hub
 	wsSubscriber *ws.Subscriber
+
+	// Kafka Event Forwarder (订单/余额实时推送)
+	eventForwarder *apiKafka.EventForwarder
 
 	// Middleware 组件
 	replayGuard   *cache.ReplayGuard
@@ -110,6 +115,14 @@ func (a *App) Start(ctx context.Context) error {
 		// 订阅失败不影响服务启动，WebSocket 仍可工作但不会收到实时推送
 	}
 
+	// 7. 启动 Kafka Event Forwarder（订单/余额实时推送到 WebSocket）
+	if a.eventForwarder != nil {
+		if err := a.eventForwarder.Start(ctx); err != nil {
+			a.logger.Warn("failed to start event forwarder", "error", err)
+			// Kafka 消费失败不影响服务启动，私有频道推送将不可用
+		}
+	}
+
 	return nil
 }
 
@@ -120,6 +133,13 @@ func (a *App) Stop(ctx context.Context) error {
 	// 设置不就绪
 	if a.healthHandler != nil {
 		a.healthHandler.SetReady(false)
+	}
+
+	// 停止 Kafka Event Forwarder
+	if a.eventForwarder != nil {
+		if err := a.eventForwarder.Stop(); err != nil {
+			a.logger.Error("event forwarder stop error", "error", err)
+		}
 	}
 
 	// 停止 Redis Pub/Sub 订阅器
@@ -299,6 +319,37 @@ func (a *App) initDependencies(ctx context.Context) error {
 	// 初始化 WebSocket Hub 和 Redis Pub/Sub 订阅器
 	a.wsHub = ws.NewHub(a.logger)
 	a.wsSubscriber = ws.NewSubscriber(a.wsHub, a.redis, a.logger)
+
+	// 初始化 Kafka Event Forwarder（消费订单/余额更新，转发到 Redis 供 WebSocket 推送）
+	if a.cfg.Kafka.Enabled {
+		kafkaCfg := &commonKafka.ConsumerConfig{
+			Config: commonKafka.Config{
+				Brokers:  a.cfg.Kafka.Brokers,
+				ClientID: a.cfg.Kafka.ClientID,
+				Version:  "2.8.0",
+			},
+			GroupID:           a.cfg.Kafka.GroupID,
+			Topics:            []string{apiKafka.TopicOrderUpdates, apiKafka.TopicBalanceUpdates},
+			InitialOffset:     "newest",
+			Concurrency:       2,                      // 2 个消费者协程
+			MaxProcessingTime: 10 * time.Second,
+			MaxRetries:        3,
+			DeadLetterTopic:   "dead-letter",
+		}
+
+		var err error
+		a.eventForwarder, err = apiKafka.NewEventForwarder(kafkaCfg, a.redis, a.logger)
+		if err != nil {
+			a.logger.Warn("创建 event forwarder 失败，私有频道推送将不可用", "error", err)
+		} else {
+			a.logger.Info("event forwarder 初始化完成",
+				"brokers", a.cfg.Kafka.Brokers,
+				"topics", kafkaCfg.Topics,
+			)
+		}
+	} else {
+		a.logger.Info("Kafka 未启用，私有频道推送将不可用")
+	}
 
 	// 初始化风控服务
 	var riskService *service.RiskService

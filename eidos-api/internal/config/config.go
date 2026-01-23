@@ -17,6 +17,7 @@ type Config struct {
 	Service     ServiceConfig                  `yaml:"service" json:"service"`
 	Nacos       commonConfig.NacosConfig       `yaml:"nacos" json:"nacos"`
 	Redis       commonConfig.RedisConfig       `yaml:"redis" json:"redis"`
+	Kafka       commonConfig.KafkaConfig       `yaml:"kafka" json:"kafka"`
 	GRPCClients commonConfig.GRPCClientsConfig `yaml:"grpc_clients" json:"grpc_clients"`
 	EIP712      EIP712Config                   `yaml:"eip712" json:"eip712"`
 	RateLimit   RateLimitConfig                `yaml:"rate_limit" json:"rate_limit"`
@@ -217,6 +218,17 @@ func defaultConfig() *Config {
 			Enabled:  true,
 			FailOpen: false,
 		},
+		Kafka: commonConfig.KafkaConfig{
+			Enabled:  false, // 默认禁用，生产环境启用
+			Brokers:  []string{"localhost:9092"},
+			GroupID:  "eidos-api-group",
+			ClientID: "eidos-api",
+			Consumer: commonConfig.KafkaConsumer{
+				Topics:          []string{"order-updates", "balance-updates"},
+				AutoOffsetReset: "latest",
+				MaxPollRecords:  100,
+			},
+		},
 		Log: commonConfig.LogConfig{
 			Level:  "info",
 			Format: "json",
@@ -307,5 +319,16 @@ func overrideFromEnv(cfg *Config) {
 		cfg.Tracing.Endpoint = endpoint
 	} else if endpoint := os.Getenv("TRACING_ENDPOINT"); endpoint != "" {
 		cfg.Tracing.Endpoint = endpoint
+	}
+
+	// Kafka 配置
+	if v := os.Getenv("KAFKA_ENABLED"); v != "" {
+		cfg.Kafka.Enabled = strings.ToLower(v) == "true"
+	}
+	if v := os.Getenv("KAFKA_BROKERS"); v != "" {
+		cfg.Kafka.Brokers = strings.Split(v, ",")
+	}
+	if v := os.Getenv("KAFKA_GROUP_ID"); v != "" {
+		cfg.Kafka.GroupID = v
 	}
 }

@@ -470,6 +470,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
       jaeger:
         condition: service_healthy
       eidos-trading:
@@ -488,6 +490,10 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Kafka (订单/余额实时推送)
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9092}
+      KAFKA_GROUP_ID: eidos-api-group
       # Nacos
       NACOS_ENABLED: ${NACOS_ENABLED:-true}
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
