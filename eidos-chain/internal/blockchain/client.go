@@ -197,7 +197,18 @@ func (c *Client) withRetry(ctx context.Context, fn func(*ethclient.Client) error
 			continue
 		}
 
+		// 记录延迟
+		startTime := time.Now()
 		err = fn(client)
+		latencyMs := time.Since(startTime).Milliseconds()
+
+		// 更新端点延迟
+		c.mu.Lock()
+		if c.currentIdx < len(c.endpoints) {
+			c.endpoints[c.currentIdx].LatencyMs = latencyMs
+		}
+		c.mu.Unlock()
+
 		if err == nil {
 			return nil
 		}
@@ -390,4 +401,80 @@ func (c *Client) GetHealthyEndpoints() []*RPCEndpoint {
 		}
 	}
 	return healthy
+}
+
+// GetRPCEndpoint 获取当前使用的 RPC 端点 URL
+func (c *Client) GetRPCEndpoint() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.currentIdx < len(c.endpoints) {
+		return c.endpoints[c.currentIdx].URL
+	}
+	return ""
+}
+
+// GetRPCLatencyMs 获取当前 RPC 端点的延迟 (毫秒)
+func (c *Client) GetRPCLatencyMs() int64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.currentIdx < len(c.endpoints) {
+		return c.endpoints[c.currentIdx].LatencyMs
+	}
+	return 0
+}
+
+// GetCurrentEndpoint 获取当前使用的 RPC 端点完整信息
+func (c *Client) GetCurrentEndpoint() *RPCEndpoint {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.currentIdx < len(c.endpoints) {
+		ep := c.endpoints[c.currentIdx]
+		// 返回副本，避免并发问题
+		return &RPCEndpoint{
+			URL:        ep.URL,
+			IsHealthy:  ep.IsHealthy,
+			LatencyMs:  ep.LatencyMs,
+			LastBlock:  ep.LastBlock,
+			ErrorCount: ep.ErrorCount,
+			LastCheck:  ep.LastCheck,
+		}
+	}
+	return nil
+}
+
+// GetChainName 获取链名称 (根据 ChainID)
+func (c *Client) GetChainName() string {
+	switch c.chainID {
+	case 1:
+		return "Ethereum Mainnet"
+	case 5:
+		return "Goerli Testnet"
+	case 11155111:
+		return "Sepolia Testnet"
+	case 137:
+		return "Polygon Mainnet"
+	case 80001:
+		return "Polygon Mumbai"
+	case 42161:
+		return "Arbitrum One"
+	case 421613:
+		return "Arbitrum Goerli"
+	case 10:
+		return "Optimism"
+	case 420:
+		return "Optimism Goerli"
+	case 56:
+		return "BSC Mainnet"
+	case 97:
+		return "BSC Testnet"
+	case 31337:
+		return "Hardhat Local"
+	case 1337:
+		return "Ganache Local"
+	default:
+		return "Unknown Chain"
+	}
 }

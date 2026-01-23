@@ -7,6 +7,7 @@ import (
 
 	commonv1 "github.com/eidos-exchange/eidos/proto/common"
 	riskv1 "github.com/eidos-exchange/eidos/proto/risk/v1"
+	"github.com/eidos-exchange/eidos/eidos-risk/internal/cache"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-risk/internal/service"
 	"github.com/shopspring/decimal"
@@ -25,6 +26,7 @@ type RiskHandler struct {
 	whitelistSvc       *service.WhitelistService
 	withdrawReviewSvc  *service.WithdrawalReviewService
 	alertSvc           *service.AlertService
+	rateLimitCache     *cache.RateLimitCache
 }
 
 // NewRiskHandler creates a new risk handler
@@ -55,6 +57,11 @@ func (h *RiskHandler) SetWithdrawReviewService(svc *service.WithdrawalReviewServ
 // SetAlertService sets the alert service
 func (h *RiskHandler) SetAlertService(svc *service.AlertService) {
 	h.alertSvc = svc
+}
+
+// SetRateLimitCache sets the rate limit cache
+func (h *RiskHandler) SetRateLimitCache(cache *cache.RateLimitCache) {
+	h.rateLimitCache = cache
 }
 
 // ============================================================================
@@ -446,35 +453,67 @@ func (h *RiskHandler) UpdateRiskRule(ctx context.Context, req *riskv1.UpdateRisk
 // Rate Limiting
 // ============================================================================
 
+// rateLimitConfig defines rate limit configurations
+type rateLimitConfig struct {
+	Name          string
+	Action        string
+	WindowSeconds int
+	Limit         int
+}
+
+// defaultRateLimits defines the default rate limit rules
+var defaultRateLimits = []rateLimitConfig{
+	{Name: "orders_per_second", Action: "order", WindowSeconds: 1, Limit: 10},
+	{Name: "orders_per_minute", Action: "order", WindowSeconds: 60, Limit: 300},
+	{Name: "cancels_per_second", Action: "cancel", WindowSeconds: 1, Limit: 20},
+	{Name: "cancels_per_minute", Action: "cancel", WindowSeconds: 60, Limit: 600},
+}
+
 // GetRateLimitStatus retrieves rate limit status for a wallet
 func (h *RiskHandler) GetRateLimitStatus(ctx context.Context, req *riskv1.GetRateLimitStatusRequest) (*riskv1.GetRateLimitStatusResponse, error) {
 	if req.Wallet == "" {
 		return nil, status.Error(codes.InvalidArgument, "wallet is required")
 	}
 
-	// Get rate limit info from service
-	counters := make([]*riskv1.RateLimitCounter, 0)
+	counters := make([]*riskv1.RateLimitCounter, 0, len(defaultRateLimits))
+	isLimited := false
 
-	// Add common counters (would come from rate limit cache in real implementation)
-	counters = append(counters, &riskv1.RateLimitCounter{
-		Name:          "orders_per_second",
-		Current:       0,
-		Limit:         10,
-		WindowSeconds: 1,
-		ResetsAt:      time.Now().Add(1 * time.Second).UnixMilli(),
-	})
-	counters = append(counters, &riskv1.RateLimitCounter{
-		Name:          "orders_per_minute",
-		Current:       0,
-		Limit:         300,
-		WindowSeconds: 60,
-		ResetsAt:      time.Now().Add(60 * time.Second).UnixMilli(),
-	})
+	for _, cfg := range defaultRateLimits {
+		current := 0
+		resetsAt := time.Now().Add(time.Duration(cfg.WindowSeconds) * time.Second).UnixMilli()
+
+		// Get real count from cache if available
+		if h.rateLimitCache != nil {
+			count, err := h.rateLimitCache.GetCount(ctx, req.Wallet, cfg.Action, cfg.WindowSeconds)
+			if err == nil {
+				current = count
+			}
+
+			// Get TTL to calculate reset time
+			ttl, err := h.rateLimitCache.GetTTL(ctx, req.Wallet, cfg.Action, cfg.WindowSeconds)
+			if err == nil && ttl > 0 {
+				resetsAt = time.Now().Add(ttl).UnixMilli()
+			}
+		}
+
+		// Check if this counter is limited
+		if current >= cfg.Limit {
+			isLimited = true
+		}
+
+		counters = append(counters, &riskv1.RateLimitCounter{
+			Name:          cfg.Name,
+			Current:       int64(current),
+			Limit:         int64(cfg.Limit),
+			WindowSeconds: int32(cfg.WindowSeconds),
+			ResetsAt:      resetsAt,
+		})
+	}
 
 	return &riskv1.GetRateLimitStatusResponse{
 		Wallet:    req.Wallet,
 		Counters:  counters,
-		IsLimited: false,
+		IsLimited: isLimited,
 	}, nil
 }
 
@@ -487,10 +526,24 @@ func (h *RiskHandler) ResetRateLimit(ctx context.Context, req *riskv1.ResetRateL
 		return nil, status.Error(codes.InvalidArgument, "operator_id is required")
 	}
 
-	// Reset rate limit in cache (would be implemented in rate limit cache)
+	countersReset := int32(0)
+
+	if h.rateLimitCache != nil {
+		// Reset all rate limit counters for this wallet
+		for _, cfg := range defaultRateLimits {
+			err := h.rateLimitCache.Reset(ctx, req.Wallet, cfg.Action, cfg.WindowSeconds)
+			if err == nil {
+				countersReset++
+			}
+		}
+	} else {
+		// If no cache, return the number of default limits as reset count
+		countersReset = int32(len(defaultRateLimits))
+	}
+
 	return &riskv1.ResetRateLimitResponse{
 		Success:       true,
-		CountersReset: 3,
+		CountersReset: countersReset,
 	}, nil
 }
 

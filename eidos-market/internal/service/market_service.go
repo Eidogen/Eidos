@@ -339,6 +339,21 @@ func (s *MarketService) GetRecentTrades(ctx context.Context, market string, limi
 	return s.tradeRepo.ListRecent(ctx, market, limit)
 }
 
+// GetTradeHistory 查询历史成交
+func (s *MarketService) GetTradeHistory(ctx context.Context, market string, startTime, endTime int64, limit int, fromID string) ([]*model.Trade, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+
+	// 如果没有指定时间范围，默认查询最近 24 小时
+	if startTime == 0 && endTime == 0 {
+		endTime = time.Now().UnixMilli()
+		startTime = endTime - 24*60*60*1000 // 24 小时
+	}
+
+	return s.tradeRepo.ListByTimeRange(ctx, market, startTime, endTime, limit)
+}
+
 // GetMarkets 获取所有交易对
 func (s *MarketService) GetMarkets(ctx context.Context) ([]*model.Market, error) {
 	return s.marketRepo.ListActiveMarkets(ctx)

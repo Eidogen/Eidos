@@ -3,12 +3,17 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
@@ -27,6 +32,8 @@ type TradingHandler struct {
 	clearingService   service.ClearingService
 	depositService    service.DepositService
 	withdrawalService service.WithdrawalService
+	nonceRepo         repository.NonceRepository
+	eip712Config      *config.EIP712Config
 }
 
 // NewTradingHandler 创建交易处理器
@@ -37,6 +44,8 @@ func NewTradingHandler(
 	clearingService service.ClearingService,
 	depositService service.DepositService,
 	withdrawalService service.WithdrawalService,
+	nonceRepo repository.NonceRepository,
+	eip712Config *config.EIP712Config,
 ) *TradingHandler {
 	return &TradingHandler{
 		orderService:      orderService,
@@ -45,10 +54,122 @@ func NewTradingHandler(
 		clearingService:   clearingService,
 		depositService:    depositService,
 		withdrawalService: withdrawalService,
+		nonceRepo:         nonceRepo,
+		eip712Config:      eip712Config,
 	}
 }
 
 // ========== 订单接口实现 ==========
+
+// PrepareOrder 准备订单签名数据
+// 返回 EIP-712 类型数据供客户端签名
+func (h *TradingHandler) PrepareOrder(ctx context.Context, req *pb.PrepareOrderRequest) (*pb.PrepareOrderResponse, error) {
+	if req.Wallet == "" {
+		return nil, status.Error(codes.InvalidArgument, "wallet is required")
+	}
+	if req.Market == "" {
+		return nil, status.Error(codes.InvalidArgument, "market is required")
+	}
+	if req.Side == commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED {
+		return nil, status.Error(codes.InvalidArgument, "side is required")
+	}
+	if req.Type == commonv1.OrderType_ORDER_TYPE_UNSPECIFIED {
+		return nil, status.Error(codes.InvalidArgument, "type is required")
+	}
+	if req.Amount == "" {
+		return nil, status.Error(codes.InvalidArgument, "amount is required")
+	}
+
+	// 验证价格和数量格式
+	if req.Type == commonv1.OrderType_ORDER_TYPE_LIMIT && req.Price == "" {
+		return nil, status.Error(codes.InvalidArgument, "price is required for limit orders")
+	}
+
+	// 生成订单 ID
+	orderID := uuid.New().String()
+
+	// 获取下一个可用 nonce
+	latestNonce, err := h.nonceRepo.GetLatestNonce(ctx, req.Wallet, model.NonceUsageOrder)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get nonce: %v", err)
+	}
+	nonce := latestNonce + 1
+
+	// 设置过期时间 (默认 1 小时)
+	expiresAt := time.Now().Add(time.Hour).UnixMilli()
+
+	// 构建 EIP-712 类型数据
+	typedData := h.buildOrderTypedData(req, orderID, nonce, expiresAt)
+
+	return &pb.PrepareOrderResponse{
+		OrderId:   orderID,
+		Nonce:     nonce,
+		ExpiresAt: expiresAt,
+		TypedData: typedData,
+	}, nil
+}
+
+// buildOrderTypedData 构建订单的 EIP-712 类型数据
+func (h *TradingHandler) buildOrderTypedData(req *pb.PrepareOrderRequest, orderID string, nonce uint64, expiresAt int64) *pb.EIP712TypedData {
+	// EIP712Domain 类型定义
+	eip712DomainTypes := &pb.EIP712TypeList{
+		Types: []*pb.EIP712Type{
+			{Name: "name", Type: "string"},
+			{Name: "version", Type: "string"},
+			{Name: "chainId", Type: "uint256"},
+			{Name: "verifyingContract", Type: "address"},
+		},
+	}
+
+	// Order 类型定义
+	orderTypes := &pb.EIP712TypeList{
+		Types: []*pb.EIP712Type{
+			{Name: "orderId", Type: "string"},
+			{Name: "wallet", Type: "address"},
+			{Name: "market", Type: "string"},
+			{Name: "side", Type: "uint8"},
+			{Name: "orderType", Type: "uint8"},
+			{Name: "price", Type: "string"},
+			{Name: "amount", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAt", Type: "uint256"},
+		},
+	}
+
+	// 获取 side 和 type 的数值
+	sideValue := uint8(req.Side)
+	typeValue := uint8(req.Type)
+
+	price := req.Price
+	if price == "" {
+		price = "0"
+	}
+
+	return &pb.EIP712TypedData{
+		Types: map[string]*pb.EIP712TypeList{
+			"EIP712Domain": eip712DomainTypes,
+			"Order":        orderTypes,
+		},
+		PrimaryType: "Order",
+		Domain: &pb.EIP712Domain{
+			Name:              h.eip712Config.Domain.Name,
+			Version:           h.eip712Config.Domain.Version,
+			ChainId:           h.eip712Config.Domain.ChainID,
+			VerifyingContract: h.eip712Config.Domain.VerifyingContract,
+		},
+		Message: map[string]string{
+			"orderId":   orderID,
+			"wallet":    req.Wallet,
+			"market":    req.Market,
+			"side":      strconv.FormatUint(uint64(sideValue), 10),
+			"orderType": strconv.FormatUint(uint64(typeValue), 10),
+			"price":     price,
+			"amount":    req.Amount,
+			"nonce":     strconv.FormatUint(nonce, 10),
+			"expiresAt": strconv.FormatInt(expiresAt, 10),
+		},
+	}
+}
 
 // CreateOrder 创建订单
 func (h *TradingHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error) {
@@ -641,6 +762,25 @@ func (h *TradingHandler) ConfirmSettlement(ctx context.Context, req *pb.ConfirmS
 	}
 
 	if err := h.tradeService.ConfirmSettlement(ctx, req.BatchId, req.TxHash); err != nil {
+		return nil, handleServiceError(err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// RollbackSettlement 回滚结算
+// 当链上结算失败时调用
+func (h *TradingHandler) RollbackSettlement(ctx context.Context, req *pb.RollbackSettlementRequest) (*emptypb.Empty, error) {
+	if req.BatchId == "" {
+		return nil, status.Error(codes.InvalidArgument, "batch_id is required")
+	}
+
+	reason := req.ErrorMessage
+	if req.ErrorCode != "" {
+		reason = fmt.Sprintf("[%s] %s", req.ErrorCode, req.ErrorMessage)
+	}
+
+	if err := h.tradeService.FailSettlement(ctx, req.BatchId, reason); err != nil {
 		return nil, handleServiceError(err)
 	}
 

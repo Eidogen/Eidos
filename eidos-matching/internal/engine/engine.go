@@ -52,6 +52,10 @@ type Engine struct {
 	cancelProcessed int64
 	avgLatencyUs    int64 // 平均撮合延迟 (微秒)
 
+	// 延迟追踪 (P99/TPS)
+	latencyTracker *LatencyTracker
+	startTime      time.Time
+
 	// 状态
 	isRunning atomic.Bool
 	mu        sync.RWMutex
@@ -76,13 +80,15 @@ func NewEngine(cfg *EngineConfig) *Engine {
 	ob := orderbook.NewOrderBook(cfg.Market.Symbol)
 
 	e := &Engine{
-		market:      cfg.Market.Symbol,
-		config:      cfg.Market,
-		orderBook:   ob,
-		tradesChan:  make(chan *model.TradeResult, cfg.ChannelSize),
-		updatesChan: make(chan *model.OrderBookUpdate, cfg.ChannelSize),
-		cancelsChan: make(chan *model.CancelResult, cfg.ChannelSize),
-		tradeIDGen:  cfg.TradeIDGen,
+		market:         cfg.Market.Symbol,
+		config:         cfg.Market,
+		orderBook:      ob,
+		tradesChan:     make(chan *model.TradeResult, cfg.ChannelSize),
+		updatesChan:    make(chan *model.OrderBookUpdate, cfg.ChannelSize),
+		cancelsChan:    make(chan *model.CancelResult, cfg.ChannelSize),
+		tradeIDGen:     cfg.TradeIDGen,
+		latencyTracker: NewLatencyTracker(10000, 1), // 10000 样本, 1 秒窗口
+		startTime:      time.Now(),
 	}
 
 	e.matcher = NewMatcher(cfg.Market, ob, cfg.TradeIDGen)
@@ -164,6 +170,11 @@ func (e *Engine) ProcessOrder(ctx context.Context, order *model.Order) (*MatchRe
 	latencyUs := time.Since(startTime).Microseconds()
 	e.updateAvgLatency(latencyUs)
 
+	// 记录到延迟追踪器 (P99/TPS)
+	if e.latencyTracker != nil {
+		e.latencyTracker.Record(latencyUs)
+	}
+
 	return result, nil
 }
 
@@ -244,14 +255,27 @@ func (e *Engine) GetStats() *EngineStats {
 	obStats := e.orderBook.Stats()
 	matcherStats := e.matcher.GetStats()
 
+	// 从延迟追踪器获取 P99 和 TPS
+	var p99, p95 int64
+	var tps float64
+	if e.latencyTracker != nil {
+		p99 = e.latencyTracker.P99()
+		p95 = e.latencyTracker.P95()
+		tps = e.latencyTracker.TPS()
+	}
+
 	return &EngineStats{
 		Market:          e.market,
 		OrdersProcessed: atomic.LoadInt64(&e.ordersProcessed),
 		TradesGenerated: atomic.LoadInt64(&e.tradesGenerated),
 		CancelProcessed: atomic.LoadInt64(&e.cancelProcessed),
 		AvgLatencyUs:    atomic.LoadInt64(&e.avgLatencyUs),
+		P99LatencyUs:    p99,
+		P95LatencyUs:    p95,
+		OrdersPerSecond: tps,
 		InputSequence:   e.inputSequence,
 		OutputSequence:  e.outputSequence,
+		StartTime:       e.startTime.UnixMilli(),
 		OrderBookStats:  obStats,
 		MatcherStats:    matcherStats,
 	}
@@ -345,8 +369,12 @@ type EngineStats struct {
 	TradesGenerated int64                    `json:"trades_generated"`
 	CancelProcessed int64                    `json:"cancel_processed"`
 	AvgLatencyUs    int64                    `json:"avg_latency_us"`
+	P99LatencyUs    int64                    `json:"p99_latency_us"`
+	P95LatencyUs    int64                    `json:"p95_latency_us"`
+	OrdersPerSecond float64                  `json:"orders_per_second"`
 	InputSequence   int64                    `json:"input_sequence"`
 	OutputSequence  int64                    `json:"output_sequence"`
+	StartTime       int64                    `json:"start_time"`
 	OrderBookStats  orderbook.OrderBookStats `json:"orderbook_stats"`
 	MatcherStats    MatcherStats             `json:"matcher_stats"`
 }

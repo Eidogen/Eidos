@@ -503,6 +503,8 @@ func (a *App) startGRPCServer() error {
 		a.clearingSvc,
 		a.depositSvc,
 		a.withdrawSvc,
+		a.nonceRepo,
+		&a.cfg.EIP712,
 	)
 
 	// 构建拦截器链

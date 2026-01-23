@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/eidos-exchange/eidos/eidos-trading/internal/config"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/model"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/repository"
 	"github.com/eidos-exchange/eidos/eidos-trading/internal/service"
@@ -406,6 +407,36 @@ func (m *MockWithdrawalService) HandleConfirm(ctx context.Context, msg *service.
 	return args.Error(0)
 }
 
+// MockNonceRepository Nonce 仓储 Mock
+type MockNonceRepository struct {
+	mock.Mock
+}
+
+func (m *MockNonceRepository) IsUsed(ctx context.Context, wallet string, usage model.NonceUsage, nonce uint64) (bool, error) {
+	args := m.Called(ctx, wallet, usage, nonce)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockNonceRepository) MarkUsed(ctx context.Context, wallet string, usage model.NonceUsage, nonce uint64, orderID string) error {
+	args := m.Called(ctx, wallet, usage, nonce, orderID)
+	return args.Error(0)
+}
+
+func (m *MockNonceRepository) MarkUsedWithTx(ctx context.Context, wallet string, usage model.NonceUsage, nonce uint64, orderID string) error {
+	args := m.Called(ctx, wallet, usage, nonce, orderID)
+	return args.Error(0)
+}
+
+func (m *MockNonceRepository) GetLatestNonce(ctx context.Context, wallet string, usage model.NonceUsage) (uint64, error) {
+	args := m.Called(ctx, wallet, usage)
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *MockNonceRepository) CleanExpired(ctx context.Context, beforeTime int64, batchSize int) (int64, error) {
+	args := m.Called(ctx, beforeTime, batchSize)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // ========== Test Helper ==========
 
 func createTestHandler() (*TradingHandler, *MockOrderService, *MockBalanceService, *MockTradeService, *MockClearingService, *MockDepositService, *MockWithdrawalService) {
@@ -415,6 +446,16 @@ func createTestHandler() (*TradingHandler, *MockOrderService, *MockBalanceServic
 	clearingService := new(MockClearingService)
 	depositService := new(MockDepositService)
 	withdrawalService := new(MockWithdrawalService)
+	nonceRepo := new(MockNonceRepository)
+
+	eip712Config := &config.EIP712Config{
+		Domain: config.EIP712Domain{
+			Name:              "EidosExchange",
+			Version:           "1",
+			ChainID:           31337,
+			VerifyingContract: "0x0000000000000000000000000000000000000000",
+		},
+	}
 
 	handler := NewTradingHandler(
 		orderService,
@@ -423,9 +464,351 @@ func createTestHandler() (*TradingHandler, *MockOrderService, *MockBalanceServic
 		clearingService,
 		depositService,
 		withdrawalService,
+		nonceRepo,
+		eip712Config,
 	)
 
 	return handler, orderService, balanceService, tradeService, clearingService, depositService, withdrawalService
+}
+
+// ========== PrepareOrder Tests ==========
+
+func TestTradingHandler_PrepareOrder_Success(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	nonceRepo := handler.nonceRepo.(*MockNonceRepository)
+	ctx := context.Background()
+
+	nonceRepo.On("GetLatestNonce", ctx, "0x1234567890abcdef", model.NonceUsageOrder).Return(uint64(100), nil)
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Price:  "3000.0",
+		Amount: "1.0",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.OrderId)
+	assert.Equal(t, uint64(101), resp.Nonce) // latestNonce + 1
+	assert.Greater(t, resp.ExpiresAt, time.Now().UnixMilli())
+	assert.NotNil(t, resp.TypedData)
+	assert.Equal(t, "Order", resp.TypedData.PrimaryType)
+	assert.Equal(t, "EidosExchange", resp.TypedData.Domain.Name)
+	assert.Equal(t, "0x1234567890abcdef", resp.TypedData.Message["wallet"])
+	assert.Equal(t, "ETH-USDC", resp.TypedData.Message["market"])
+	assert.Equal(t, "1", resp.TypedData.Message["side"])     // ORDER_SIDE_BUY = 1
+	assert.Equal(t, "1", resp.TypedData.Message["orderType"]) // ORDER_TYPE_LIMIT = 1
+	assert.Equal(t, "3000.0", resp.TypedData.Message["price"])
+	assert.Equal(t, "1.0", resp.TypedData.Message["amount"])
+	nonceRepo.AssertExpectations(t)
+}
+
+func TestTradingHandler_PrepareOrder_MissingWallet(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "wallet")
+}
+
+func TestTradingHandler_PrepareOrder_MissingMarket(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "market")
+}
+
+func TestTradingHandler_PrepareOrder_MissingSide(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_UNSPECIFIED,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "side")
+}
+
+func TestTradingHandler_PrepareOrder_MissingType(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_UNSPECIFIED,
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "type")
+}
+
+func TestTradingHandler_PrepareOrder_MissingAmount(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Price:  "3000.0",
+		Amount: "",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "amount")
+}
+
+func TestTradingHandler_PrepareOrder_LimitOrderMissingPrice(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Price:  "",
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "price")
+}
+
+func TestTradingHandler_PrepareOrder_MarketOrderNoPriceRequired(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	nonceRepo := handler.nonceRepo.(*MockNonceRepository)
+	ctx := context.Background()
+
+	nonceRepo.On("GetLatestNonce", ctx, "0x1234567890abcdef", model.NonceUsageOrder).Return(uint64(0), nil)
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_MARKET,
+		Price:  "", // No price required for market orders
+		Amount: "1.0",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "0", resp.TypedData.Message["price"]) // Default to "0" for market orders
+	nonceRepo.AssertExpectations(t)
+}
+
+func TestTradingHandler_PrepareOrder_NonceError(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	nonceRepo := handler.nonceRepo.(*MockNonceRepository)
+	ctx := context.Background()
+
+	nonceRepo.On("GetLatestNonce", ctx, "0x1234567890abcdef", model.NonceUsageOrder).Return(uint64(0), errors.New("nonce service error"))
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "ETH-USDC",
+		Side:   commonv1.OrderSide_ORDER_SIDE_BUY,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Price:  "3000.0",
+		Amount: "1.0",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.Contains(t, st.Message(), "nonce")
+}
+
+func TestTradingHandler_PrepareOrder_EIP712TypedDataStructure(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	nonceRepo := handler.nonceRepo.(*MockNonceRepository)
+	ctx := context.Background()
+
+	nonceRepo.On("GetLatestNonce", ctx, "0x1234567890abcdef", model.NonceUsageOrder).Return(uint64(42), nil)
+
+	resp, err := handler.PrepareOrder(ctx, &pb.PrepareOrderRequest{
+		Wallet: "0x1234567890abcdef",
+		Market: "BTC-USDT",
+		Side:   commonv1.OrderSide_ORDER_SIDE_SELL,
+		Type:   commonv1.OrderType_ORDER_TYPE_LIMIT,
+		Price:  "50000.0",
+		Amount: "0.5",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// Verify EIP712 Domain structure
+	assert.Contains(t, resp.TypedData.Types, "EIP712Domain")
+	assert.Contains(t, resp.TypedData.Types, "Order")
+
+	domainTypes := resp.TypedData.Types["EIP712Domain"]
+	assert.Equal(t, 4, len(domainTypes.Types))
+
+	orderTypes := resp.TypedData.Types["Order"]
+	assert.Equal(t, 9, len(orderTypes.Types))
+
+	// Verify Domain values
+	assert.Equal(t, "EidosExchange", resp.TypedData.Domain.Name)
+	assert.Equal(t, "1", resp.TypedData.Domain.Version)
+	assert.Equal(t, int64(31337), resp.TypedData.Domain.ChainId)
+
+	// Verify Message values
+	assert.Equal(t, resp.OrderId, resp.TypedData.Message["orderId"])
+	assert.Equal(t, "0x1234567890abcdef", resp.TypedData.Message["wallet"])
+	assert.Equal(t, "BTC-USDT", resp.TypedData.Message["market"])
+	assert.Equal(t, "2", resp.TypedData.Message["side"])      // ORDER_SIDE_SELL = 2
+	assert.Equal(t, "1", resp.TypedData.Message["orderType"]) // ORDER_TYPE_LIMIT = 1
+	assert.Equal(t, "50000.0", resp.TypedData.Message["price"])
+	assert.Equal(t, "0.5", resp.TypedData.Message["amount"])
+	assert.Equal(t, "43", resp.TypedData.Message["nonce"]) // 42 + 1
+}
+
+// ========== RollbackSettlement Tests ==========
+
+func TestTradingHandler_RollbackSettlement_Success(t *testing.T) {
+	handler, _, _, tradeService, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	tradeService.On("FailSettlement", ctx, "B123456789", "[TX_REVERTED] transaction reverted").Return(nil)
+
+	resp, err := handler.RollbackSettlement(ctx, &pb.RollbackSettlementRequest{
+		BatchId:      "B123456789",
+		ErrorCode:    "TX_REVERTED",
+		ErrorMessage: "transaction reverted",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	tradeService.AssertExpectations(t)
+}
+
+func TestTradingHandler_RollbackSettlement_NoErrorCode(t *testing.T) {
+	handler, _, _, tradeService, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	// When no error code is provided, only error message is used
+	tradeService.On("FailSettlement", ctx, "B123456789", "gas estimation failed").Return(nil)
+
+	resp, err := handler.RollbackSettlement(ctx, &pb.RollbackSettlementRequest{
+		BatchId:      "B123456789",
+		ErrorCode:    "",
+		ErrorMessage: "gas estimation failed",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	tradeService.AssertExpectations(t)
+}
+
+func TestTradingHandler_RollbackSettlement_MissingBatchId(t *testing.T) {
+	handler, _, _, _, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	resp, err := handler.RollbackSettlement(ctx, &pb.RollbackSettlementRequest{
+		BatchId:      "",
+		ErrorCode:    "TX_REVERTED",
+		ErrorMessage: "transaction reverted",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "batch_id")
+}
+
+func TestTradingHandler_RollbackSettlement_ServiceError(t *testing.T) {
+	handler, _, _, tradeService, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	tradeService.On("FailSettlement", ctx, "B123456789", "[NONCE_ERROR] nonce too low").Return(errors.New("batch not found"))
+
+	resp, err := handler.RollbackSettlement(ctx, &pb.RollbackSettlementRequest{
+		BatchId:      "B123456789",
+		ErrorCode:    "NONCE_ERROR",
+		ErrorMessage: "nonce too low",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	tradeService.AssertExpectations(t)
+}
+
+func TestTradingHandler_RollbackSettlement_EmptyErrorMessage(t *testing.T) {
+	handler, _, _, tradeService, _, _, _ := createTestHandler()
+	ctx := context.Background()
+
+	tradeService.On("FailSettlement", ctx, "B123456789", "[UNKNOWN] ").Return(nil)
+
+	resp, err := handler.RollbackSettlement(ctx, &pb.RollbackSettlementRequest{
+		BatchId:      "B123456789",
+		ErrorCode:    "UNKNOWN",
+		ErrorMessage: "",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	tradeService.AssertExpectations(t)
 }
 
 // ========== Order Tests ==========

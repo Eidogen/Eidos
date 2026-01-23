@@ -101,6 +101,9 @@ type App struct {
 	kafkaProducer *kafka.Producer
 	kafkaConsumer *kafka.Consumer
 
+	// 缓存层
+	rateLimitCache *cache.RateLimitCache
+
 	// 服务层
 	riskSvc      *service.RiskService
 	blacklistSvc *service.BlacklistService
@@ -355,7 +358,7 @@ func (a *App) initServices() {
 
 	// 创建缓存层
 	blacklistCache := cache.NewBlacklistCache(a.redisClient)
-	rateLimitCache := cache.NewRateLimitCache(a.redisClient)
+	a.rateLimitCache = cache.NewRateLimitCache(a.redisClient)
 	amountCache := cache.NewAmountCache(a.redisClient)
 	orderCache := cache.NewOrderCache(a.redisClient)
 	marketCache := cache.NewMarketCache(a.redisClient)
@@ -369,7 +372,7 @@ func (a *App) initServices() {
 		auditRepo,
 		withdrawRepo,
 		blacklistCache,
-		rateLimitCache,
+		a.rateLimitCache,
 		amountCache,
 		orderCache,
 		marketCache,
@@ -471,6 +474,7 @@ func (a *App) startGRPC() error {
 		a.ruleSvc,
 		a.eventSvc,
 	)
+	riskHandler.SetRateLimitCache(a.rateLimitCache)
 	riskv1.RegisterRiskServiceServer(a.grpcServer, riskHandler)
 
 	// 注册健康检查

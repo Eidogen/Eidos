@@ -19,6 +19,7 @@ type MarketServiceInterface interface {
 	GetKlines(ctx context.Context, market string, interval model.KlineInterval, startTime, endTime int64, limit int) ([]*model.Kline, error)
 	GetDepth(ctx context.Context, market string, limit int) (*model.Depth, error)
 	GetRecentTrades(ctx context.Context, market string, limit int) ([]*model.Trade, error)
+	GetTradeHistory(ctx context.Context, market string, startTime, endTime int64, limit int, fromID string) ([]*model.Trade, error)
 }
 
 // MarketHandler gRPC 处理器
@@ -176,6 +177,64 @@ func (h *MarketHandler) GetDepth(ctx context.Context, req *marketv1.GetDepthRequ
 		Sequence:  depth.Sequence,
 		Timestamp: depth.Timestamp,
 	}, nil
+}
+
+// Get24HStats 获取 24 小时统计数据
+func (h *MarketHandler) Get24HStats(ctx context.Context, req *marketv1.Get24HStatsRequest) (*marketv1.Get24HStatsResponse, error) {
+	if req.Market == "" {
+		return nil, status.Error(codes.InvalidArgument, "market is required")
+	}
+
+	ticker, err := h.svc.GetTicker(ctx, req.Market)
+	if err != nil {
+		if err == service.ErrMarketNotFound {
+			return nil, status.Error(codes.NotFound, "market not found")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get 24h stats: %v", err)
+	}
+
+	return &marketv1.Get24HStatsResponse{
+		Market:             ticker.Market,
+		PriceChange:        ticker.PriceChange.String(),
+		PriceChangePercent: ticker.PriceChangePercent.String(),
+		High:               ticker.High.String(),
+		Low:                ticker.Low.String(),
+		Volume:             ticker.Volume.String(),
+		QuoteVolume:        ticker.QuoteVolume.String(),
+		Open:               ticker.Open.String(),
+		LastPrice:          ticker.LastPrice.String(),
+		TradeCount:         int32(ticker.TradeCount),
+		Timestamp:          ticker.Timestamp,
+	}, nil
+}
+
+// GetTradeHistory 获取历史成交记录
+func (h *MarketHandler) GetTradeHistory(ctx context.Context, req *marketv1.GetTradeHistoryRequest) (*marketv1.GetTradeHistoryResponse, error) {
+	if req.Market == "" {
+		return nil, status.Error(codes.InvalidArgument, "market is required")
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	trades, err := h.svc.GetTradeHistory(ctx, req.Market, req.StartTime, req.EndTime, limit, req.FromId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get trade history: %v", err)
+	}
+
+	resp := &marketv1.GetTradeHistoryResponse{
+		Trades: make([]*marketv1.RecentTrade, len(trades)),
+	}
+	for i, t := range trades {
+		resp.Trades[i] = toProtoTrade(t)
+	}
+
+	return resp, nil
 }
 
 // toProtoMarket 转换 Market 模型到 Proto

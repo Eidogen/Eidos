@@ -83,7 +83,7 @@ func TestClearingService_ProcessTradeResult_Success(t *testing.T) {
 
 	// Mock DB transaction for trade persistence
 	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec("INSERT INTO trades").
+	sqlMock.ExpectExec("INSERT INTO trading_trades").
 		WithArgs(
 			"T1234567890123456789", "ETH-USDT",
 			"O1234567890123456789", "O1234567890123456790",
@@ -96,8 +96,8 @@ func TestClearingService_ProcessTradeResult_Success(t *testing.T) {
 		).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Mock order updates (sorted by order ID)
-	sqlMock.ExpectExec("UPDATE orders").WillReturnResult(sqlmock.NewResult(0, 1))
-	sqlMock.ExpectExec("UPDATE orders").WillReturnResult(sqlmock.NewResult(0, 1))
+	sqlMock.ExpectExec("UPDATE trading_orders").WillReturnResult(sqlmock.NewResult(0, 1))
+	sqlMock.ExpectExec("UPDATE trading_orders").WillReturnResult(sqlmock.NewResult(0, 1))
 	sqlMock.ExpectCommit()
 
 	err := svc.ProcessTradeResult(ctx, msg)
@@ -304,7 +304,7 @@ func TestClearingService_ProcessTradeResult_DBPersistFailedWithRollback(t *testi
 
 	// DB transaction fails
 	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec("INSERT INTO trades").
+	sqlMock.ExpectExec("INSERT INTO trading_trades").
 		WillReturnError(errors.New("db connection lost"))
 	sqlMock.ExpectRollback()
 

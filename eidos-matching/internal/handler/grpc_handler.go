@@ -337,8 +337,34 @@ func (h *MatchingHandler) GetMetrics(ctx context.Context, req *matchingv1.GetMet
 			OrdersCancelled: stats.CancelProcessed,
 			TradesExecuted:  stats.TradesGenerated,
 			AvgLatencyUs:    stats.AvgLatencyUs,
-			P99LatencyUs:    0, // TODO: 添加 P99 延迟统计
-			OrdersPerSecond: 0, // TODO: 添加 TPS 统计
+			P99LatencyUs:    stats.P99LatencyUs,
+			OrdersPerSecond: stats.OrdersPerSecond,
+		}
+	}
+
+	// 计算全局统计
+	var totalAvgLatency, totalP99Latency int64
+	var earliestStartTime int64 = time.Now().UnixMilli()
+	marketCount := int64(len(marketMetrics))
+	if marketCount > 0 {
+		for _, m := range marketMetrics {
+			totalAvgLatency += m.AvgLatencyUs
+			if m.P99LatencyUs > totalP99Latency {
+				totalP99Latency = m.P99LatencyUs // 取最大 P99
+			}
+		}
+		totalAvgLatency /= marketCount
+	}
+
+	// 获取最早启动时间
+	for _, market := range markets {
+		eng, err := h.engineManager.GetEngine(market)
+		if err != nil {
+			continue
+		}
+		stats := eng.GetStats()
+		if stats.StartTime > 0 && stats.StartTime < earliestStartTime {
+			earliestStartTime = stats.StartTime
 		}
 	}
 
@@ -347,9 +373,9 @@ func (h *MatchingHandler) GetMetrics(ctx context.Context, req *matchingv1.GetMet
 		Global: &matchingv1.GlobalMetrics{
 			TotalOrders:  totalOrders,
 			TotalTrades:  totalTrades,
-			AvgLatencyUs: 0, // TODO: 计算全局平均延迟
-			P99LatencyUs: 0, // TODO: 计算全局 P99 延迟
-			StartTime:    time.Now().Add(-time.Hour).UnixMilli(), // 示例值
+			AvgLatencyUs: totalAvgLatency,
+			P99LatencyUs: totalP99Latency,
+			StartTime:    earliestStartTime,
 		},
 	}, nil
 }

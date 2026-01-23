@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/blockchain"
 	"github.com/eidos-exchange/eidos/eidos-chain/internal/model"
@@ -498,6 +499,139 @@ func (h *GRPCHandler) GetWalletNonce(ctx context.Context, req *chainv1.GetWallet
 		WalletAddress: h.blockchainClient.Address().Hex(),
 		CurrentNonce:  nonce,
 		PendingCount:  int32(h.nonceManager.GetPendingCount()),
+	}, nil
+}
+
+// ========== Chain Status 链状态相关 ==========
+
+// GetChainStatus 获取链服务整体状态
+func (h *GRPCHandler) GetChainStatus(ctx context.Context, req *chainv1.GetChainStatusRequest) (*chainv1.GetChainStatusResponse, error) {
+	// 获取当前区块高度
+	currentBlock, err := h.blockchainClient.BlockNumber(ctx)
+	if err != nil {
+		logger.Error("failed to get current block", "error", err)
+		return nil, status.Error(codes.Internal, "failed to get current block")
+	}
+
+	// 获取索引器状态
+	indexerStatus, err := h.indexerSvc.GetIndexerStatus(ctx)
+	if err != nil {
+		logger.Warn("failed to get indexer status", "error", err)
+	}
+
+	var indexedBlock int64
+	var lagBlocks int64
+	var isSyncing bool
+	var chainID int64
+	var running bool
+
+	if indexerStatus != nil {
+		indexedBlock = int64(indexerStatus.CurrentBlock)
+		lagBlocks = int64(currentBlock) - indexedBlock
+		isSyncing = indexerStatus.Running && lagBlocks > 10 // 落后超过 10 个区块认为在同步中
+		chainID = indexerStatus.ChainID
+		running = indexerStatus.Running
+	}
+
+	// 获取 RPC 端点信息
+	rpcEndpoint := h.blockchainClient.GetRPCEndpoint()
+
+	// 获取 RPC 延迟
+	rpcLatencyMs := h.blockchainClient.GetRPCLatencyMs()
+
+	// 获取链名称
+	chainName := h.blockchainClient.GetChainName()
+
+	// 构建响应
+	resp := &chainv1.GetChainStatusResponse{
+		CurrentBlock:  int64(currentBlock),
+		IndexedBlock:  indexedBlock,
+		LagBlocks:     lagBlocks,
+		IsSyncing:     isSyncing,
+		RpcEndpoint:   rpcEndpoint,
+		LastCheckTime: time.Now().UnixMilli(),
+		Chains: []*chainv1.ChainHealth{
+			{
+				ChainId:      chainID,
+				ChainName:    chainName,
+				Healthy:      running && lagBlocks <= 100,
+				CurrentBlock: int64(currentBlock),
+				IndexedBlock: indexedBlock,
+				RpcLatencyMs: int32(rpcLatencyMs),
+				LastError:    "",
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+// GetReconciliationReport 获取对账汇总报告
+func (h *GRPCHandler) GetReconciliationReport(ctx context.Context, req *chainv1.GetReconciliationReportRequest) (*chainv1.GetReconciliationReportResponse, error) {
+	if h.reconciliationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "reconciliation repository not configured")
+	}
+
+	// 获取时间范围内的所有对账记录
+	pagination := &repository.Pagination{
+		Page:     1,
+		PageSize: 10000, // 获取所有记录用于汇总
+	}
+
+	records, err := h.reconciliationRepo.ListByTimeRange(ctx, req.StartTime, req.EndTime, pagination)
+	if err != nil {
+		logger.Error("failed to list reconciliation records", "error", err)
+		return nil, status.Error(codes.Internal, "failed to get reconciliation records")
+	}
+
+	// 按代币聚合
+	tokenStats := make(map[string]*chainv1.TokenReconciliation)
+	var discrepancies []*chainv1.Discrepancy
+
+	for _, record := range records {
+		// 按代币聚合统计
+		ts, exists := tokenStats[record.Token]
+		if !exists {
+			ts = &chainv1.TokenReconciliation{
+				Token:            record.Token,
+				OnchainTotal:     "0",
+				OffchainTotal:    "0",
+				Difference:       "0",
+				IsMatched:        true,
+				WalletsChecked:   0,
+				DiscrepancyCount: 0,
+			}
+			tokenStats[record.Token] = ts
+		}
+
+		ts.WalletsChecked++
+
+		// 如果有差异，记录差异
+		if record.Status == model.ReconciliationStatusDiscrepancy {
+			ts.DiscrepancyCount++
+			ts.IsMatched = false
+
+			discrepancies = append(discrepancies, &chainv1.Discrepancy{
+				Token:           record.Token,
+				Wallet:          record.WalletAddress,
+				OnchainBalance:  record.OnChainBalance.String(),
+				OffchainBalance: record.OffChainSettled.String(),
+				Difference:      record.Difference.String(),
+				Reason:          record.Resolution,
+			})
+		}
+	}
+
+	// 转换为切片
+	tokens := make([]*chainv1.TokenReconciliation, 0, len(tokenStats))
+	for _, ts := range tokenStats {
+		tokens = append(tokens, ts)
+	}
+
+	return &chainv1.GetReconciliationReportResponse{
+		ReportTime:    req.EndTime,
+		Tokens:        tokens,
+		Discrepancies: discrepancies,
 	}, nil
 }
 

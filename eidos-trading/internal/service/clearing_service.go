@@ -223,7 +223,7 @@ func (s *clearingService) persistTradeToDB(ctx context.Context, msg *worker.Trad
 		}
 
 		result := tx.Exec(`
-			INSERT INTO trades (trade_id, market, maker_order_id, taker_order_id, maker_wallet, taker_wallet,
+			INSERT INTO trading_trades (trade_id, market, maker_order_id, taker_order_id, maker_wallet, taker_wallet,
 			                    price, amount, quote_amount, maker_fee, taker_fee,
 			                    maker_side, settlement_status, matched_at, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -267,7 +267,7 @@ func (s *clearingService) updateOrdersFilled(ctx context.Context, tx *gorm.DB, m
 func (s *clearingService) updateOrderFilled(tx *gorm.DB, orderID string, size decimal.Decimal) error {
 	now := time.Now().UnixMilli()
 	result := tx.Exec(`
-		UPDATE orders
+		UPDATE trading_orders
 		SET filled_amount = filled_amount + ?,
 		    status = CASE
 		        WHEN filled_amount + ? >= amount THEN ?
