@@ -47,3 +47,6 @@ coverage.html
 
 # Docker
 docker-compose.override.yml
+
+# Claude Code
+.claude/
