@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,14 +46,49 @@ func createTestDailyStats(t *testing.T, db *gorm.DB, date string, market *string
 }
 
 func TestStatsService_GetOverview_Success(t *testing.T) {
-	// Skip: This test uses SumByDateRange which requires PostgreSQL-specific SQL
-	// The actual service works correctly with PostgreSQL in production
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax (::numeric, ::text)")
+	db := setupStatsTestDB(t)
+	statsRepo := repository.NewStatsRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+	marketRepo := repository.NewMarketConfigRepository(db)
+
+	svc := NewStatsService(statsRepo, adminRepo, marketRepo)
+
+	ctx := context.Background()
+
+	// 创建今天和最近几天的统计数据 (GetOverview 查询当天和过去 30 天)
+	today := time.Now().Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	twoDaysAgo := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
+
+	createTestDailyStats(t, db, today, nil)
+	createTestDailyStats(t, db, yesterday, nil)
+	createTestDailyStats(t, db, twoDaysAgo, nil)
+
+	// 获取概览
+	overview, err := svc.GetOverview(ctx)
+	require.NoError(t, err)
+	assert.NotNil(t, overview)
+	assert.Equal(t, int64(300), overview.TotalTrades)  // 3 * 100
+	assert.Equal(t, int64(1500), overview.TotalOrders) // 3 * 500
+	assert.Equal(t, int64(100), overview.TodayTrades)  // 今天 1 * 100
+	assert.Equal(t, int64(500), overview.TodayOrders)  // 今天 1 * 500
 }
 
 func TestStatsService_GetOverview_NoData(t *testing.T) {
-	// Skip: This test uses SumByDateRange which requires PostgreSQL-specific SQL
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax (::numeric, ::text)")
+	db := setupStatsTestDB(t)
+	statsRepo := repository.NewStatsRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+	marketRepo := repository.NewMarketConfigRepository(db)
+
+	svc := NewStatsService(statsRepo, adminRepo, marketRepo)
+
+	ctx := context.Background()
+
+	// 没有数据时获取概览
+	overview, err := svc.GetOverview(ctx)
+	require.NoError(t, err)
+	assert.NotNil(t, overview)
+	assert.Equal(t, int64(0), overview.TotalTrades)
 }
 
 func TestStatsService_GetVolumeStats_Success(t *testing.T) {
@@ -310,13 +346,47 @@ func TestStatsService_GetDailyStatsList_Pagination(t *testing.T) {
 }
 
 func TestStatsService_GetTradingStats_Success(t *testing.T) {
-	// Skip: This test uses SumByDateRange which requires PostgreSQL-specific SQL
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax (::numeric, ::text)")
+	db := setupStatsTestDB(t)
+	statsRepo := repository.NewStatsRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+	marketRepo := repository.NewMarketConfigRepository(db)
+
+	svc := NewStatsService(statsRepo, adminRepo, marketRepo)
+
+	ctx := context.Background()
+
+	// 创建测试数据
+	dates := []string{"2024-01-01", "2024-01-02"}
+	for _, date := range dates {
+		createTestDailyStats(t, db, date, nil)
+	}
+
+	// 获取交易统计 (symbol, startDate, endDate)
+	result, err := svc.GetTradingStats(ctx, "", "2024-01-01", "2024-01-02")
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, int64(200), result.TotalTrades)  // 2 * 100
+	assert.Equal(t, int64(1000), result.TotalOrders) // 2 * 500
 }
 
 func TestStatsService_GetTradingStats_FilterBySymbol(t *testing.T) {
-	// Skip: This test uses SumByDateRange which requires PostgreSQL-specific SQL
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax (::numeric, ::text)")
+	db := setupStatsTestDB(t)
+	statsRepo := repository.NewStatsRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+	marketRepo := repository.NewMarketConfigRepository(db)
+
+	svc := NewStatsService(statsRepo, adminRepo, marketRepo)
+
+	ctx := context.Background()
+
+	// 创建测试数据
+	createTestDailyStats(t, db, "2024-01-01", nil)
+
+	// GetTradingStats(ctx, symbol, startDate, endDate)
+	result, err := svc.GetTradingStats(ctx, "BTC-USDT", "2024-01-01", "2024-01-01")
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "BTC-USDT", result.Symbol)
 }
 
 func TestStatsService_GetSettlementStats_Success(t *testing.T) {

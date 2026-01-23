@@ -91,8 +91,14 @@ func (r *StatsRepository) GetLatest(ctx context.Context, limit int) ([]*model.Da
 // SumByDateRange 汇总日期范围内的数据
 func (r *StatsRepository) SumByDateRange(ctx context.Context, startDate, endDate string) (*model.DailyStats, error) {
 	var result model.DailyStats
-	err := r.db.WithContext(ctx).Model(&model.DailyStats{}).
-		Select(`
+
+	// 根据数据库类型选择不同的 SQL 语法
+	dialector := r.db.Dialector.Name()
+	var selectClause string
+
+	if dialector == "postgres" {
+		// PostgreSQL 使用 ::numeric 和 ::text 进行类型转换
+		selectClause = `
 			SUM(trade_count) as trade_count,
 			SUM(trade_volume::numeric)::text as trade_volume,
 			SUM(trade_amount::numeric)::text as trade_amount,
@@ -102,7 +108,24 @@ func (r *StatsRepository) SumByDateRange(ctx context.Context, startDate, endDate
 			SUM(taker_fee_total::numeric)::text as taker_fee_total,
 			SUM(active_users) as active_users,
 			SUM(new_users) as new_users
-		`).
+		`
+	} else {
+		// SQLite 使用 CAST 语法
+		selectClause = `
+			SUM(trade_count) as trade_count,
+			CAST(SUM(CAST(trade_volume AS REAL)) AS TEXT) as trade_volume,
+			CAST(SUM(CAST(trade_amount AS REAL)) AS TEXT) as trade_amount,
+			SUM(order_count) as order_count,
+			SUM(cancelled_count) as cancelled_count,
+			CAST(SUM(CAST(maker_fee_total AS REAL)) AS TEXT) as maker_fee_total,
+			CAST(SUM(CAST(taker_fee_total AS REAL)) AS TEXT) as taker_fee_total,
+			SUM(active_users) as active_users,
+			SUM(new_users) as new_users
+		`
+	}
+
+	err := r.db.WithContext(ctx).Model(&model.DailyStats{}).
+		Select(selectClause).
 		Where("stat_date >= ? AND stat_date <= ?", startDate, endDate).
 		Where("market IS NULL"). // 只汇总全局数据
 		Scan(&result).Error

@@ -527,8 +527,25 @@ func TestMarketHandler_UpdateStatus(t *testing.T) {
 // ========== Stats Handler Tests ==========
 
 func TestStatsHandler_GetOverview(t *testing.T) {
-	// Skip: uses SumByDateRange which requires PostgreSQL-specific SQL
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax")
+	env := setupTestEnv(t)
+
+	// 创建测试数据
+	stats := &model.DailyStats{
+		StatDate:      "2024-01-15",
+		TradeCount:    100,
+		TradeVolume:   "1000000",
+		TradeAmount:   "50000000",
+		OrderCount:    500,
+		CancelledCnt:  50,
+		MakerFeeTotal: "100",
+		TakerFeeTotal: "200",
+		ActiveUsers:   1000,
+		NewUsers:      50,
+	}
+	env.db.Create(stats)
+
+	w := env.request("GET", "/admin/v1/stats/overview?start_date=2024-01-01&end_date=2024-01-31", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestStatsHandler_GetDailyStats(t *testing.T) {
@@ -550,8 +567,25 @@ func TestStatsHandler_GetDailyStats(t *testing.T) {
 }
 
 func TestStatsHandler_GetTradingStats(t *testing.T) {
-	// Skip: uses SumByDateRange which requires PostgreSQL-specific SQL
-	t.Skip("Skipping: requires PostgreSQL-specific SQL syntax")
+	env := setupTestEnv(t)
+
+	// 创建测试数据
+	stats := &model.DailyStats{
+		StatDate:      "2024-01-15",
+		TradeCount:    100,
+		TradeVolume:   "1000000",
+		TradeAmount:   "50000000",
+		OrderCount:    500,
+		CancelledCnt:  50,
+		MakerFeeTotal: "100",
+		TakerFeeTotal: "200",
+		ActiveUsers:   1000,
+		NewUsers:      50,
+	}
+	env.db.Create(stats)
+
+	w := env.request("GET", "/admin/v1/stats/trading?start_date=2024-01-01&end_date=2024-01-31", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // ========== Authorization Tests ==========
