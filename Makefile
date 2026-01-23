@@ -82,6 +82,12 @@ help:
 	@echo "  make test-deposit-flow  Test deposit flow"
 	@echo "  make test-market-flow   Test market data flow"
 	@echo ""
+	@echo "Database (migrations run automatically on service startup):"
+	@echo "  make db-setup           Create DBs and seed test data"
+	@echo "  make db-seed            Load test data into databases"
+	@echo "  make db-reset           Reset databases (DESTROYS ALL DATA!)"
+	@echo "  make db-create          Create databases if they don't exist"
+	@echo ""
 	@echo "Development:"
 	@echo "  make dev-up             Start infrastructure for local dev"
 	@echo "  make dev-down           Stop all containers"
@@ -576,17 +582,45 @@ install-tools:
 # ========================================
 # Database
 # ========================================
-db-migrate:
-	@echo "Running database migrations..."
-	@echo "TODO: Add migration command"
 
+# Database connection defaults (can be overridden via environment)
+DB_HOST ?= localhost
+DB_PORT ?= 5432
+DB_USER ?= eidos
+DB_PASSWORD ?= eidos123
+DB_NAME ?= eidos
+MARKET_DB_PORT ?= 5433
+MARKET_DB_NAME ?= eidos_market
+
+# Seed database with test data
 db-seed:
-	@echo "Seeding database with test data..."
-	@echo "TODO: Add seed command"
+	@echo "Seeding trading database..."
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f scripts/db/seed.sql
+	@echo "Seeding market database..."
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(MARKET_DB_PORT) -U $(DB_USER) -d $(MARKET_DB_NAME) -f scripts/db/seed_market.sql
+	@echo "Seed data loaded!"
 
+# Reset databases (CAUTION: destroys all data!)
+# 服务启动时会自动执行迁移
 db-reset:
-	@echo "Resetting database..."
-	@echo "TODO: Add reset command"
+	@echo "⚠️  WARNING: This will destroy ALL data!"
+	@echo "Press Ctrl+C to cancel, or wait 3 seconds..."
+	@sleep 3
+	@echo "Resetting databases..."
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d postgres -c "DROP DATABASE IF EXISTS $(DB_NAME);" -c "CREATE DATABASE $(DB_NAME);"
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(MARKET_DB_PORT) -U $(DB_USER) -d postgres -c "DROP DATABASE IF EXISTS $(MARKET_DB_NAME);" -c "CREATE DATABASE $(MARKET_DB_NAME);"
+	@echo "Database reset complete! Start services to run migrations."
+
+# Create databases if they don't exist
+db-create:
+	@echo "Creating databases if they don't exist..."
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d postgres -c "SELECT 'CREATE DATABASE $(DB_NAME)' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$(DB_NAME)')\gexec" 2>/dev/null || true
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(MARKET_DB_PORT) -U $(DB_USER) -d postgres -c "SELECT 'CREATE DATABASE $(MARKET_DB_NAME)' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$(MARKET_DB_NAME)')\gexec" 2>/dev/null || true
+	@echo "Databases ready!"
+
+# Quick setup: create DBs, seed (migrations run on service startup)
+db-setup: db-create db-seed
+	@echo "Database setup complete! Start services to run migrations."
 
 # ========================================
 # Quick Commands
