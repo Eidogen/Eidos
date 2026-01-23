@@ -119,9 +119,9 @@ jobs:
 
   cleanup_orders:
     enabled: true
-    cron: "0 */2 * * * *"
-    timeout_sec: 60
-    batch_size: 100
+    cron: "0 */1 * * * *"  # 每1分钟执行（原2分钟）
+    timeout_sec: 50
+    batch_size: 200
 
   stats_agg:
     enabled: true
