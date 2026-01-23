@@ -1005,6 +1005,324 @@ message RollbackSettlementRequest {
 }
 
 // ============================================================================
+// SubAccountService - 子账户管理服务
+// ============================================================================
+
+// SubAccountService 提供子账户管理功能
+// 一个钱包可以创建多个独立的交易子账户
+service SubAccountService {
+    // ========== 子账户管理 ==========
+
+    // CreateSubAccount 创建子账户
+    rpc CreateSubAccount(CreateSubAccountRequest) returns (CreateSubAccountResponse);
+
+    // GetSubAccount 获取子账户详情
+    rpc GetSubAccount(GetSubAccountRequest) returns (SubAccount);
+
+    // ListSubAccounts 获取钱包下所有子账户
+    rpc ListSubAccounts(ListSubAccountsRequest) returns (ListSubAccountsResponse);
+
+    // UpdateSubAccount 更新子账户 (名称、备注)
+    rpc UpdateSubAccount(UpdateSubAccountRequest) returns (google.protobuf.Empty);
+
+    // DeleteSubAccount 删除子账户
+    rpc DeleteSubAccount(DeleteSubAccountRequest) returns (google.protobuf.Empty);
+
+    // FreezeSubAccount 冻结子账户
+    rpc FreezeSubAccount(FreezeSubAccountRequest) returns (google.protobuf.Empty);
+
+    // UnfreezeSubAccount 解冻子账户
+    rpc UnfreezeSubAccount(UnfreezeSubAccountRequest) returns (google.protobuf.Empty);
+
+    // SetDefaultSubAccount 设置默认子账户
+    rpc SetDefaultSubAccount(SetDefaultSubAccountRequest) returns (google.protobuf.Empty);
+
+    // ========== 余额管理 ==========
+
+    // GetSubAccountBalance 获取子账户单个代币余额
+    rpc GetSubAccountBalance(GetSubAccountBalanceRequest) returns (SubAccountBalance);
+
+    // GetSubAccountBalances 获取子账户所有余额
+    rpc GetSubAccountBalances(GetSubAccountBalancesRequest) returns (GetSubAccountBalancesResponse);
+
+    // GetAllSubAccountBalances 获取钱包下所有子账户余额
+    rpc GetAllSubAccountBalances(GetAllSubAccountBalancesRequest) returns (GetSubAccountBalancesResponse);
+
+    // ========== 划转操作 ==========
+
+    // TransferIn 划入子账户 (主账户 → 子账户)
+    rpc TransferIn(TransferRequest) returns (TransferResponse);
+
+    // TransferOut 划出子账户 (子账户 → 主账户)
+    rpc TransferOut(TransferRequest) returns (TransferResponse);
+
+    // GetTransferHistory 获取划转历史
+    rpc GetTransferHistory(GetTransferHistoryRequest) returns (GetTransferHistoryResponse);
+}
+
+// ============================================================================
+// SubAccount Messages
+// ============================================================================
+
+// SubAccount 子账户信息
+message SubAccount {
+    // 子账户唯一标识
+    string sub_account_id = 1;
+
+    // 所属钱包地址
+    string wallet = 2;
+
+    // 子账户名称
+    string name = 3;
+
+    // 子账户类型
+    eidos.common.v1.SubAccountType type = 4;
+
+    // 子账户状态
+    eidos.common.v1.SubAccountStatus status = 5;
+
+    // 是否为默认子账户
+    bool is_default = 6;
+
+    // 备注
+    string remark = 7;
+
+    // 创建时间 (Unix 毫秒)
+    int64 created_at = 8;
+
+    // 更新时间 (Unix 毫秒)
+    int64 updated_at = 9;
+}
+
+// SubAccountBalance 子账户余额
+message SubAccountBalance {
+    // 子账户ID
+    string sub_account_id = 1;
+
+    // 钱包地址
+    string wallet = 2;
+
+    // 代币符号
+    string token = 3;
+
+    // 可用余额 (decimal string)
+    string available = 4;
+
+    // 冻结余额 (decimal string)
+    string frozen = 5;
+
+    // 总余额 (decimal string)
+    string total = 6;
+
+    // 更新时间 (Unix 毫秒)
+    int64 updated_at = 7;
+}
+
+// SubAccountTransfer 划转记录
+message SubAccountTransfer {
+    // 划转ID
+    string transfer_id = 1;
+
+    // 钱包地址
+    string wallet = 2;
+
+    // 子账户ID
+    string sub_account_id = 3;
+
+    // 划转类型
+    eidos.common.v1.SubAccountTransferType type = 4;
+
+    // 代币符号
+    string token = 5;
+
+    // 划转金额 (decimal string)
+    string amount = 6;
+
+    // 备注
+    string remark = 7;
+
+    // 创建时间 (Unix 毫秒)
+    int64 created_at = 8;
+}
+
+// CreateSubAccountRequest 创建子账户请求
+message CreateSubAccountRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+
+    // 子账户名称 (required, 2-50字符)
+    string name = 2;
+
+    // 子账户类型 (optional, 默认 TRADING)
+    eidos.common.v1.SubAccountType type = 3;
+}
+
+// CreateSubAccountResponse 创建子账户响应
+message CreateSubAccountResponse {
+    // 创建的子账户
+    SubAccount sub_account = 1;
+}
+
+// GetSubAccountRequest 获取子账户请求
+message GetSubAccountRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+}
+
+// ListSubAccountsRequest 列出子账户请求
+message ListSubAccountsRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+}
+
+// ListSubAccountsResponse 列出子账户响应
+message ListSubAccountsResponse {
+    // 子账户列表
+    repeated SubAccount sub_accounts = 1;
+}
+
+// UpdateSubAccountRequest 更新子账户请求
+message UpdateSubAccountRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+
+    // 新名称 (optional)
+    string name = 2;
+
+    // 新备注 (optional)
+    string remark = 3;
+}
+
+// DeleteSubAccountRequest 删除子账户请求
+message DeleteSubAccountRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+}
+
+// FreezeSubAccountRequest 冻结子账户请求
+message FreezeSubAccountRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+
+    // 冻结原因 (optional)
+    string reason = 2;
+}
+
+// UnfreezeSubAccountRequest 解冻子账户请求
+message UnfreezeSubAccountRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+}
+
+// SetDefaultSubAccountRequest 设置默认子账户请求
+message SetDefaultSubAccountRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+
+    // 子账户ID (required)
+    string sub_account_id = 2;
+}
+
+// GetSubAccountBalanceRequest 获取子账户余额请求
+message GetSubAccountBalanceRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+
+    // 代币符号 (required)
+    string token = 2;
+}
+
+// GetSubAccountBalancesRequest 获取子账户所有余额请求
+message GetSubAccountBalancesRequest {
+    // 子账户ID (required)
+    string sub_account_id = 1;
+
+    // 隐藏零余额 (optional)
+    bool hide_zero = 2;
+}
+
+// GetAllSubAccountBalancesRequest 获取所有子账户余额请求
+message GetAllSubAccountBalancesRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+
+    // 隐藏零余额 (optional)
+    bool hide_zero = 2;
+}
+
+// GetSubAccountBalancesResponse 获取余额响应
+message GetSubAccountBalancesResponse {
+    // 余额列表
+    repeated SubAccountBalance balances = 1;
+}
+
+// TransferRequest 划转请求
+message TransferRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+
+    // 子账户ID (required)
+    string sub_account_id = 2;
+
+    // 代币符号 (required)
+    string token = 3;
+
+    // 划转金额 (required, decimal string)
+    string amount = 4;
+
+    // 备注 (optional)
+    string remark = 5;
+}
+
+// TransferResponse 划转响应
+message TransferResponse {
+    // 划转ID
+    string transfer_id = 1;
+}
+
+// GetTransferHistoryRequest 获取划转历史请求
+message GetTransferHistoryRequest {
+    // 钱包地址 (required)
+    string wallet = 1;
+
+    // 子账户ID筛选 (optional)
+    string sub_account_id = 2;
+
+    // 划转类型筛选 (optional)
+    eidos.common.v1.SubAccountTransferType type = 3;
+
+    // 代币符号筛选 (optional)
+    string token = 4;
+
+    // 开始时间 (Unix 毫秒, optional)
+    int64 start_time = 5;
+
+    // 结束时间 (Unix 毫秒, optional)
+    int64 end_time = 6;
+
+    // 页码 (1-indexed, 默认 1)
+    int32 page = 7;
+
+    // 每页数量 (默认 20, 最大 100)
+    int32 page_size = 8;
+}
+
+// GetTransferHistoryResponse 获取划转历史响应
+message GetTransferHistoryResponse {
+    // 划转记录列表
+    repeated SubAccountTransfer transfers = 1;
+
+    // 总记录数
+    int64 total = 2;
+
+    // 当前页码
+    int32 page = 3;
+
+    // 每页数量
+    int32 page_size = 4;
+}
+
+// ============================================================================
 // PrepareOrder Messages (for EIP-712 signing flow)
 // ============================================================================
 

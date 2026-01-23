@@ -20,6 +20,7 @@ type ResourceType string
 const (
 	ResourceTypeAdmin        ResourceType = "admin"
 	ResourceTypeMarket       ResourceType = "market"
+	ResourceTypeToken        ResourceType = "token"
 	ResourceTypeSystemConfig ResourceType = "system_config"
 	ResourceTypeOrder        ResourceType = "order"
 	ResourceTypeUser         ResourceType = "user"

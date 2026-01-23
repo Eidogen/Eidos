@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/eidos-exchange/eidos/eidos-common/pkg/logger"
@@ -18,13 +19,17 @@ const (
 	TopicWithdrawals    = "withdrawals"
 )
 
+// TradeCallback 交易结果回调 (后置风控)
+type TradeCallback func(ctx context.Context, tradeID, market, makerWallet, takerWallet string, price, amount decimal.Decimal, timestamp time.Time)
+
 // Consumer Kafka 消费者
 type Consumer struct {
-	client        sarama.ConsumerGroup
-	orderCache    *cache.OrderCache
-	amountCache   *cache.AmountCache
-	marketCache   *cache.MarketCache
-	withdrawCache *cache.WithdrawCache
+	client         sarama.ConsumerGroup
+	orderCache     *cache.OrderCache
+	amountCache    *cache.AmountCache
+	marketCache    *cache.MarketCache
+	withdrawCache  *cache.WithdrawCache
+	onTradeResult  TradeCallback // 交易结果回调 (后置风控)
 
 	ready chan bool
 	ctx   context.Context
@@ -44,6 +49,7 @@ func NewConsumer(
 	amountCache *cache.AmountCache,
 	marketCache *cache.MarketCache,
 	withdrawCache *cache.WithdrawCache,
+	onTradeResult TradeCallback, // 交易结果回调 (后置风控)
 ) (*Consumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.NewBalanceStrategyRoundRobin()}
@@ -60,6 +66,7 @@ func NewConsumer(
 		amountCache:   amountCache,
 		marketCache:   marketCache,
 		withdrawCache: withdrawCache,
+		onTradeResult: onTradeResult,
 		ready:         make(chan bool),
 	}, nil
 }
@@ -237,6 +244,11 @@ func (c *Consumer) handleTradeResult(ctx context.Context, data []byte) error {
 
 	// 增加系统总待结算金额
 	c.amountCache.AddSystemPendingSettle(ctx, notional.Mul(decimal.NewFromInt(2)))
+
+	// 后置风控: 调用交易监控回调进行异常检测
+	if c.onTradeResult != nil {
+		c.onTradeResult(ctx, msg.TradeID, msg.Market, msg.MakerWallet, msg.TakerWallet, price, amount, time.Now())
+	}
 
 	logger.Debug("trade result processed",
 		"trade_id", msg.TradeID,

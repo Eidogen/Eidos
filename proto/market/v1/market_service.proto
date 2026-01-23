@@ -182,6 +182,7 @@ message PriceLevel {
 message GetDepthRequest {
   string market = 1;           // 交易对
   int32 limit = 2;             // 档位数: 5, 10, 20, 50, 100，默认 20
+  string precision = 3;        // 聚合精度: "0.001", "0.01", "0.1", "1", "10", "100"，为空表示不聚合
 }
 
 message GetDepthResponse {

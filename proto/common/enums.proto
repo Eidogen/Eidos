@@ -241,3 +241,30 @@ enum NotificationType {
     NOTIFICATION_TYPE_RISK_ALERT = 6;         // Risk alert
     NOTIFICATION_TYPE_SYSTEM = 7;             // System notification
 }
+
+// ============================================================================
+// Sub-Account Related Enums
+// ============================================================================
+
+// SubAccountType represents the type of sub-account
+enum SubAccountType {
+    SUB_ACCOUNT_TYPE_UNSPECIFIED = 0;  // Default value
+    SUB_ACCOUNT_TYPE_TRADING = 1;      // Trading sub-account (现货交易)
+    SUB_ACCOUNT_TYPE_MARGIN = 2;       // Margin sub-account (杠杆交易)
+    SUB_ACCOUNT_TYPE_FUTURES = 3;      // Futures sub-account (合约交易)
+}
+
+// SubAccountStatus represents the status of sub-account
+enum SubAccountStatus {
+    SUB_ACCOUNT_STATUS_UNSPECIFIED = 0;  // Default value
+    SUB_ACCOUNT_STATUS_ACTIVE = 1;       // Sub-account is active
+    SUB_ACCOUNT_STATUS_FROZEN = 2;       // Sub-account is frozen
+    SUB_ACCOUNT_STATUS_DELETED = 3;      // Sub-account is deleted
+}
+
+// SubAccountTransferType represents the direction of sub-account transfer
+enum SubAccountTransferType {
+    SUB_ACCOUNT_TRANSFER_TYPE_UNSPECIFIED = 0;  // Default value
+    SUB_ACCOUNT_TRANSFER_TYPE_IN = 1;           // Transfer in (主账户 → 子账户)
+    SUB_ACCOUNT_TRANSFER_TYPE_OUT = 2;          // Transfer out (子账户 → 主账户)
+}

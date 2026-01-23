@@ -32,9 +32,24 @@ type ServiceConfig struct {
 
 // RiskConfig 风控配置
 type RiskConfig struct {
-	Limits     LimitsConfig     `yaml:"limits" json:"limits"`
-	RateLimits RateLimitsConfig `yaml:"rate_limits" json:"rate_limits"`
-	Monitoring MonitoringConfig `yaml:"monitoring" json:"monitoring"`
+	Limits     LimitsConfig           `yaml:"limits" json:"limits"`
+	RateLimits RateLimitsConfig       `yaml:"rate_limits" json:"rate_limits"`
+	Monitoring MonitoringConfig       `yaml:"monitoring" json:"monitoring"`
+	Withdrawal WithdrawalReviewConfig `yaml:"withdrawal" json:"withdrawal"`
+}
+
+// WithdrawalReviewConfig 提现审核配置
+type WithdrawalReviewConfig struct {
+	// 大额提现阈值 (超过此金额需要审核)
+	LargeWithdrawalThreshold string `yaml:"large_withdrawal_threshold" json:"large_withdrawal_threshold"`
+	// 自动通过风险分阈值 (低于此分数自动通过)
+	AutoApproveThreshold int `yaml:"auto_approve_threshold" json:"auto_approve_threshold"`
+	// 自动拒绝风险分阈值 (高于此分数自动拒绝)
+	AutoRejectThreshold int `yaml:"auto_reject_threshold" json:"auto_reject_threshold"`
+	// 审核超时时间 (小时)
+	ReviewTimeoutHours int `yaml:"review_timeout_hours" json:"review_timeout_hours"`
+	// 是否启用提现审核
+	Enabled bool `yaml:"enabled" json:"enabled"`
 }
 
 // LimitsConfig 限额配置
@@ -202,9 +217,32 @@ func setDefaults(cfg *Config) {
 		cfg.Risk.Monitoring.AlertIntervalSec = 60
 	}
 
+	// 提现审核配置默认值
+	if cfg.Risk.Withdrawal.LargeWithdrawalThreshold == "" {
+		cfg.Risk.Withdrawal.LargeWithdrawalThreshold = "10000" // 默认 10000 以上需要审核
+	}
+	if cfg.Risk.Withdrawal.AutoApproveThreshold == 0 {
+		cfg.Risk.Withdrawal.AutoApproveThreshold = 30 // 风险分低于 30 自动通过
+	}
+	if cfg.Risk.Withdrawal.AutoRejectThreshold == 0 {
+		cfg.Risk.Withdrawal.AutoRejectThreshold = 80 // 风险分高于 80 自动拒绝
+	}
+	if cfg.Risk.Withdrawal.ReviewTimeoutHours == 0 {
+		cfg.Risk.Withdrawal.ReviewTimeoutHours = 24 // 默认 24 小时超时
+	}
+
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
 	}
+}
+
+// GetLargeWithdrawalThreshold 获取大额提现阈值
+func (c *WithdrawalReviewConfig) GetLargeWithdrawalThreshold() decimal.Decimal {
+	d, err := decimal.NewFromString(c.LargeWithdrawalThreshold)
+	if err != nil {
+		return decimal.NewFromInt(10000)
+	}
+	return d
 }
 
 // GetDailyWithdrawLimit 获取每日提现限额

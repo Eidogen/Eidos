@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	commonv1 "github.com/eidos-exchange/eidos/proto/common"
@@ -895,4 +896,219 @@ func (h *RiskHandler) GetRiskStats(ctx context.Context, req *riskv1.GetRiskStats
 		EventsByLevel:           stats.EventsByLevel,
 		EventsByType:            stats.EventsByType,
 	}, nil
+}
+
+// ============================================================================
+// 提现审核管理
+// ============================================================================
+
+// ListWithdrawalReviews 获取提现审核列表
+func (h *RiskHandler) ListWithdrawalReviews(ctx context.Context, req *riskv1.ListWithdrawalReviewsRequest) (*riskv1.ListWithdrawalReviewsResponse, error) {
+	if h.withdrawReviewSvc == nil {
+		return nil, status.Error(codes.Unavailable, "withdrawal review service not available")
+	}
+
+	page := 1
+	pageSize := 20
+	if req.Pagination != nil {
+		if req.Pagination.Page > 0 {
+			page = int(req.Pagination.Page)
+		}
+		if req.Pagination.PageSize > 0 {
+			pageSize = int(req.Pagination.PageSize)
+		}
+	}
+
+	var reviews []*model.WithdrawalReview
+	var total int64
+	var err error
+
+	// 根据过滤条件查询
+	if req.Wallet != "" {
+		reviews, total, err = h.withdrawReviewSvc.ListReviewsByWallet(ctx, req.Wallet, page, pageSize)
+	} else if req.Status == "" || req.Status == "pending" {
+		reviews, total, err = h.withdrawReviewSvc.ListPendingReviews(ctx, page, pageSize)
+	} else {
+		reviews, total, err = h.withdrawReviewSvc.ListPendingReviews(ctx, page, pageSize)
+	}
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// 转换为 proto 消息
+	pbReviews := make([]*riskv1.WithdrawalReview, len(reviews))
+	for i, r := range reviews {
+		pbReviews[i] = h.modelToProtoReview(r)
+	}
+
+	totalPages := int32(total) / int32(pageSize)
+	if int32(total)%int32(pageSize) > 0 {
+		totalPages++
+	}
+
+	return &riskv1.ListWithdrawalReviewsResponse{
+		Reviews: pbReviews,
+		Pagination: &commonv1.PaginationResponse{
+			Total:      total,
+			Page:       int32(page),
+			PageSize:   int32(pageSize),
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+// GetWithdrawalReview 获取单个提现审核详情
+func (h *RiskHandler) GetWithdrawalReview(ctx context.Context, req *riskv1.GetWithdrawalReviewRequest) (*riskv1.GetWithdrawalReviewResponse, error) {
+	if h.withdrawReviewSvc == nil {
+		return nil, status.Error(codes.Unavailable, "withdrawal review service not available")
+	}
+
+	if req.ReviewId == "" && req.WithdrawalId == "" {
+		return nil, status.Error(codes.InvalidArgument, "review_id or withdrawal_id is required")
+	}
+
+	var review *model.WithdrawalReview
+	var err error
+
+	if req.ReviewId != "" {
+		review, err = h.withdrawReviewSvc.GetReview(ctx, req.ReviewId)
+	} else {
+		review, err = h.withdrawReviewSvc.GetReviewByWithdrawalID(ctx, req.WithdrawalId)
+	}
+
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	return &riskv1.GetWithdrawalReviewResponse{
+		Review: h.modelToProtoReview(review),
+	}, nil
+}
+
+// ApproveWithdrawalReview 通过提现审核
+func (h *RiskHandler) ApproveWithdrawalReview(ctx context.Context, req *riskv1.ApproveWithdrawalReviewRequest) (*riskv1.ApproveWithdrawalReviewResponse, error) {
+	if h.withdrawReviewSvc == nil {
+		return nil, status.Error(codes.Unavailable, "withdrawal review service not available")
+	}
+
+	if req.ReviewId == "" {
+		return nil, status.Error(codes.InvalidArgument, "review_id is required")
+	}
+	if req.Reviewer == "" {
+		return nil, status.Error(codes.InvalidArgument, "reviewer is required")
+	}
+
+	comment := req.Comment
+	if comment == "" {
+		comment = "Approved by admin"
+	}
+
+	err := h.withdrawReviewSvc.Approve(ctx, req.ReviewId, req.Reviewer, comment)
+	if err != nil {
+		return &riskv1.ApproveWithdrawalReviewResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	// 获取更新后的审核记录
+	review, _ := h.withdrawReviewSvc.GetReview(ctx, req.ReviewId)
+
+	return &riskv1.ApproveWithdrawalReviewResponse{
+		Success: true,
+		Review:  h.modelToProtoReview(review),
+	}, nil
+}
+
+// RejectWithdrawalReview 拒绝提现审核
+func (h *RiskHandler) RejectWithdrawalReview(ctx context.Context, req *riskv1.RejectWithdrawalReviewRequest) (*riskv1.RejectWithdrawalReviewResponse, error) {
+	if h.withdrawReviewSvc == nil {
+		return nil, status.Error(codes.Unavailable, "withdrawal review service not available")
+	}
+
+	if req.ReviewId == "" {
+		return nil, status.Error(codes.InvalidArgument, "review_id is required")
+	}
+	if req.Reviewer == "" {
+		return nil, status.Error(codes.InvalidArgument, "reviewer is required")
+	}
+	if req.Reason == "" {
+		return nil, status.Error(codes.InvalidArgument, "reason is required")
+	}
+
+	err := h.withdrawReviewSvc.Reject(ctx, req.ReviewId, req.Reviewer, req.Reason)
+	if err != nil {
+		return &riskv1.RejectWithdrawalReviewResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	// 获取更新后的审核记录
+	review, _ := h.withdrawReviewSvc.GetReview(ctx, req.ReviewId)
+
+	return &riskv1.RejectWithdrawalReviewResponse{
+		Success: true,
+		Review:  h.modelToProtoReview(review),
+	}, nil
+}
+
+// GetWithdrawalReviewStats 获取提现审核统计
+func (h *RiskHandler) GetWithdrawalReviewStats(ctx context.Context, req *riskv1.GetWithdrawalReviewStatsRequest) (*riskv1.GetWithdrawalReviewStatsResponse, error) {
+	if h.withdrawReviewSvc == nil {
+		return nil, status.Error(codes.Unavailable, "withdrawal review service not available")
+	}
+
+	stats, err := h.withdrawReviewSvc.GetReviewStats(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &riskv1.GetWithdrawalReviewStatsResponse{
+		PendingCount:  stats["pending"],
+		ApprovedCount: stats["approved"],
+		RejectedCount: stats["rejected"],
+		ExpiredCount:  stats["expired"],
+	}, nil
+}
+
+// modelToProtoReview 将模型转换为 proto 消息
+func (h *RiskHandler) modelToProtoReview(r *model.WithdrawalReview) *riskv1.WithdrawalReview {
+	if r == nil {
+		return nil
+	}
+
+	// 解析风险因素
+	var riskFactors []*riskv1.RiskFactor
+	if r.RiskFactors != "" {
+		var factors []model.RiskFactorEntry
+		if err := json.Unmarshal([]byte(r.RiskFactors), &factors); err == nil {
+			for _, f := range factors {
+				riskFactors = append(riskFactors, &riskv1.RiskFactor{
+					Factor: f.Factor,
+					Score:  int32(f.Score),
+					Reason: f.Reason,
+				})
+			}
+		}
+	}
+
+	return &riskv1.WithdrawalReview{
+		ReviewId:      r.ReviewID,
+		WithdrawalId:  r.WithdrawalID,
+		WalletAddress: r.WalletAddress,
+		Token:         r.Token,
+		Amount:        r.Amount.String(),
+		ToAddress:     r.ToAddress,
+		RiskScore:     int32(r.RiskScore),
+		RiskFactors:   riskFactors,
+		AutoDecision:  string(r.AutoDecision),
+		Status:        string(r.Status),
+		Reviewer:      r.Reviewer,
+		ReviewComment: r.ReviewComment,
+		ReviewedAt:    r.ReviewedAt,
+		CreatedAt:     r.CreatedAt,
+		ExpiresAt:     r.ExpiresAt,
+	}
 }

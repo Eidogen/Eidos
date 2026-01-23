@@ -136,6 +136,17 @@ type WithdrawalConfirmedMessage struct {
 	Timestamp    int64  `json:"timestamp"`
 }
 
+// WithdrawalReviewResultMessage 提现审核结果消息 (来自 eidos-risk)
+type WithdrawalReviewResultMessage struct {
+	WithdrawalID string `json:"withdrawal_id"`
+	ReviewID     string `json:"review_id"`
+	Result       string `json:"result"`   // approved, rejected
+	Reviewer     string `json:"reviewer"` // 审核人
+	Comment      string `json:"comment"`  // 审核意见
+	RiskScore    int    `json:"risk_score"`
+	Timestamp    int64  `json:"timestamp"`
+}
+
 // ParseTradeResult 解析成交结果消息
 func ParseTradeResult(data []byte) (*TradeResultMessage, error) {
 	var msg TradeResultMessage
@@ -186,6 +197,15 @@ func ParseWithdrawalConfirmed(data []byte) (*WithdrawalConfirmedMessage, error) 
 	var msg WithdrawalConfirmedMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return nil, fmt.Errorf("parse withdrawal confirmed failed: %w", err)
+	}
+	return &msg, nil
+}
+
+// ParseWithdrawalReviewResult 解析提现审核结果消息
+func ParseWithdrawalReviewResult(data []byte) (*WithdrawalReviewResultMessage, error) {
+	var msg WithdrawalReviewResultMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil, fmt.Errorf("parse withdrawal review result failed: %w", err)
 	}
 	return &msg, nil
 }

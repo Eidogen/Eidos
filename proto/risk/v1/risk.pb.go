@@ -3915,6 +3915,989 @@ func (x *AccountStatusChangeMessage) GetChangedAt() int64 {
 	return 0
 }
 
+// WithdrawalReview represents a withdrawal review record
+type WithdrawalReview struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Review ID (UUID)
+	ReviewId string `protobuf:"bytes,1,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	// Withdrawal ID (unique)
+	WithdrawalId string `protobuf:"bytes,2,opt,name=withdrawal_id,json=withdrawalId,proto3" json:"withdrawal_id,omitempty"`
+	// Wallet address
+	WalletAddress string `protobuf:"bytes,3,opt,name=wallet_address,json=walletAddress,proto3" json:"wallet_address,omitempty"`
+	// Token symbol
+	Token string `protobuf:"bytes,4,opt,name=token,proto3" json:"token,omitempty"`
+	// Withdrawal amount (decimal string)
+	Amount string `protobuf:"bytes,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	// Destination address
+	ToAddress string `protobuf:"bytes,6,opt,name=to_address,json=toAddress,proto3" json:"to_address,omitempty"`
+	// Risk score (0-100)
+	RiskScore int32 `protobuf:"varint,7,opt,name=risk_score,json=riskScore,proto3" json:"risk_score,omitempty"`
+	// Risk factors (JSON array)
+	RiskFactors []*RiskFactor `protobuf:"bytes,8,rep,name=risk_factors,json=riskFactors,proto3" json:"risk_factors,omitempty"`
+	// Auto decision (AUTO_APPROVE, MANUAL_REVIEW, AUTO_REJECT)
+	AutoDecision string `protobuf:"bytes,9,opt,name=auto_decision,json=autoDecision,proto3" json:"auto_decision,omitempty"`
+	// Review status (pending, approved, rejected)
+	Status string `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	// Reviewer (admin wallet or "system")
+	Reviewer string `protobuf:"bytes,11,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
+	// Review comment
+	ReviewComment string `protobuf:"bytes,12,opt,name=review_comment,json=reviewComment,proto3" json:"review_comment,omitempty"`
+	// Reviewed at (Unix milliseconds, 0 if not reviewed)
+	ReviewedAt int64 `protobuf:"varint,13,opt,name=reviewed_at,json=reviewedAt,proto3" json:"reviewed_at,omitempty"`
+	// Created at (Unix milliseconds)
+	CreatedAt int64 `protobuf:"varint,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Expires at (Unix milliseconds)
+	ExpiresAt     int64 `protobuf:"varint,15,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WithdrawalReview) Reset() {
+	*x = WithdrawalReview{}
+	mi := &file_risk_v1_risk_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WithdrawalReview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WithdrawalReview) ProtoMessage() {}
+
+func (x *WithdrawalReview) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WithdrawalReview.ProtoReflect.Descriptor instead.
+func (*WithdrawalReview) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *WithdrawalReview) GetReviewId() string {
+	if x != nil {
+		return x.ReviewId
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetWithdrawalId() string {
+	if x != nil {
+		return x.WithdrawalId
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetWalletAddress() string {
+	if x != nil {
+		return x.WalletAddress
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetToAddress() string {
+	if x != nil {
+		return x.ToAddress
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetRiskScore() int32 {
+	if x != nil {
+		return x.RiskScore
+	}
+	return 0
+}
+
+func (x *WithdrawalReview) GetRiskFactors() []*RiskFactor {
+	if x != nil {
+		return x.RiskFactors
+	}
+	return nil
+}
+
+func (x *WithdrawalReview) GetAutoDecision() string {
+	if x != nil {
+		return x.AutoDecision
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetReviewer() string {
+	if x != nil {
+		return x.Reviewer
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetReviewComment() string {
+	if x != nil {
+		return x.ReviewComment
+	}
+	return ""
+}
+
+func (x *WithdrawalReview) GetReviewedAt() int64 {
+	if x != nil {
+		return x.ReviewedAt
+	}
+	return 0
+}
+
+func (x *WithdrawalReview) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *WithdrawalReview) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+// RiskFactor represents a single risk factor
+type RiskFactor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Factor name
+	Factor string `protobuf:"bytes,1,opt,name=factor,proto3" json:"factor,omitempty"`
+	// Score contribution
+	Score int32 `protobuf:"varint,2,opt,name=score,proto3" json:"score,omitempty"`
+	// Reason description
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RiskFactor) Reset() {
+	*x = RiskFactor{}
+	mi := &file_risk_v1_risk_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RiskFactor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RiskFactor) ProtoMessage() {}
+
+func (x *RiskFactor) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RiskFactor.ProtoReflect.Descriptor instead.
+func (*RiskFactor) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *RiskFactor) GetFactor() string {
+	if x != nil {
+		return x.Factor
+	}
+	return ""
+}
+
+func (x *RiskFactor) GetScore() int32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *RiskFactor) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// ListWithdrawalReviewsRequest is the request to list withdrawal reviews
+type ListWithdrawalReviewsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Filter by wallet address (optional)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// Filter by status (optional, default: pending)
+	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	// Filter by risk level: low (<30), medium (30-70), high (>=70) (optional)
+	RiskLevel string `protobuf:"bytes,3,opt,name=risk_level,json=riskLevel,proto3" json:"risk_level,omitempty"`
+	// Pagination
+	Pagination    *common.PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWithdrawalReviewsRequest) Reset() {
+	*x = ListWithdrawalReviewsRequest{}
+	mi := &file_risk_v1_risk_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWithdrawalReviewsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWithdrawalReviewsRequest) ProtoMessage() {}
+
+func (x *ListWithdrawalReviewsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWithdrawalReviewsRequest.ProtoReflect.Descriptor instead.
+func (*ListWithdrawalReviewsRequest) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListWithdrawalReviewsRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *ListWithdrawalReviewsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListWithdrawalReviewsRequest) GetRiskLevel() string {
+	if x != nil {
+		return x.RiskLevel
+	}
+	return ""
+}
+
+func (x *ListWithdrawalReviewsRequest) GetPagination() *common.PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ListWithdrawalReviewsResponse contains withdrawal reviews
+type ListWithdrawalReviewsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Withdrawal reviews
+	Reviews []*WithdrawalReview `protobuf:"bytes,1,rep,name=reviews,proto3" json:"reviews,omitempty"`
+	// Pagination
+	Pagination    *common.PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWithdrawalReviewsResponse) Reset() {
+	*x = ListWithdrawalReviewsResponse{}
+	mi := &file_risk_v1_risk_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWithdrawalReviewsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWithdrawalReviewsResponse) ProtoMessage() {}
+
+func (x *ListWithdrawalReviewsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWithdrawalReviewsResponse.ProtoReflect.Descriptor instead.
+func (*ListWithdrawalReviewsResponse) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ListWithdrawalReviewsResponse) GetReviews() []*WithdrawalReview {
+	if x != nil {
+		return x.Reviews
+	}
+	return nil
+}
+
+func (x *ListWithdrawalReviewsResponse) GetPagination() *common.PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// GetWithdrawalReviewRequest is the request to get a withdrawal review
+type GetWithdrawalReviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Review ID (either review_id or withdrawal_id must be set)
+	ReviewId string `protobuf:"bytes,1,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	// Withdrawal ID (alternative to review_id)
+	WithdrawalId  string `protobuf:"bytes,2,opt,name=withdrawal_id,json=withdrawalId,proto3" json:"withdrawal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalReviewRequest) Reset() {
+	*x = GetWithdrawalReviewRequest{}
+	mi := &file_risk_v1_risk_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalReviewRequest) ProtoMessage() {}
+
+func (x *GetWithdrawalReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalReviewRequest.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalReviewRequest) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetWithdrawalReviewRequest) GetReviewId() string {
+	if x != nil {
+		return x.ReviewId
+	}
+	return ""
+}
+
+func (x *GetWithdrawalReviewRequest) GetWithdrawalId() string {
+	if x != nil {
+		return x.WithdrawalId
+	}
+	return ""
+}
+
+// GetWithdrawalReviewResponse contains the withdrawal review
+type GetWithdrawalReviewResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Withdrawal review
+	Review        *WithdrawalReview `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalReviewResponse) Reset() {
+	*x = GetWithdrawalReviewResponse{}
+	mi := &file_risk_v1_risk_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalReviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalReviewResponse) ProtoMessage() {}
+
+func (x *GetWithdrawalReviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalReviewResponse.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalReviewResponse) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *GetWithdrawalReviewResponse) GetReview() *WithdrawalReview {
+	if x != nil {
+		return x.Review
+	}
+	return nil
+}
+
+// ApproveWithdrawalReviewRequest is the request to approve a withdrawal
+type ApproveWithdrawalReviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Review ID
+	ReviewId string `protobuf:"bytes,1,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	// Reviewer (admin wallet)
+	Reviewer string `protobuf:"bytes,2,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
+	// Approval comment (optional)
+	Comment       string `protobuf:"bytes,3,opt,name=comment,proto3" json:"comment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveWithdrawalReviewRequest) Reset() {
+	*x = ApproveWithdrawalReviewRequest{}
+	mi := &file_risk_v1_risk_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveWithdrawalReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveWithdrawalReviewRequest) ProtoMessage() {}
+
+func (x *ApproveWithdrawalReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveWithdrawalReviewRequest.ProtoReflect.Descriptor instead.
+func (*ApproveWithdrawalReviewRequest) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *ApproveWithdrawalReviewRequest) GetReviewId() string {
+	if x != nil {
+		return x.ReviewId
+	}
+	return ""
+}
+
+func (x *ApproveWithdrawalReviewRequest) GetReviewer() string {
+	if x != nil {
+		return x.Reviewer
+	}
+	return ""
+}
+
+func (x *ApproveWithdrawalReviewRequest) GetComment() string {
+	if x != nil {
+		return x.Comment
+	}
+	return ""
+}
+
+// ApproveWithdrawalReviewResponse is the response after approval
+type ApproveWithdrawalReviewResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether approval was successful
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Error message if failed
+	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// Updated review
+	Review        *WithdrawalReview `protobuf:"bytes,3,opt,name=review,proto3" json:"review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveWithdrawalReviewResponse) Reset() {
+	*x = ApproveWithdrawalReviewResponse{}
+	mi := &file_risk_v1_risk_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveWithdrawalReviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveWithdrawalReviewResponse) ProtoMessage() {}
+
+func (x *ApproveWithdrawalReviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveWithdrawalReviewResponse.ProtoReflect.Descriptor instead.
+func (*ApproveWithdrawalReviewResponse) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *ApproveWithdrawalReviewResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ApproveWithdrawalReviewResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *ApproveWithdrawalReviewResponse) GetReview() *WithdrawalReview {
+	if x != nil {
+		return x.Review
+	}
+	return nil
+}
+
+// RejectWithdrawalReviewRequest is the request to reject a withdrawal
+type RejectWithdrawalReviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Review ID
+	ReviewId string `protobuf:"bytes,1,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	// Reviewer (admin wallet)
+	Reviewer string `protobuf:"bytes,2,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
+	// Rejection reason (required)
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectWithdrawalReviewRequest) Reset() {
+	*x = RejectWithdrawalReviewRequest{}
+	mi := &file_risk_v1_risk_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectWithdrawalReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectWithdrawalReviewRequest) ProtoMessage() {}
+
+func (x *RejectWithdrawalReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectWithdrawalReviewRequest.ProtoReflect.Descriptor instead.
+func (*RejectWithdrawalReviewRequest) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *RejectWithdrawalReviewRequest) GetReviewId() string {
+	if x != nil {
+		return x.ReviewId
+	}
+	return ""
+}
+
+func (x *RejectWithdrawalReviewRequest) GetReviewer() string {
+	if x != nil {
+		return x.Reviewer
+	}
+	return ""
+}
+
+func (x *RejectWithdrawalReviewRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// RejectWithdrawalReviewResponse is the response after rejection
+type RejectWithdrawalReviewResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether rejection was successful
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Error message if failed
+	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// Updated review
+	Review        *WithdrawalReview `protobuf:"bytes,3,opt,name=review,proto3" json:"review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectWithdrawalReviewResponse) Reset() {
+	*x = RejectWithdrawalReviewResponse{}
+	mi := &file_risk_v1_risk_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectWithdrawalReviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectWithdrawalReviewResponse) ProtoMessage() {}
+
+func (x *RejectWithdrawalReviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectWithdrawalReviewResponse.ProtoReflect.Descriptor instead.
+func (*RejectWithdrawalReviewResponse) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *RejectWithdrawalReviewResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *RejectWithdrawalReviewResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *RejectWithdrawalReviewResponse) GetReview() *WithdrawalReview {
+	if x != nil {
+		return x.Review
+	}
+	return nil
+}
+
+// GetWithdrawalReviewStatsRequest is the request to get review statistics
+type GetWithdrawalReviewStatsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Time period in hours (default: 24)
+	PeriodHours   int32 `protobuf:"varint,1,opt,name=period_hours,json=periodHours,proto3" json:"period_hours,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalReviewStatsRequest) Reset() {
+	*x = GetWithdrawalReviewStatsRequest{}
+	mi := &file_risk_v1_risk_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalReviewStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalReviewStatsRequest) ProtoMessage() {}
+
+func (x *GetWithdrawalReviewStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalReviewStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalReviewStatsRequest) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *GetWithdrawalReviewStatsRequest) GetPeriodHours() int32 {
+	if x != nil {
+		return x.PeriodHours
+	}
+	return 0
+}
+
+// GetWithdrawalReviewStatsResponse contains review statistics
+type GetWithdrawalReviewStatsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Total pending reviews
+	PendingCount int64 `protobuf:"varint,1,opt,name=pending_count,json=pendingCount,proto3" json:"pending_count,omitempty"`
+	// Total approved reviews (in period)
+	ApprovedCount int64 `protobuf:"varint,2,opt,name=approved_count,json=approvedCount,proto3" json:"approved_count,omitempty"`
+	// Total rejected reviews (in period)
+	RejectedCount int64 `protobuf:"varint,3,opt,name=rejected_count,json=rejectedCount,proto3" json:"rejected_count,omitempty"`
+	// Total expired reviews (in period)
+	ExpiredCount int64 `protobuf:"varint,4,opt,name=expired_count,json=expiredCount,proto3" json:"expired_count,omitempty"`
+	// Average review time (milliseconds)
+	AvgReviewTimeMs int64 `protobuf:"varint,5,opt,name=avg_review_time_ms,json=avgReviewTimeMs,proto3" json:"avg_review_time_ms,omitempty"`
+	// Pending by risk level
+	PendingHighRisk   int64 `protobuf:"varint,6,opt,name=pending_high_risk,json=pendingHighRisk,proto3" json:"pending_high_risk,omitempty"`
+	PendingMediumRisk int64 `protobuf:"varint,7,opt,name=pending_medium_risk,json=pendingMediumRisk,proto3" json:"pending_medium_risk,omitempty"`
+	PendingLowRisk    int64 `protobuf:"varint,8,opt,name=pending_low_risk,json=pendingLowRisk,proto3" json:"pending_low_risk,omitempty"`
+	// Total pending amount (decimal string)
+	TotalPendingAmount string `protobuf:"bytes,9,opt,name=total_pending_amount,json=totalPendingAmount,proto3" json:"total_pending_amount,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalReviewStatsResponse) Reset() {
+	*x = GetWithdrawalReviewStatsResponse{}
+	mi := &file_risk_v1_risk_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalReviewStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalReviewStatsResponse) ProtoMessage() {}
+
+func (x *GetWithdrawalReviewStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalReviewStatsResponse.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalReviewStatsResponse) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetPendingCount() int64 {
+	if x != nil {
+		return x.PendingCount
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetApprovedCount() int64 {
+	if x != nil {
+		return x.ApprovedCount
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetRejectedCount() int64 {
+	if x != nil {
+		return x.RejectedCount
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetExpiredCount() int64 {
+	if x != nil {
+		return x.ExpiredCount
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetAvgReviewTimeMs() int64 {
+	if x != nil {
+		return x.AvgReviewTimeMs
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetPendingHighRisk() int64 {
+	if x != nil {
+		return x.PendingHighRisk
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetPendingMediumRisk() int64 {
+	if x != nil {
+		return x.PendingMediumRisk
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetPendingLowRisk() int64 {
+	if x != nil {
+		return x.PendingLowRisk
+	}
+	return 0
+}
+
+func (x *GetWithdrawalReviewStatsResponse) GetTotalPendingAmount() string {
+	if x != nil {
+		return x.TotalPendingAmount
+	}
+	return ""
+}
+
+// WithdrawalReviewResultMessage is published when a withdrawal review is completed (Kafka: withdrawal-review-results)
+type WithdrawalReviewResultMessage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Withdrawal ID
+	WithdrawalId string `protobuf:"bytes,1,opt,name=withdrawal_id,json=withdrawalId,proto3" json:"withdrawal_id,omitempty"`
+	// Review ID
+	ReviewId string `protobuf:"bytes,2,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	// Result (approved, rejected)
+	Result string `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	// Reviewer
+	Reviewer string `protobuf:"bytes,4,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
+	// Comment
+	Comment string `protobuf:"bytes,5,opt,name=comment,proto3" json:"comment,omitempty"`
+	// Risk score
+	RiskScore int32 `protobuf:"varint,6,opt,name=risk_score,json=riskScore,proto3" json:"risk_score,omitempty"`
+	// Timestamp (Unix milliseconds)
+	Timestamp     int64 `protobuf:"varint,7,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WithdrawalReviewResultMessage) Reset() {
+	*x = WithdrawalReviewResultMessage{}
+	mi := &file_risk_v1_risk_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WithdrawalReviewResultMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WithdrawalReviewResultMessage) ProtoMessage() {}
+
+func (x *WithdrawalReviewResultMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_risk_v1_risk_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WithdrawalReviewResultMessage.ProtoReflect.Descriptor instead.
+func (*WithdrawalReviewResultMessage) Descriptor() ([]byte, []int) {
+	return file_risk_v1_risk_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *WithdrawalReviewResultMessage) GetWithdrawalId() string {
+	if x != nil {
+		return x.WithdrawalId
+	}
+	return ""
+}
+
+func (x *WithdrawalReviewResultMessage) GetReviewId() string {
+	if x != nil {
+		return x.ReviewId
+	}
+	return ""
+}
+
+func (x *WithdrawalReviewResultMessage) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+func (x *WithdrawalReviewResultMessage) GetReviewer() string {
+	if x != nil {
+		return x.Reviewer
+	}
+	return ""
+}
+
+func (x *WithdrawalReviewResultMessage) GetComment() string {
+	if x != nil {
+		return x.Comment
+	}
+	return ""
+}
+
+func (x *WithdrawalReviewResultMessage) GetRiskScore() int32 {
+	if x != nil {
+		return x.RiskScore
+	}
+	return 0
+}
+
+func (x *WithdrawalReviewResultMessage) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
 var File_risk_v1_risk_proto protoreflect.FileDescriptor
 
 const file_risk_v1_risk_proto_rawDesc = "" +
@@ -4278,7 +5261,89 @@ const file_risk_v1_risk_proto_rawDesc = "" +
 	"\voperator_id\x18\x04 \x01(\tR\n" +
 	"operatorId\x12\x1d\n" +
 	"\n" +
-	"changed_at\x18\x05 \x01(\x03R\tchangedAt2\xe7\x0f\n" +
+	"changed_at\x18\x05 \x01(\x03R\tchangedAt\"\x84\x04\n" +
+	"\x10WithdrawalReview\x12\x1b\n" +
+	"\treview_id\x18\x01 \x01(\tR\breviewId\x12#\n" +
+	"\rwithdrawal_id\x18\x02 \x01(\tR\fwithdrawalId\x12%\n" +
+	"\x0ewallet_address\x18\x03 \x01(\tR\rwalletAddress\x12\x14\n" +
+	"\x05token\x18\x04 \x01(\tR\x05token\x12\x16\n" +
+	"\x06amount\x18\x05 \x01(\tR\x06amount\x12\x1d\n" +
+	"\n" +
+	"to_address\x18\x06 \x01(\tR\ttoAddress\x12\x1d\n" +
+	"\n" +
+	"risk_score\x18\a \x01(\x05R\triskScore\x12<\n" +
+	"\frisk_factors\x18\b \x03(\v2\x19.eidos.risk.v1.RiskFactorR\vriskFactors\x12#\n" +
+	"\rauto_decision\x18\t \x01(\tR\fautoDecision\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x12\x1a\n" +
+	"\breviewer\x18\v \x01(\tR\breviewer\x12%\n" +
+	"\x0ereview_comment\x18\f \x01(\tR\rreviewComment\x12\x1f\n" +
+	"\vreviewed_at\x18\r \x01(\x03R\n" +
+	"reviewedAt\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x0e \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x0f \x01(\x03R\texpiresAt\"R\n" +
+	"\n" +
+	"RiskFactor\x12\x16\n" +
+	"\x06factor\x18\x01 \x01(\tR\x06factor\x12\x14\n" +
+	"\x05score\x18\x02 \x01(\x05R\x05score\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\xb1\x01\n" +
+	"\x1cListWithdrawalReviewsRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"risk_level\x18\x03 \x01(\tR\triskLevel\x12B\n" +
+	"\n" +
+	"pagination\x18\x04 \x01(\v2\".eidos.common.v1.PaginationRequestR\n" +
+	"pagination\"\x9f\x01\n" +
+	"\x1dListWithdrawalReviewsResponse\x129\n" +
+	"\areviews\x18\x01 \x03(\v2\x1f.eidos.risk.v1.WithdrawalReviewR\areviews\x12C\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2#.eidos.common.v1.PaginationResponseR\n" +
+	"pagination\"^\n" +
+	"\x1aGetWithdrawalReviewRequest\x12\x1b\n" +
+	"\treview_id\x18\x01 \x01(\tR\breviewId\x12#\n" +
+	"\rwithdrawal_id\x18\x02 \x01(\tR\fwithdrawalId\"V\n" +
+	"\x1bGetWithdrawalReviewResponse\x127\n" +
+	"\x06review\x18\x01 \x01(\v2\x1f.eidos.risk.v1.WithdrawalReviewR\x06review\"s\n" +
+	"\x1eApproveWithdrawalReviewRequest\x12\x1b\n" +
+	"\treview_id\x18\x01 \x01(\tR\breviewId\x12\x1a\n" +
+	"\breviewer\x18\x02 \x01(\tR\breviewer\x12\x18\n" +
+	"\acomment\x18\x03 \x01(\tR\acomment\"\x99\x01\n" +
+	"\x1fApproveWithdrawalReviewResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x127\n" +
+	"\x06review\x18\x03 \x01(\v2\x1f.eidos.risk.v1.WithdrawalReviewR\x06review\"p\n" +
+	"\x1dRejectWithdrawalReviewRequest\x12\x1b\n" +
+	"\treview_id\x18\x01 \x01(\tR\breviewId\x12\x1a\n" +
+	"\breviewer\x18\x02 \x01(\tR\breviewer\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\x98\x01\n" +
+	"\x1eRejectWithdrawalReviewResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x127\n" +
+	"\x06review\x18\x03 \x01(\v2\x1f.eidos.risk.v1.WithdrawalReviewR\x06review\"D\n" +
+	"\x1fGetWithdrawalReviewStatsRequest\x12!\n" +
+	"\fperiod_hours\x18\x01 \x01(\x05R\vperiodHours\"\x9f\x03\n" +
+	" GetWithdrawalReviewStatsResponse\x12#\n" +
+	"\rpending_count\x18\x01 \x01(\x03R\fpendingCount\x12%\n" +
+	"\x0eapproved_count\x18\x02 \x01(\x03R\rapprovedCount\x12%\n" +
+	"\x0erejected_count\x18\x03 \x01(\x03R\rrejectedCount\x12#\n" +
+	"\rexpired_count\x18\x04 \x01(\x03R\fexpiredCount\x12+\n" +
+	"\x12avg_review_time_ms\x18\x05 \x01(\x03R\x0favgReviewTimeMs\x12*\n" +
+	"\x11pending_high_risk\x18\x06 \x01(\x03R\x0fpendingHighRisk\x12.\n" +
+	"\x13pending_medium_risk\x18\a \x01(\x03R\x11pendingMediumRisk\x12(\n" +
+	"\x10pending_low_risk\x18\b \x01(\x03R\x0ependingLowRisk\x120\n" +
+	"\x14total_pending_amount\x18\t \x01(\tR\x12totalPendingAmount\"\xec\x01\n" +
+	"\x1dWithdrawalReviewResultMessage\x12#\n" +
+	"\rwithdrawal_id\x18\x01 \x01(\tR\fwithdrawalId\x12\x1b\n" +
+	"\treview_id\x18\x02 \x01(\tR\breviewId\x12\x16\n" +
+	"\x06result\x18\x03 \x01(\tR\x06result\x12\x1a\n" +
+	"\breviewer\x18\x04 \x01(\tR\breviewer\x12\x18\n" +
+	"\acomment\x18\x05 \x01(\tR\acomment\x12\x1d\n" +
+	"\n" +
+	"risk_score\x18\x06 \x01(\x05R\triskScore\x12\x1c\n" +
+	"\ttimestamp\x18\a \x01(\x03R\ttimestamp2\xb7\x14\n" +
 	"\vRiskService\x12Q\n" +
 	"\n" +
 	"CheckOrder\x12 .eidos.risk.v1.CheckOrderRequest\x1a!.eidos.risk.v1.CheckOrderResponse\x12`\n" +
@@ -4301,7 +5366,12 @@ const file_risk_v1_risk_proto_rawDesc = "" +
 	"\rFreezeAccount\x12#.eidos.risk.v1.FreezeAccountRequest\x1a$.eidos.risk.v1.FreezeAccountResponse\x12`\n" +
 	"\x0fUnfreezeAccount\x12%.eidos.risk.v1.UnfreezeAccountRequest\x1a&.eidos.risk.v1.UnfreezeAccountResponse\x12c\n" +
 	"\x10GetAccountStatus\x12&.eidos.risk.v1.GetAccountStatusRequest\x1a'.eidos.risk.v1.GetAccountStatusResponse\x12W\n" +
-	"\fGetRiskStats\x12\".eidos.risk.v1.GetRiskStatsRequest\x1a#.eidos.risk.v1.GetRiskStatsResponseB6Z4github.com/eidos-exchange/eidos/proto/risk/v1;riskv1b\x06proto3"
+	"\fGetRiskStats\x12\".eidos.risk.v1.GetRiskStatsRequest\x1a#.eidos.risk.v1.GetRiskStatsResponse\x12r\n" +
+	"\x15ListWithdrawalReviews\x12+.eidos.risk.v1.ListWithdrawalReviewsRequest\x1a,.eidos.risk.v1.ListWithdrawalReviewsResponse\x12l\n" +
+	"\x13GetWithdrawalReview\x12).eidos.risk.v1.GetWithdrawalReviewRequest\x1a*.eidos.risk.v1.GetWithdrawalReviewResponse\x12x\n" +
+	"\x17ApproveWithdrawalReview\x12-.eidos.risk.v1.ApproveWithdrawalReviewRequest\x1a..eidos.risk.v1.ApproveWithdrawalReviewResponse\x12u\n" +
+	"\x16RejectWithdrawalReview\x12,.eidos.risk.v1.RejectWithdrawalReviewRequest\x1a-.eidos.risk.v1.RejectWithdrawalReviewResponse\x12{\n" +
+	"\x18GetWithdrawalReviewStats\x12..eidos.risk.v1.GetWithdrawalReviewStatsRequest\x1a/.eidos.risk.v1.GetWithdrawalReviewStatsResponseB6Z4github.com/eidos-exchange/eidos/proto/risk/v1;riskv1b\x06proto3"
 
 var (
 	file_risk_v1_risk_proto_rawDescOnce sync.Once
@@ -4315,162 +5385,192 @@ func file_risk_v1_risk_proto_rawDescGZIP() []byte {
 	return file_risk_v1_risk_proto_rawDescData
 }
 
-var file_risk_v1_risk_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
+var file_risk_v1_risk_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_risk_v1_risk_proto_goTypes = []any{
-	(*CheckOrderRequest)(nil),            // 0: eidos.risk.v1.CheckOrderRequest
-	(*CheckOrderResponse)(nil),           // 1: eidos.risk.v1.CheckOrderResponse
-	(*CheckWithdrawalRequest)(nil),       // 2: eidos.risk.v1.CheckWithdrawalRequest
-	(*CheckWithdrawalResponse)(nil),      // 3: eidos.risk.v1.CheckWithdrawalResponse
-	(*CheckTransactionRequest)(nil),      // 4: eidos.risk.v1.CheckTransactionRequest
-	(*CheckTransactionResponse)(nil),     // 5: eidos.risk.v1.CheckTransactionResponse
-	(*BlacklistEntry)(nil),               // 6: eidos.risk.v1.BlacklistEntry
-	(*AddToBlacklistRequest)(nil),        // 7: eidos.risk.v1.AddToBlacklistRequest
-	(*AddToBlacklistResponse)(nil),       // 8: eidos.risk.v1.AddToBlacklistResponse
-	(*RemoveFromBlacklistRequest)(nil),   // 9: eidos.risk.v1.RemoveFromBlacklistRequest
-	(*RemoveFromBlacklistResponse)(nil),  // 10: eidos.risk.v1.RemoveFromBlacklistResponse
-	(*CheckBlacklistRequest)(nil),        // 11: eidos.risk.v1.CheckBlacklistRequest
-	(*CheckBlacklistResponse)(nil),       // 12: eidos.risk.v1.CheckBlacklistResponse
-	(*ListBlacklistRequest)(nil),         // 13: eidos.risk.v1.ListBlacklistRequest
-	(*ListBlacklistResponse)(nil),        // 14: eidos.risk.v1.ListBlacklistResponse
-	(*RiskRule)(nil),                     // 15: eidos.risk.v1.RiskRule
-	(*ListRiskRulesRequest)(nil),         // 16: eidos.risk.v1.ListRiskRulesRequest
-	(*ListRiskRulesResponse)(nil),        // 17: eidos.risk.v1.ListRiskRulesResponse
-	(*GetRiskRuleRequest)(nil),           // 18: eidos.risk.v1.GetRiskRuleRequest
-	(*GetRiskRuleResponse)(nil),          // 19: eidos.risk.v1.GetRiskRuleResponse
-	(*UpdateRiskRuleRequest)(nil),        // 20: eidos.risk.v1.UpdateRiskRuleRequest
-	(*UpdateRiskRuleResponse)(nil),       // 21: eidos.risk.v1.UpdateRiskRuleResponse
-	(*RateLimitCounter)(nil),             // 22: eidos.risk.v1.RateLimitCounter
-	(*GetRateLimitStatusRequest)(nil),    // 23: eidos.risk.v1.GetRateLimitStatusRequest
-	(*GetRateLimitStatusResponse)(nil),   // 24: eidos.risk.v1.GetRateLimitStatusResponse
-	(*ResetRateLimitRequest)(nil),        // 25: eidos.risk.v1.ResetRateLimitRequest
-	(*ResetRateLimitResponse)(nil),       // 26: eidos.risk.v1.ResetRateLimitResponse
-	(*RiskEvent)(nil),                    // 27: eidos.risk.v1.RiskEvent
-	(*ListRiskEventsRequest)(nil),        // 28: eidos.risk.v1.ListRiskEventsRequest
-	(*ListRiskEventsResponse)(nil),       // 29: eidos.risk.v1.ListRiskEventsResponse
-	(*GetRiskEventRequest)(nil),          // 30: eidos.risk.v1.GetRiskEventRequest
-	(*GetRiskEventResponse)(nil),         // 31: eidos.risk.v1.GetRiskEventResponse
-	(*AcknowledgeRiskEventRequest)(nil),  // 32: eidos.risk.v1.AcknowledgeRiskEventRequest
-	(*AcknowledgeRiskEventResponse)(nil), // 33: eidos.risk.v1.AcknowledgeRiskEventResponse
-	(*UserLimit)(nil),                    // 34: eidos.risk.v1.UserLimit
-	(*GetUserLimitsRequest)(nil),         // 35: eidos.risk.v1.GetUserLimitsRequest
-	(*GetUserLimitsResponse)(nil),        // 36: eidos.risk.v1.GetUserLimitsResponse
-	(*SetUserLimitsRequest)(nil),         // 37: eidos.risk.v1.SetUserLimitsRequest
-	(*SetUserLimitsResponse)(nil),        // 38: eidos.risk.v1.SetUserLimitsResponse
-	(*FreezeAccountRequest)(nil),         // 39: eidos.risk.v1.FreezeAccountRequest
-	(*FreezeAccountResponse)(nil),        // 40: eidos.risk.v1.FreezeAccountResponse
-	(*UnfreezeAccountRequest)(nil),       // 41: eidos.risk.v1.UnfreezeAccountRequest
-	(*UnfreezeAccountResponse)(nil),      // 42: eidos.risk.v1.UnfreezeAccountResponse
-	(*GetAccountStatusRequest)(nil),      // 43: eidos.risk.v1.GetAccountStatusRequest
-	(*GetAccountStatusResponse)(nil),     // 44: eidos.risk.v1.GetAccountStatusResponse
-	(*GetRiskStatsRequest)(nil),          // 45: eidos.risk.v1.GetRiskStatsRequest
-	(*GetRiskStatsResponse)(nil),         // 46: eidos.risk.v1.GetRiskStatsResponse
-	(*RuleStats)(nil),                    // 47: eidos.risk.v1.RuleStats
-	(*RiskAlertMessage)(nil),             // 48: eidos.risk.v1.RiskAlertMessage
-	(*AccountStatusChangeMessage)(nil),   // 49: eidos.risk.v1.AccountStatusChangeMessage
-	nil,                                  // 50: eidos.risk.v1.CheckTransactionRequest.ContextEntry
-	nil,                                  // 51: eidos.risk.v1.BlacklistEntry.MetadataEntry
-	nil,                                  // 52: eidos.risk.v1.AddToBlacklistRequest.MetadataEntry
-	nil,                                  // 53: eidos.risk.v1.RiskRule.ParamsEntry
-	nil,                                  // 54: eidos.risk.v1.UpdateRiskRuleRequest.ParamsEntry
-	nil,                                  // 55: eidos.risk.v1.RiskEvent.ContextEntry
-	nil,                                  // 56: eidos.risk.v1.GetRiskStatsResponse.EventsByLevelEntry
-	nil,                                  // 57: eidos.risk.v1.GetRiskStatsResponse.EventsByTypeEntry
-	nil,                                  // 58: eidos.risk.v1.RiskAlertMessage.ContextEntry
-	(common.OrderSide)(0),                // 59: eidos.common.v1.OrderSide
-	(common.OrderType)(0),                // 60: eidos.common.v1.OrderType
-	(common.RiskAction)(0),               // 61: eidos.common.v1.RiskAction
-	(*common.PaginationRequest)(nil),     // 62: eidos.common.v1.PaginationRequest
-	(*common.PaginationResponse)(nil),    // 63: eidos.common.v1.PaginationResponse
-	(common.RiskLevel)(0),                // 64: eidos.common.v1.RiskLevel
-	(common.RiskEventType)(0),            // 65: eidos.common.v1.RiskEventType
+	(*CheckOrderRequest)(nil),                // 0: eidos.risk.v1.CheckOrderRequest
+	(*CheckOrderResponse)(nil),               // 1: eidos.risk.v1.CheckOrderResponse
+	(*CheckWithdrawalRequest)(nil),           // 2: eidos.risk.v1.CheckWithdrawalRequest
+	(*CheckWithdrawalResponse)(nil),          // 3: eidos.risk.v1.CheckWithdrawalResponse
+	(*CheckTransactionRequest)(nil),          // 4: eidos.risk.v1.CheckTransactionRequest
+	(*CheckTransactionResponse)(nil),         // 5: eidos.risk.v1.CheckTransactionResponse
+	(*BlacklistEntry)(nil),                   // 6: eidos.risk.v1.BlacklistEntry
+	(*AddToBlacklistRequest)(nil),            // 7: eidos.risk.v1.AddToBlacklistRequest
+	(*AddToBlacklistResponse)(nil),           // 8: eidos.risk.v1.AddToBlacklistResponse
+	(*RemoveFromBlacklistRequest)(nil),       // 9: eidos.risk.v1.RemoveFromBlacklistRequest
+	(*RemoveFromBlacklistResponse)(nil),      // 10: eidos.risk.v1.RemoveFromBlacklistResponse
+	(*CheckBlacklistRequest)(nil),            // 11: eidos.risk.v1.CheckBlacklistRequest
+	(*CheckBlacklistResponse)(nil),           // 12: eidos.risk.v1.CheckBlacklistResponse
+	(*ListBlacklistRequest)(nil),             // 13: eidos.risk.v1.ListBlacklistRequest
+	(*ListBlacklistResponse)(nil),            // 14: eidos.risk.v1.ListBlacklistResponse
+	(*RiskRule)(nil),                         // 15: eidos.risk.v1.RiskRule
+	(*ListRiskRulesRequest)(nil),             // 16: eidos.risk.v1.ListRiskRulesRequest
+	(*ListRiskRulesResponse)(nil),            // 17: eidos.risk.v1.ListRiskRulesResponse
+	(*GetRiskRuleRequest)(nil),               // 18: eidos.risk.v1.GetRiskRuleRequest
+	(*GetRiskRuleResponse)(nil),              // 19: eidos.risk.v1.GetRiskRuleResponse
+	(*UpdateRiskRuleRequest)(nil),            // 20: eidos.risk.v1.UpdateRiskRuleRequest
+	(*UpdateRiskRuleResponse)(nil),           // 21: eidos.risk.v1.UpdateRiskRuleResponse
+	(*RateLimitCounter)(nil),                 // 22: eidos.risk.v1.RateLimitCounter
+	(*GetRateLimitStatusRequest)(nil),        // 23: eidos.risk.v1.GetRateLimitStatusRequest
+	(*GetRateLimitStatusResponse)(nil),       // 24: eidos.risk.v1.GetRateLimitStatusResponse
+	(*ResetRateLimitRequest)(nil),            // 25: eidos.risk.v1.ResetRateLimitRequest
+	(*ResetRateLimitResponse)(nil),           // 26: eidos.risk.v1.ResetRateLimitResponse
+	(*RiskEvent)(nil),                        // 27: eidos.risk.v1.RiskEvent
+	(*ListRiskEventsRequest)(nil),            // 28: eidos.risk.v1.ListRiskEventsRequest
+	(*ListRiskEventsResponse)(nil),           // 29: eidos.risk.v1.ListRiskEventsResponse
+	(*GetRiskEventRequest)(nil),              // 30: eidos.risk.v1.GetRiskEventRequest
+	(*GetRiskEventResponse)(nil),             // 31: eidos.risk.v1.GetRiskEventResponse
+	(*AcknowledgeRiskEventRequest)(nil),      // 32: eidos.risk.v1.AcknowledgeRiskEventRequest
+	(*AcknowledgeRiskEventResponse)(nil),     // 33: eidos.risk.v1.AcknowledgeRiskEventResponse
+	(*UserLimit)(nil),                        // 34: eidos.risk.v1.UserLimit
+	(*GetUserLimitsRequest)(nil),             // 35: eidos.risk.v1.GetUserLimitsRequest
+	(*GetUserLimitsResponse)(nil),            // 36: eidos.risk.v1.GetUserLimitsResponse
+	(*SetUserLimitsRequest)(nil),             // 37: eidos.risk.v1.SetUserLimitsRequest
+	(*SetUserLimitsResponse)(nil),            // 38: eidos.risk.v1.SetUserLimitsResponse
+	(*FreezeAccountRequest)(nil),             // 39: eidos.risk.v1.FreezeAccountRequest
+	(*FreezeAccountResponse)(nil),            // 40: eidos.risk.v1.FreezeAccountResponse
+	(*UnfreezeAccountRequest)(nil),           // 41: eidos.risk.v1.UnfreezeAccountRequest
+	(*UnfreezeAccountResponse)(nil),          // 42: eidos.risk.v1.UnfreezeAccountResponse
+	(*GetAccountStatusRequest)(nil),          // 43: eidos.risk.v1.GetAccountStatusRequest
+	(*GetAccountStatusResponse)(nil),         // 44: eidos.risk.v1.GetAccountStatusResponse
+	(*GetRiskStatsRequest)(nil),              // 45: eidos.risk.v1.GetRiskStatsRequest
+	(*GetRiskStatsResponse)(nil),             // 46: eidos.risk.v1.GetRiskStatsResponse
+	(*RuleStats)(nil),                        // 47: eidos.risk.v1.RuleStats
+	(*RiskAlertMessage)(nil),                 // 48: eidos.risk.v1.RiskAlertMessage
+	(*AccountStatusChangeMessage)(nil),       // 49: eidos.risk.v1.AccountStatusChangeMessage
+	(*WithdrawalReview)(nil),                 // 50: eidos.risk.v1.WithdrawalReview
+	(*RiskFactor)(nil),                       // 51: eidos.risk.v1.RiskFactor
+	(*ListWithdrawalReviewsRequest)(nil),     // 52: eidos.risk.v1.ListWithdrawalReviewsRequest
+	(*ListWithdrawalReviewsResponse)(nil),    // 53: eidos.risk.v1.ListWithdrawalReviewsResponse
+	(*GetWithdrawalReviewRequest)(nil),       // 54: eidos.risk.v1.GetWithdrawalReviewRequest
+	(*GetWithdrawalReviewResponse)(nil),      // 55: eidos.risk.v1.GetWithdrawalReviewResponse
+	(*ApproveWithdrawalReviewRequest)(nil),   // 56: eidos.risk.v1.ApproveWithdrawalReviewRequest
+	(*ApproveWithdrawalReviewResponse)(nil),  // 57: eidos.risk.v1.ApproveWithdrawalReviewResponse
+	(*RejectWithdrawalReviewRequest)(nil),    // 58: eidos.risk.v1.RejectWithdrawalReviewRequest
+	(*RejectWithdrawalReviewResponse)(nil),   // 59: eidos.risk.v1.RejectWithdrawalReviewResponse
+	(*GetWithdrawalReviewStatsRequest)(nil),  // 60: eidos.risk.v1.GetWithdrawalReviewStatsRequest
+	(*GetWithdrawalReviewStatsResponse)(nil), // 61: eidos.risk.v1.GetWithdrawalReviewStatsResponse
+	(*WithdrawalReviewResultMessage)(nil),    // 62: eidos.risk.v1.WithdrawalReviewResultMessage
+	nil,                                      // 63: eidos.risk.v1.CheckTransactionRequest.ContextEntry
+	nil,                                      // 64: eidos.risk.v1.BlacklistEntry.MetadataEntry
+	nil,                                      // 65: eidos.risk.v1.AddToBlacklistRequest.MetadataEntry
+	nil,                                      // 66: eidos.risk.v1.RiskRule.ParamsEntry
+	nil,                                      // 67: eidos.risk.v1.UpdateRiskRuleRequest.ParamsEntry
+	nil,                                      // 68: eidos.risk.v1.RiskEvent.ContextEntry
+	nil,                                      // 69: eidos.risk.v1.GetRiskStatsResponse.EventsByLevelEntry
+	nil,                                      // 70: eidos.risk.v1.GetRiskStatsResponse.EventsByTypeEntry
+	nil,                                      // 71: eidos.risk.v1.RiskAlertMessage.ContextEntry
+	(common.OrderSide)(0),                    // 72: eidos.common.v1.OrderSide
+	(common.OrderType)(0),                    // 73: eidos.common.v1.OrderType
+	(common.RiskAction)(0),                   // 74: eidos.common.v1.RiskAction
+	(*common.PaginationRequest)(nil),         // 75: eidos.common.v1.PaginationRequest
+	(*common.PaginationResponse)(nil),        // 76: eidos.common.v1.PaginationResponse
+	(common.RiskLevel)(0),                    // 77: eidos.common.v1.RiskLevel
+	(common.RiskEventType)(0),                // 78: eidos.common.v1.RiskEventType
 }
 var file_risk_v1_risk_proto_depIdxs = []int32{
-	59, // 0: eidos.risk.v1.CheckOrderRequest.side:type_name -> eidos.common.v1.OrderSide
-	60, // 1: eidos.risk.v1.CheckOrderRequest.order_type:type_name -> eidos.common.v1.OrderType
-	61, // 2: eidos.risk.v1.CheckOrderResponse.action:type_name -> eidos.common.v1.RiskAction
-	61, // 3: eidos.risk.v1.CheckWithdrawalResponse.action:type_name -> eidos.common.v1.RiskAction
-	50, // 4: eidos.risk.v1.CheckTransactionRequest.context:type_name -> eidos.risk.v1.CheckTransactionRequest.ContextEntry
-	61, // 5: eidos.risk.v1.CheckTransactionResponse.action:type_name -> eidos.common.v1.RiskAction
-	51, // 6: eidos.risk.v1.BlacklistEntry.metadata:type_name -> eidos.risk.v1.BlacklistEntry.MetadataEntry
-	52, // 7: eidos.risk.v1.AddToBlacklistRequest.metadata:type_name -> eidos.risk.v1.AddToBlacklistRequest.MetadataEntry
+	72, // 0: eidos.risk.v1.CheckOrderRequest.side:type_name -> eidos.common.v1.OrderSide
+	73, // 1: eidos.risk.v1.CheckOrderRequest.order_type:type_name -> eidos.common.v1.OrderType
+	74, // 2: eidos.risk.v1.CheckOrderResponse.action:type_name -> eidos.common.v1.RiskAction
+	74, // 3: eidos.risk.v1.CheckWithdrawalResponse.action:type_name -> eidos.common.v1.RiskAction
+	63, // 4: eidos.risk.v1.CheckTransactionRequest.context:type_name -> eidos.risk.v1.CheckTransactionRequest.ContextEntry
+	74, // 5: eidos.risk.v1.CheckTransactionResponse.action:type_name -> eidos.common.v1.RiskAction
+	64, // 6: eidos.risk.v1.BlacklistEntry.metadata:type_name -> eidos.risk.v1.BlacklistEntry.MetadataEntry
+	65, // 7: eidos.risk.v1.AddToBlacklistRequest.metadata:type_name -> eidos.risk.v1.AddToBlacklistRequest.MetadataEntry
 	6,  // 8: eidos.risk.v1.CheckBlacklistResponse.entry:type_name -> eidos.risk.v1.BlacklistEntry
-	62, // 9: eidos.risk.v1.ListBlacklistRequest.pagination:type_name -> eidos.common.v1.PaginationRequest
+	75, // 9: eidos.risk.v1.ListBlacklistRequest.pagination:type_name -> eidos.common.v1.PaginationRequest
 	6,  // 10: eidos.risk.v1.ListBlacklistResponse.entries:type_name -> eidos.risk.v1.BlacklistEntry
-	63, // 11: eidos.risk.v1.ListBlacklistResponse.pagination:type_name -> eidos.common.v1.PaginationResponse
-	64, // 12: eidos.risk.v1.RiskRule.level:type_name -> eidos.common.v1.RiskLevel
-	61, // 13: eidos.risk.v1.RiskRule.action:type_name -> eidos.common.v1.RiskAction
-	53, // 14: eidos.risk.v1.RiskRule.params:type_name -> eidos.risk.v1.RiskRule.ParamsEntry
+	76, // 11: eidos.risk.v1.ListBlacklistResponse.pagination:type_name -> eidos.common.v1.PaginationResponse
+	77, // 12: eidos.risk.v1.RiskRule.level:type_name -> eidos.common.v1.RiskLevel
+	74, // 13: eidos.risk.v1.RiskRule.action:type_name -> eidos.common.v1.RiskAction
+	66, // 14: eidos.risk.v1.RiskRule.params:type_name -> eidos.risk.v1.RiskRule.ParamsEntry
 	15, // 15: eidos.risk.v1.ListRiskRulesResponse.rules:type_name -> eidos.risk.v1.RiskRule
 	15, // 16: eidos.risk.v1.GetRiskRuleResponse.rule:type_name -> eidos.risk.v1.RiskRule
-	54, // 17: eidos.risk.v1.UpdateRiskRuleRequest.params:type_name -> eidos.risk.v1.UpdateRiskRuleRequest.ParamsEntry
-	61, // 18: eidos.risk.v1.UpdateRiskRuleRequest.action:type_name -> eidos.common.v1.RiskAction
+	67, // 17: eidos.risk.v1.UpdateRiskRuleRequest.params:type_name -> eidos.risk.v1.UpdateRiskRuleRequest.ParamsEntry
+	74, // 18: eidos.risk.v1.UpdateRiskRuleRequest.action:type_name -> eidos.common.v1.RiskAction
 	22, // 19: eidos.risk.v1.GetRateLimitStatusResponse.counters:type_name -> eidos.risk.v1.RateLimitCounter
-	65, // 20: eidos.risk.v1.RiskEvent.event_type:type_name -> eidos.common.v1.RiskEventType
-	64, // 21: eidos.risk.v1.RiskEvent.level:type_name -> eidos.common.v1.RiskLevel
-	61, // 22: eidos.risk.v1.RiskEvent.action:type_name -> eidos.common.v1.RiskAction
-	55, // 23: eidos.risk.v1.RiskEvent.context:type_name -> eidos.risk.v1.RiskEvent.ContextEntry
-	65, // 24: eidos.risk.v1.ListRiskEventsRequest.event_type:type_name -> eidos.common.v1.RiskEventType
-	64, // 25: eidos.risk.v1.ListRiskEventsRequest.level:type_name -> eidos.common.v1.RiskLevel
-	62, // 26: eidos.risk.v1.ListRiskEventsRequest.pagination:type_name -> eidos.common.v1.PaginationRequest
+	78, // 20: eidos.risk.v1.RiskEvent.event_type:type_name -> eidos.common.v1.RiskEventType
+	77, // 21: eidos.risk.v1.RiskEvent.level:type_name -> eidos.common.v1.RiskLevel
+	74, // 22: eidos.risk.v1.RiskEvent.action:type_name -> eidos.common.v1.RiskAction
+	68, // 23: eidos.risk.v1.RiskEvent.context:type_name -> eidos.risk.v1.RiskEvent.ContextEntry
+	78, // 24: eidos.risk.v1.ListRiskEventsRequest.event_type:type_name -> eidos.common.v1.RiskEventType
+	77, // 25: eidos.risk.v1.ListRiskEventsRequest.level:type_name -> eidos.common.v1.RiskLevel
+	75, // 26: eidos.risk.v1.ListRiskEventsRequest.pagination:type_name -> eidos.common.v1.PaginationRequest
 	27, // 27: eidos.risk.v1.ListRiskEventsResponse.events:type_name -> eidos.risk.v1.RiskEvent
-	63, // 28: eidos.risk.v1.ListRiskEventsResponse.pagination:type_name -> eidos.common.v1.PaginationResponse
+	76, // 28: eidos.risk.v1.ListRiskEventsResponse.pagination:type_name -> eidos.common.v1.PaginationResponse
 	27, // 29: eidos.risk.v1.GetRiskEventResponse.event:type_name -> eidos.risk.v1.RiskEvent
 	34, // 30: eidos.risk.v1.GetUserLimitsResponse.limits:type_name -> eidos.risk.v1.UserLimit
 	34, // 31: eidos.risk.v1.SetUserLimitsRequest.limits:type_name -> eidos.risk.v1.UserLimit
-	56, // 32: eidos.risk.v1.GetRiskStatsResponse.events_by_level:type_name -> eidos.risk.v1.GetRiskStatsResponse.EventsByLevelEntry
-	57, // 33: eidos.risk.v1.GetRiskStatsResponse.events_by_type:type_name -> eidos.risk.v1.GetRiskStatsResponse.EventsByTypeEntry
+	69, // 32: eidos.risk.v1.GetRiskStatsResponse.events_by_level:type_name -> eidos.risk.v1.GetRiskStatsResponse.EventsByLevelEntry
+	70, // 33: eidos.risk.v1.GetRiskStatsResponse.events_by_type:type_name -> eidos.risk.v1.GetRiskStatsResponse.EventsByTypeEntry
 	47, // 34: eidos.risk.v1.GetRiskStatsResponse.top_triggered_rules:type_name -> eidos.risk.v1.RuleStats
-	65, // 35: eidos.risk.v1.RiskAlertMessage.alert_type:type_name -> eidos.common.v1.RiskEventType
-	64, // 36: eidos.risk.v1.RiskAlertMessage.severity:type_name -> eidos.common.v1.RiskLevel
-	61, // 37: eidos.risk.v1.RiskAlertMessage.action_taken:type_name -> eidos.common.v1.RiskAction
-	58, // 38: eidos.risk.v1.RiskAlertMessage.context:type_name -> eidos.risk.v1.RiskAlertMessage.ContextEntry
-	0,  // 39: eidos.risk.v1.RiskService.CheckOrder:input_type -> eidos.risk.v1.CheckOrderRequest
-	2,  // 40: eidos.risk.v1.RiskService.CheckWithdrawal:input_type -> eidos.risk.v1.CheckWithdrawalRequest
-	4,  // 41: eidos.risk.v1.RiskService.CheckTransaction:input_type -> eidos.risk.v1.CheckTransactionRequest
-	7,  // 42: eidos.risk.v1.RiskService.AddToBlacklist:input_type -> eidos.risk.v1.AddToBlacklistRequest
-	9,  // 43: eidos.risk.v1.RiskService.RemoveFromBlacklist:input_type -> eidos.risk.v1.RemoveFromBlacklistRequest
-	11, // 44: eidos.risk.v1.RiskService.CheckBlacklist:input_type -> eidos.risk.v1.CheckBlacklistRequest
-	13, // 45: eidos.risk.v1.RiskService.ListBlacklist:input_type -> eidos.risk.v1.ListBlacklistRequest
-	16, // 46: eidos.risk.v1.RiskService.ListRiskRules:input_type -> eidos.risk.v1.ListRiskRulesRequest
-	18, // 47: eidos.risk.v1.RiskService.GetRiskRule:input_type -> eidos.risk.v1.GetRiskRuleRequest
-	20, // 48: eidos.risk.v1.RiskService.UpdateRiskRule:input_type -> eidos.risk.v1.UpdateRiskRuleRequest
-	23, // 49: eidos.risk.v1.RiskService.GetRateLimitStatus:input_type -> eidos.risk.v1.GetRateLimitStatusRequest
-	25, // 50: eidos.risk.v1.RiskService.ResetRateLimit:input_type -> eidos.risk.v1.ResetRateLimitRequest
-	28, // 51: eidos.risk.v1.RiskService.ListRiskEvents:input_type -> eidos.risk.v1.ListRiskEventsRequest
-	30, // 52: eidos.risk.v1.RiskService.GetRiskEvent:input_type -> eidos.risk.v1.GetRiskEventRequest
-	32, // 53: eidos.risk.v1.RiskService.AcknowledgeRiskEvent:input_type -> eidos.risk.v1.AcknowledgeRiskEventRequest
-	35, // 54: eidos.risk.v1.RiskService.GetUserLimits:input_type -> eidos.risk.v1.GetUserLimitsRequest
-	37, // 55: eidos.risk.v1.RiskService.SetUserLimits:input_type -> eidos.risk.v1.SetUserLimitsRequest
-	39, // 56: eidos.risk.v1.RiskService.FreezeAccount:input_type -> eidos.risk.v1.FreezeAccountRequest
-	41, // 57: eidos.risk.v1.RiskService.UnfreezeAccount:input_type -> eidos.risk.v1.UnfreezeAccountRequest
-	43, // 58: eidos.risk.v1.RiskService.GetAccountStatus:input_type -> eidos.risk.v1.GetAccountStatusRequest
-	45, // 59: eidos.risk.v1.RiskService.GetRiskStats:input_type -> eidos.risk.v1.GetRiskStatsRequest
-	1,  // 60: eidos.risk.v1.RiskService.CheckOrder:output_type -> eidos.risk.v1.CheckOrderResponse
-	3,  // 61: eidos.risk.v1.RiskService.CheckWithdrawal:output_type -> eidos.risk.v1.CheckWithdrawalResponse
-	5,  // 62: eidos.risk.v1.RiskService.CheckTransaction:output_type -> eidos.risk.v1.CheckTransactionResponse
-	8,  // 63: eidos.risk.v1.RiskService.AddToBlacklist:output_type -> eidos.risk.v1.AddToBlacklistResponse
-	10, // 64: eidos.risk.v1.RiskService.RemoveFromBlacklist:output_type -> eidos.risk.v1.RemoveFromBlacklistResponse
-	12, // 65: eidos.risk.v1.RiskService.CheckBlacklist:output_type -> eidos.risk.v1.CheckBlacklistResponse
-	14, // 66: eidos.risk.v1.RiskService.ListBlacklist:output_type -> eidos.risk.v1.ListBlacklistResponse
-	17, // 67: eidos.risk.v1.RiskService.ListRiskRules:output_type -> eidos.risk.v1.ListRiskRulesResponse
-	19, // 68: eidos.risk.v1.RiskService.GetRiskRule:output_type -> eidos.risk.v1.GetRiskRuleResponse
-	21, // 69: eidos.risk.v1.RiskService.UpdateRiskRule:output_type -> eidos.risk.v1.UpdateRiskRuleResponse
-	24, // 70: eidos.risk.v1.RiskService.GetRateLimitStatus:output_type -> eidos.risk.v1.GetRateLimitStatusResponse
-	26, // 71: eidos.risk.v1.RiskService.ResetRateLimit:output_type -> eidos.risk.v1.ResetRateLimitResponse
-	29, // 72: eidos.risk.v1.RiskService.ListRiskEvents:output_type -> eidos.risk.v1.ListRiskEventsResponse
-	31, // 73: eidos.risk.v1.RiskService.GetRiskEvent:output_type -> eidos.risk.v1.GetRiskEventResponse
-	33, // 74: eidos.risk.v1.RiskService.AcknowledgeRiskEvent:output_type -> eidos.risk.v1.AcknowledgeRiskEventResponse
-	36, // 75: eidos.risk.v1.RiskService.GetUserLimits:output_type -> eidos.risk.v1.GetUserLimitsResponse
-	38, // 76: eidos.risk.v1.RiskService.SetUserLimits:output_type -> eidos.risk.v1.SetUserLimitsResponse
-	40, // 77: eidos.risk.v1.RiskService.FreezeAccount:output_type -> eidos.risk.v1.FreezeAccountResponse
-	42, // 78: eidos.risk.v1.RiskService.UnfreezeAccount:output_type -> eidos.risk.v1.UnfreezeAccountResponse
-	44, // 79: eidos.risk.v1.RiskService.GetAccountStatus:output_type -> eidos.risk.v1.GetAccountStatusResponse
-	46, // 80: eidos.risk.v1.RiskService.GetRiskStats:output_type -> eidos.risk.v1.GetRiskStatsResponse
-	60, // [60:81] is the sub-list for method output_type
-	39, // [39:60] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	78, // 35: eidos.risk.v1.RiskAlertMessage.alert_type:type_name -> eidos.common.v1.RiskEventType
+	77, // 36: eidos.risk.v1.RiskAlertMessage.severity:type_name -> eidos.common.v1.RiskLevel
+	74, // 37: eidos.risk.v1.RiskAlertMessage.action_taken:type_name -> eidos.common.v1.RiskAction
+	71, // 38: eidos.risk.v1.RiskAlertMessage.context:type_name -> eidos.risk.v1.RiskAlertMessage.ContextEntry
+	51, // 39: eidos.risk.v1.WithdrawalReview.risk_factors:type_name -> eidos.risk.v1.RiskFactor
+	75, // 40: eidos.risk.v1.ListWithdrawalReviewsRequest.pagination:type_name -> eidos.common.v1.PaginationRequest
+	50, // 41: eidos.risk.v1.ListWithdrawalReviewsResponse.reviews:type_name -> eidos.risk.v1.WithdrawalReview
+	76, // 42: eidos.risk.v1.ListWithdrawalReviewsResponse.pagination:type_name -> eidos.common.v1.PaginationResponse
+	50, // 43: eidos.risk.v1.GetWithdrawalReviewResponse.review:type_name -> eidos.risk.v1.WithdrawalReview
+	50, // 44: eidos.risk.v1.ApproveWithdrawalReviewResponse.review:type_name -> eidos.risk.v1.WithdrawalReview
+	50, // 45: eidos.risk.v1.RejectWithdrawalReviewResponse.review:type_name -> eidos.risk.v1.WithdrawalReview
+	0,  // 46: eidos.risk.v1.RiskService.CheckOrder:input_type -> eidos.risk.v1.CheckOrderRequest
+	2,  // 47: eidos.risk.v1.RiskService.CheckWithdrawal:input_type -> eidos.risk.v1.CheckWithdrawalRequest
+	4,  // 48: eidos.risk.v1.RiskService.CheckTransaction:input_type -> eidos.risk.v1.CheckTransactionRequest
+	7,  // 49: eidos.risk.v1.RiskService.AddToBlacklist:input_type -> eidos.risk.v1.AddToBlacklistRequest
+	9,  // 50: eidos.risk.v1.RiskService.RemoveFromBlacklist:input_type -> eidos.risk.v1.RemoveFromBlacklistRequest
+	11, // 51: eidos.risk.v1.RiskService.CheckBlacklist:input_type -> eidos.risk.v1.CheckBlacklistRequest
+	13, // 52: eidos.risk.v1.RiskService.ListBlacklist:input_type -> eidos.risk.v1.ListBlacklistRequest
+	16, // 53: eidos.risk.v1.RiskService.ListRiskRules:input_type -> eidos.risk.v1.ListRiskRulesRequest
+	18, // 54: eidos.risk.v1.RiskService.GetRiskRule:input_type -> eidos.risk.v1.GetRiskRuleRequest
+	20, // 55: eidos.risk.v1.RiskService.UpdateRiskRule:input_type -> eidos.risk.v1.UpdateRiskRuleRequest
+	23, // 56: eidos.risk.v1.RiskService.GetRateLimitStatus:input_type -> eidos.risk.v1.GetRateLimitStatusRequest
+	25, // 57: eidos.risk.v1.RiskService.ResetRateLimit:input_type -> eidos.risk.v1.ResetRateLimitRequest
+	28, // 58: eidos.risk.v1.RiskService.ListRiskEvents:input_type -> eidos.risk.v1.ListRiskEventsRequest
+	30, // 59: eidos.risk.v1.RiskService.GetRiskEvent:input_type -> eidos.risk.v1.GetRiskEventRequest
+	32, // 60: eidos.risk.v1.RiskService.AcknowledgeRiskEvent:input_type -> eidos.risk.v1.AcknowledgeRiskEventRequest
+	35, // 61: eidos.risk.v1.RiskService.GetUserLimits:input_type -> eidos.risk.v1.GetUserLimitsRequest
+	37, // 62: eidos.risk.v1.RiskService.SetUserLimits:input_type -> eidos.risk.v1.SetUserLimitsRequest
+	39, // 63: eidos.risk.v1.RiskService.FreezeAccount:input_type -> eidos.risk.v1.FreezeAccountRequest
+	41, // 64: eidos.risk.v1.RiskService.UnfreezeAccount:input_type -> eidos.risk.v1.UnfreezeAccountRequest
+	43, // 65: eidos.risk.v1.RiskService.GetAccountStatus:input_type -> eidos.risk.v1.GetAccountStatusRequest
+	45, // 66: eidos.risk.v1.RiskService.GetRiskStats:input_type -> eidos.risk.v1.GetRiskStatsRequest
+	52, // 67: eidos.risk.v1.RiskService.ListWithdrawalReviews:input_type -> eidos.risk.v1.ListWithdrawalReviewsRequest
+	54, // 68: eidos.risk.v1.RiskService.GetWithdrawalReview:input_type -> eidos.risk.v1.GetWithdrawalReviewRequest
+	56, // 69: eidos.risk.v1.RiskService.ApproveWithdrawalReview:input_type -> eidos.risk.v1.ApproveWithdrawalReviewRequest
+	58, // 70: eidos.risk.v1.RiskService.RejectWithdrawalReview:input_type -> eidos.risk.v1.RejectWithdrawalReviewRequest
+	60, // 71: eidos.risk.v1.RiskService.GetWithdrawalReviewStats:input_type -> eidos.risk.v1.GetWithdrawalReviewStatsRequest
+	1,  // 72: eidos.risk.v1.RiskService.CheckOrder:output_type -> eidos.risk.v1.CheckOrderResponse
+	3,  // 73: eidos.risk.v1.RiskService.CheckWithdrawal:output_type -> eidos.risk.v1.CheckWithdrawalResponse
+	5,  // 74: eidos.risk.v1.RiskService.CheckTransaction:output_type -> eidos.risk.v1.CheckTransactionResponse
+	8,  // 75: eidos.risk.v1.RiskService.AddToBlacklist:output_type -> eidos.risk.v1.AddToBlacklistResponse
+	10, // 76: eidos.risk.v1.RiskService.RemoveFromBlacklist:output_type -> eidos.risk.v1.RemoveFromBlacklistResponse
+	12, // 77: eidos.risk.v1.RiskService.CheckBlacklist:output_type -> eidos.risk.v1.CheckBlacklistResponse
+	14, // 78: eidos.risk.v1.RiskService.ListBlacklist:output_type -> eidos.risk.v1.ListBlacklistResponse
+	17, // 79: eidos.risk.v1.RiskService.ListRiskRules:output_type -> eidos.risk.v1.ListRiskRulesResponse
+	19, // 80: eidos.risk.v1.RiskService.GetRiskRule:output_type -> eidos.risk.v1.GetRiskRuleResponse
+	21, // 81: eidos.risk.v1.RiskService.UpdateRiskRule:output_type -> eidos.risk.v1.UpdateRiskRuleResponse
+	24, // 82: eidos.risk.v1.RiskService.GetRateLimitStatus:output_type -> eidos.risk.v1.GetRateLimitStatusResponse
+	26, // 83: eidos.risk.v1.RiskService.ResetRateLimit:output_type -> eidos.risk.v1.ResetRateLimitResponse
+	29, // 84: eidos.risk.v1.RiskService.ListRiskEvents:output_type -> eidos.risk.v1.ListRiskEventsResponse
+	31, // 85: eidos.risk.v1.RiskService.GetRiskEvent:output_type -> eidos.risk.v1.GetRiskEventResponse
+	33, // 86: eidos.risk.v1.RiskService.AcknowledgeRiskEvent:output_type -> eidos.risk.v1.AcknowledgeRiskEventResponse
+	36, // 87: eidos.risk.v1.RiskService.GetUserLimits:output_type -> eidos.risk.v1.GetUserLimitsResponse
+	38, // 88: eidos.risk.v1.RiskService.SetUserLimits:output_type -> eidos.risk.v1.SetUserLimitsResponse
+	40, // 89: eidos.risk.v1.RiskService.FreezeAccount:output_type -> eidos.risk.v1.FreezeAccountResponse
+	42, // 90: eidos.risk.v1.RiskService.UnfreezeAccount:output_type -> eidos.risk.v1.UnfreezeAccountResponse
+	44, // 91: eidos.risk.v1.RiskService.GetAccountStatus:output_type -> eidos.risk.v1.GetAccountStatusResponse
+	46, // 92: eidos.risk.v1.RiskService.GetRiskStats:output_type -> eidos.risk.v1.GetRiskStatsResponse
+	53, // 93: eidos.risk.v1.RiskService.ListWithdrawalReviews:output_type -> eidos.risk.v1.ListWithdrawalReviewsResponse
+	55, // 94: eidos.risk.v1.RiskService.GetWithdrawalReview:output_type -> eidos.risk.v1.GetWithdrawalReviewResponse
+	57, // 95: eidos.risk.v1.RiskService.ApproveWithdrawalReview:output_type -> eidos.risk.v1.ApproveWithdrawalReviewResponse
+	59, // 96: eidos.risk.v1.RiskService.RejectWithdrawalReview:output_type -> eidos.risk.v1.RejectWithdrawalReviewResponse
+	61, // 97: eidos.risk.v1.RiskService.GetWithdrawalReviewStats:output_type -> eidos.risk.v1.GetWithdrawalReviewStatsResponse
+	72, // [72:98] is the sub-list for method output_type
+	46, // [46:72] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_risk_v1_risk_proto_init() }
@@ -4484,7 +5584,7 @@ func file_risk_v1_risk_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_risk_v1_risk_proto_rawDesc), len(file_risk_v1_risk_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   59,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

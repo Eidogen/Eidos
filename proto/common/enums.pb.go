@@ -1178,6 +1178,162 @@ func (NotificationType) EnumDescriptor() ([]byte, []int) {
 	return file_common_enums_proto_rawDescGZIP(), []int{18}
 }
 
+// SubAccountType represents the type of sub-account
+type SubAccountType int32
+
+const (
+	SubAccountType_SUB_ACCOUNT_TYPE_UNSPECIFIED SubAccountType = 0 // Default value
+	SubAccountType_SUB_ACCOUNT_TYPE_TRADING     SubAccountType = 1 // Trading sub-account (现货交易)
+	SubAccountType_SUB_ACCOUNT_TYPE_MARGIN      SubAccountType = 2 // Margin sub-account (杠杆交易)
+	SubAccountType_SUB_ACCOUNT_TYPE_FUTURES     SubAccountType = 3 // Futures sub-account (合约交易)
+)
+
+// Enum value maps for SubAccountType.
+var (
+	SubAccountType_name = map[int32]string{
+		0: "SUB_ACCOUNT_TYPE_UNSPECIFIED",
+		1: "SUB_ACCOUNT_TYPE_TRADING",
+		2: "SUB_ACCOUNT_TYPE_MARGIN",
+		3: "SUB_ACCOUNT_TYPE_FUTURES",
+	}
+	SubAccountType_value = map[string]int32{
+		"SUB_ACCOUNT_TYPE_UNSPECIFIED": 0,
+		"SUB_ACCOUNT_TYPE_TRADING":     1,
+		"SUB_ACCOUNT_TYPE_MARGIN":      2,
+		"SUB_ACCOUNT_TYPE_FUTURES":     3,
+	}
+)
+
+func (x SubAccountType) Enum() *SubAccountType {
+	p := new(SubAccountType)
+	*p = x
+	return p
+}
+
+func (x SubAccountType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SubAccountType) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_enums_proto_enumTypes[19].Descriptor()
+}
+
+func (SubAccountType) Type() protoreflect.EnumType {
+	return &file_common_enums_proto_enumTypes[19]
+}
+
+func (x SubAccountType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SubAccountType.Descriptor instead.
+func (SubAccountType) EnumDescriptor() ([]byte, []int) {
+	return file_common_enums_proto_rawDescGZIP(), []int{19}
+}
+
+// SubAccountStatus represents the status of sub-account
+type SubAccountStatus int32
+
+const (
+	SubAccountStatus_SUB_ACCOUNT_STATUS_UNSPECIFIED SubAccountStatus = 0 // Default value
+	SubAccountStatus_SUB_ACCOUNT_STATUS_ACTIVE      SubAccountStatus = 1 // Sub-account is active
+	SubAccountStatus_SUB_ACCOUNT_STATUS_FROZEN      SubAccountStatus = 2 // Sub-account is frozen
+	SubAccountStatus_SUB_ACCOUNT_STATUS_DELETED     SubAccountStatus = 3 // Sub-account is deleted
+)
+
+// Enum value maps for SubAccountStatus.
+var (
+	SubAccountStatus_name = map[int32]string{
+		0: "SUB_ACCOUNT_STATUS_UNSPECIFIED",
+		1: "SUB_ACCOUNT_STATUS_ACTIVE",
+		2: "SUB_ACCOUNT_STATUS_FROZEN",
+		3: "SUB_ACCOUNT_STATUS_DELETED",
+	}
+	SubAccountStatus_value = map[string]int32{
+		"SUB_ACCOUNT_STATUS_UNSPECIFIED": 0,
+		"SUB_ACCOUNT_STATUS_ACTIVE":      1,
+		"SUB_ACCOUNT_STATUS_FROZEN":      2,
+		"SUB_ACCOUNT_STATUS_DELETED":     3,
+	}
+)
+
+func (x SubAccountStatus) Enum() *SubAccountStatus {
+	p := new(SubAccountStatus)
+	*p = x
+	return p
+}
+
+func (x SubAccountStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SubAccountStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_enums_proto_enumTypes[20].Descriptor()
+}
+
+func (SubAccountStatus) Type() protoreflect.EnumType {
+	return &file_common_enums_proto_enumTypes[20]
+}
+
+func (x SubAccountStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SubAccountStatus.Descriptor instead.
+func (SubAccountStatus) EnumDescriptor() ([]byte, []int) {
+	return file_common_enums_proto_rawDescGZIP(), []int{20}
+}
+
+// SubAccountTransferType represents the direction of sub-account transfer
+type SubAccountTransferType int32
+
+const (
+	SubAccountTransferType_SUB_ACCOUNT_TRANSFER_TYPE_UNSPECIFIED SubAccountTransferType = 0 // Default value
+	SubAccountTransferType_SUB_ACCOUNT_TRANSFER_TYPE_IN          SubAccountTransferType = 1 // Transfer in (主账户 → 子账户)
+	SubAccountTransferType_SUB_ACCOUNT_TRANSFER_TYPE_OUT         SubAccountTransferType = 2 // Transfer out (子账户 → 主账户)
+)
+
+// Enum value maps for SubAccountTransferType.
+var (
+	SubAccountTransferType_name = map[int32]string{
+		0: "SUB_ACCOUNT_TRANSFER_TYPE_UNSPECIFIED",
+		1: "SUB_ACCOUNT_TRANSFER_TYPE_IN",
+		2: "SUB_ACCOUNT_TRANSFER_TYPE_OUT",
+	}
+	SubAccountTransferType_value = map[string]int32{
+		"SUB_ACCOUNT_TRANSFER_TYPE_UNSPECIFIED": 0,
+		"SUB_ACCOUNT_TRANSFER_TYPE_IN":          1,
+		"SUB_ACCOUNT_TRANSFER_TYPE_OUT":         2,
+	}
+)
+
+func (x SubAccountTransferType) Enum() *SubAccountTransferType {
+	p := new(SubAccountTransferType)
+	*p = x
+	return p
+}
+
+func (x SubAccountTransferType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SubAccountTransferType) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_enums_proto_enumTypes[21].Descriptor()
+}
+
+func (SubAccountTransferType) Type() protoreflect.EnumType {
+	return &file_common_enums_proto_enumTypes[21]
+}
+
+func (x SubAccountTransferType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SubAccountTransferType.Descriptor instead.
+func (SubAccountTransferType) EnumDescriptor() ([]byte, []int) {
+	return file_common_enums_proto_rawDescGZIP(), []int{21}
+}
+
 var File_common_enums_proto protoreflect.FileDescriptor
 
 const file_common_enums_proto_rawDesc = "" +
@@ -1329,7 +1485,21 @@ const file_common_enums_proto_rawDesc = "" +
 	"#NOTIFICATION_TYPE_WITHDRAW_COMPLETE\x10\x04\x12)\n" +
 	"%NOTIFICATION_TYPE_SETTLEMENT_COMPLETE\x10\x05\x12 \n" +
 	"\x1cNOTIFICATION_TYPE_RISK_ALERT\x10\x06\x12\x1c\n" +
-	"\x18NOTIFICATION_TYPE_SYSTEM\x10\aB7Z5github.com/eidos-exchange/eidos/proto/common;commonv1b\x06proto3"
+	"\x18NOTIFICATION_TYPE_SYSTEM\x10\a*\x8b\x01\n" +
+	"\x0eSubAccountType\x12 \n" +
+	"\x1cSUB_ACCOUNT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18SUB_ACCOUNT_TYPE_TRADING\x10\x01\x12\x1b\n" +
+	"\x17SUB_ACCOUNT_TYPE_MARGIN\x10\x02\x12\x1c\n" +
+	"\x18SUB_ACCOUNT_TYPE_FUTURES\x10\x03*\x94\x01\n" +
+	"\x10SubAccountStatus\x12\"\n" +
+	"\x1eSUB_ACCOUNT_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19SUB_ACCOUNT_STATUS_ACTIVE\x10\x01\x12\x1d\n" +
+	"\x19SUB_ACCOUNT_STATUS_FROZEN\x10\x02\x12\x1e\n" +
+	"\x1aSUB_ACCOUNT_STATUS_DELETED\x10\x03*\x88\x01\n" +
+	"\x16SubAccountTransferType\x12)\n" +
+	"%SUB_ACCOUNT_TRANSFER_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cSUB_ACCOUNT_TRANSFER_TYPE_IN\x10\x01\x12!\n" +
+	"\x1dSUB_ACCOUNT_TRANSFER_TYPE_OUT\x10\x02B7Z5github.com/eidos-exchange/eidos/proto/common;commonv1b\x06proto3"
 
 var (
 	file_common_enums_proto_rawDescOnce sync.Once
@@ -1343,27 +1513,30 @@ func file_common_enums_proto_rawDescGZIP() []byte {
 	return file_common_enums_proto_rawDescData
 }
 
-var file_common_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 19)
+var file_common_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 22)
 var file_common_enums_proto_goTypes = []any{
-	(OrderStatus)(0),          // 0: eidos.common.v1.OrderStatus
-	(OrderSide)(0),            // 1: eidos.common.v1.OrderSide
-	(OrderType)(0),            // 2: eidos.common.v1.OrderType
-	(TimeInForce)(0),          // 3: eidos.common.v1.TimeInForce
-	(SelfTradePrevention)(0),  // 4: eidos.common.v1.SelfTradePrevention
-	(SettlementStatus)(0),     // 5: eidos.common.v1.SettlementStatus
-	(BatchStatus)(0),          // 6: eidos.common.v1.BatchStatus
-	(DepositStatus)(0),        // 7: eidos.common.v1.DepositStatus
-	(WithdrawStatus)(0),       // 8: eidos.common.v1.WithdrawStatus
-	(BalanceType)(0),          // 9: eidos.common.v1.BalanceType
-	(BalanceChangeType)(0),    // 10: eidos.common.v1.BalanceChangeType
-	(MarketStatus)(0),         // 11: eidos.common.v1.MarketStatus
-	(KlineInterval)(0),        // 12: eidos.common.v1.KlineInterval
-	(RiskLevel)(0),            // 13: eidos.common.v1.RiskLevel
-	(RiskAction)(0),           // 14: eidos.common.v1.RiskAction
-	(RiskEventType)(0),        // 15: eidos.common.v1.RiskEventType
-	(ReconciliationStatus)(0), // 16: eidos.common.v1.ReconciliationStatus
-	(ReconciliationType)(0),   // 17: eidos.common.v1.ReconciliationType
-	(NotificationType)(0),     // 18: eidos.common.v1.NotificationType
+	(OrderStatus)(0),            // 0: eidos.common.v1.OrderStatus
+	(OrderSide)(0),              // 1: eidos.common.v1.OrderSide
+	(OrderType)(0),              // 2: eidos.common.v1.OrderType
+	(TimeInForce)(0),            // 3: eidos.common.v1.TimeInForce
+	(SelfTradePrevention)(0),    // 4: eidos.common.v1.SelfTradePrevention
+	(SettlementStatus)(0),       // 5: eidos.common.v1.SettlementStatus
+	(BatchStatus)(0),            // 6: eidos.common.v1.BatchStatus
+	(DepositStatus)(0),          // 7: eidos.common.v1.DepositStatus
+	(WithdrawStatus)(0),         // 8: eidos.common.v1.WithdrawStatus
+	(BalanceType)(0),            // 9: eidos.common.v1.BalanceType
+	(BalanceChangeType)(0),      // 10: eidos.common.v1.BalanceChangeType
+	(MarketStatus)(0),           // 11: eidos.common.v1.MarketStatus
+	(KlineInterval)(0),          // 12: eidos.common.v1.KlineInterval
+	(RiskLevel)(0),              // 13: eidos.common.v1.RiskLevel
+	(RiskAction)(0),             // 14: eidos.common.v1.RiskAction
+	(RiskEventType)(0),          // 15: eidos.common.v1.RiskEventType
+	(ReconciliationStatus)(0),   // 16: eidos.common.v1.ReconciliationStatus
+	(ReconciliationType)(0),     // 17: eidos.common.v1.ReconciliationType
+	(NotificationType)(0),       // 18: eidos.common.v1.NotificationType
+	(SubAccountType)(0),         // 19: eidos.common.v1.SubAccountType
+	(SubAccountStatus)(0),       // 20: eidos.common.v1.SubAccountStatus
+	(SubAccountTransferType)(0), // 21: eidos.common.v1.SubAccountTransferType
 }
 var file_common_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1383,7 +1556,7 @@ func file_common_enums_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_enums_proto_rawDesc), len(file_common_enums_proto_rawDesc)),
-			NumEnums:      19,
+			NumEnums:      22,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

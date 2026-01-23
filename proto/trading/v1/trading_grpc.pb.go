@@ -1034,3 +1034,633 @@ var TradingService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "trading/v1/trading.proto",
 }
+
+const (
+	SubAccountService_CreateSubAccount_FullMethodName         = "/eidos.trading.v1.SubAccountService/CreateSubAccount"
+	SubAccountService_GetSubAccount_FullMethodName            = "/eidos.trading.v1.SubAccountService/GetSubAccount"
+	SubAccountService_ListSubAccounts_FullMethodName          = "/eidos.trading.v1.SubAccountService/ListSubAccounts"
+	SubAccountService_UpdateSubAccount_FullMethodName         = "/eidos.trading.v1.SubAccountService/UpdateSubAccount"
+	SubAccountService_DeleteSubAccount_FullMethodName         = "/eidos.trading.v1.SubAccountService/DeleteSubAccount"
+	SubAccountService_FreezeSubAccount_FullMethodName         = "/eidos.trading.v1.SubAccountService/FreezeSubAccount"
+	SubAccountService_UnfreezeSubAccount_FullMethodName       = "/eidos.trading.v1.SubAccountService/UnfreezeSubAccount"
+	SubAccountService_SetDefaultSubAccount_FullMethodName     = "/eidos.trading.v1.SubAccountService/SetDefaultSubAccount"
+	SubAccountService_GetSubAccountBalance_FullMethodName     = "/eidos.trading.v1.SubAccountService/GetSubAccountBalance"
+	SubAccountService_GetSubAccountBalances_FullMethodName    = "/eidos.trading.v1.SubAccountService/GetSubAccountBalances"
+	SubAccountService_GetAllSubAccountBalances_FullMethodName = "/eidos.trading.v1.SubAccountService/GetAllSubAccountBalances"
+	SubAccountService_TransferIn_FullMethodName               = "/eidos.trading.v1.SubAccountService/TransferIn"
+	SubAccountService_TransferOut_FullMethodName              = "/eidos.trading.v1.SubAccountService/TransferOut"
+	SubAccountService_GetTransferHistory_FullMethodName       = "/eidos.trading.v1.SubAccountService/GetTransferHistory"
+)
+
+// SubAccountServiceClient is the client API for SubAccountService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// SubAccountService 提供子账户管理功能
+// 一个钱包可以创建多个独立的交易子账户
+type SubAccountServiceClient interface {
+	// CreateSubAccount 创建子账户
+	CreateSubAccount(ctx context.Context, in *CreateSubAccountRequest, opts ...grpc.CallOption) (*CreateSubAccountResponse, error)
+	// GetSubAccount 获取子账户详情
+	GetSubAccount(ctx context.Context, in *GetSubAccountRequest, opts ...grpc.CallOption) (*SubAccount, error)
+	// ListSubAccounts 获取钱包下所有子账户
+	ListSubAccounts(ctx context.Context, in *ListSubAccountsRequest, opts ...grpc.CallOption) (*ListSubAccountsResponse, error)
+	// UpdateSubAccount 更新子账户 (名称、备注)
+	UpdateSubAccount(ctx context.Context, in *UpdateSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DeleteSubAccount 删除子账户
+	DeleteSubAccount(ctx context.Context, in *DeleteSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// FreezeSubAccount 冻结子账户
+	FreezeSubAccount(ctx context.Context, in *FreezeSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UnfreezeSubAccount 解冻子账户
+	UnfreezeSubAccount(ctx context.Context, in *UnfreezeSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// SetDefaultSubAccount 设置默认子账户
+	SetDefaultSubAccount(ctx context.Context, in *SetDefaultSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GetSubAccountBalance 获取子账户单个代币余额
+	GetSubAccountBalance(ctx context.Context, in *GetSubAccountBalanceRequest, opts ...grpc.CallOption) (*SubAccountBalance, error)
+	// GetSubAccountBalances 获取子账户所有余额
+	GetSubAccountBalances(ctx context.Context, in *GetSubAccountBalancesRequest, opts ...grpc.CallOption) (*GetSubAccountBalancesResponse, error)
+	// GetAllSubAccountBalances 获取钱包下所有子账户余额
+	GetAllSubAccountBalances(ctx context.Context, in *GetAllSubAccountBalancesRequest, opts ...grpc.CallOption) (*GetSubAccountBalancesResponse, error)
+	// TransferIn 划入子账户 (主账户 → 子账户)
+	TransferIn(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
+	// TransferOut 划出子账户 (子账户 → 主账户)
+	TransferOut(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
+	// GetTransferHistory 获取划转历史
+	GetTransferHistory(ctx context.Context, in *GetTransferHistoryRequest, opts ...grpc.CallOption) (*GetTransferHistoryResponse, error)
+}
+
+type subAccountServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSubAccountServiceClient(cc grpc.ClientConnInterface) SubAccountServiceClient {
+	return &subAccountServiceClient{cc}
+}
+
+func (c *subAccountServiceClient) CreateSubAccount(ctx context.Context, in *CreateSubAccountRequest, opts ...grpc.CallOption) (*CreateSubAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateSubAccountResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_CreateSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) GetSubAccount(ctx context.Context, in *GetSubAccountRequest, opts ...grpc.CallOption) (*SubAccount, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubAccount)
+	err := c.cc.Invoke(ctx, SubAccountService_GetSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) ListSubAccounts(ctx context.Context, in *ListSubAccountsRequest, opts ...grpc.CallOption) (*ListSubAccountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSubAccountsResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_ListSubAccounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) UpdateSubAccount(ctx context.Context, in *UpdateSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, SubAccountService_UpdateSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) DeleteSubAccount(ctx context.Context, in *DeleteSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, SubAccountService_DeleteSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) FreezeSubAccount(ctx context.Context, in *FreezeSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, SubAccountService_FreezeSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) UnfreezeSubAccount(ctx context.Context, in *UnfreezeSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, SubAccountService_UnfreezeSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) SetDefaultSubAccount(ctx context.Context, in *SetDefaultSubAccountRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, SubAccountService_SetDefaultSubAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) GetSubAccountBalance(ctx context.Context, in *GetSubAccountBalanceRequest, opts ...grpc.CallOption) (*SubAccountBalance, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubAccountBalance)
+	err := c.cc.Invoke(ctx, SubAccountService_GetSubAccountBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) GetSubAccountBalances(ctx context.Context, in *GetSubAccountBalancesRequest, opts ...grpc.CallOption) (*GetSubAccountBalancesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSubAccountBalancesResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_GetSubAccountBalances_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) GetAllSubAccountBalances(ctx context.Context, in *GetAllSubAccountBalancesRequest, opts ...grpc.CallOption) (*GetSubAccountBalancesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSubAccountBalancesResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_GetAllSubAccountBalances_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) TransferIn(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransferResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_TransferIn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) TransferOut(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransferResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_TransferOut_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *subAccountServiceClient) GetTransferHistory(ctx context.Context, in *GetTransferHistoryRequest, opts ...grpc.CallOption) (*GetTransferHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTransferHistoryResponse)
+	err := c.cc.Invoke(ctx, SubAccountService_GetTransferHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SubAccountServiceServer is the server API for SubAccountService service.
+// All implementations must embed UnimplementedSubAccountServiceServer
+// for forward compatibility.
+//
+// SubAccountService 提供子账户管理功能
+// 一个钱包可以创建多个独立的交易子账户
+type SubAccountServiceServer interface {
+	// CreateSubAccount 创建子账户
+	CreateSubAccount(context.Context, *CreateSubAccountRequest) (*CreateSubAccountResponse, error)
+	// GetSubAccount 获取子账户详情
+	GetSubAccount(context.Context, *GetSubAccountRequest) (*SubAccount, error)
+	// ListSubAccounts 获取钱包下所有子账户
+	ListSubAccounts(context.Context, *ListSubAccountsRequest) (*ListSubAccountsResponse, error)
+	// UpdateSubAccount 更新子账户 (名称、备注)
+	UpdateSubAccount(context.Context, *UpdateSubAccountRequest) (*emptypb.Empty, error)
+	// DeleteSubAccount 删除子账户
+	DeleteSubAccount(context.Context, *DeleteSubAccountRequest) (*emptypb.Empty, error)
+	// FreezeSubAccount 冻结子账户
+	FreezeSubAccount(context.Context, *FreezeSubAccountRequest) (*emptypb.Empty, error)
+	// UnfreezeSubAccount 解冻子账户
+	UnfreezeSubAccount(context.Context, *UnfreezeSubAccountRequest) (*emptypb.Empty, error)
+	// SetDefaultSubAccount 设置默认子账户
+	SetDefaultSubAccount(context.Context, *SetDefaultSubAccountRequest) (*emptypb.Empty, error)
+	// GetSubAccountBalance 获取子账户单个代币余额
+	GetSubAccountBalance(context.Context, *GetSubAccountBalanceRequest) (*SubAccountBalance, error)
+	// GetSubAccountBalances 获取子账户所有余额
+	GetSubAccountBalances(context.Context, *GetSubAccountBalancesRequest) (*GetSubAccountBalancesResponse, error)
+	// GetAllSubAccountBalances 获取钱包下所有子账户余额
+	GetAllSubAccountBalances(context.Context, *GetAllSubAccountBalancesRequest) (*GetSubAccountBalancesResponse, error)
+	// TransferIn 划入子账户 (主账户 → 子账户)
+	TransferIn(context.Context, *TransferRequest) (*TransferResponse, error)
+	// TransferOut 划出子账户 (子账户 → 主账户)
+	TransferOut(context.Context, *TransferRequest) (*TransferResponse, error)
+	// GetTransferHistory 获取划转历史
+	GetTransferHistory(context.Context, *GetTransferHistoryRequest) (*GetTransferHistoryResponse, error)
+	mustEmbedUnimplementedSubAccountServiceServer()
+}
+
+// UnimplementedSubAccountServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedSubAccountServiceServer struct{}
+
+func (UnimplementedSubAccountServiceServer) CreateSubAccount(context.Context, *CreateSubAccountRequest) (*CreateSubAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) GetSubAccount(context.Context, *GetSubAccountRequest) (*SubAccount, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) ListSubAccounts(context.Context, *ListSubAccountsRequest) (*ListSubAccountsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSubAccounts not implemented")
+}
+func (UnimplementedSubAccountServiceServer) UpdateSubAccount(context.Context, *UpdateSubAccountRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) DeleteSubAccount(context.Context, *DeleteSubAccountRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) FreezeSubAccount(context.Context, *FreezeSubAccountRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FreezeSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) UnfreezeSubAccount(context.Context, *UnfreezeSubAccountRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnfreezeSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) SetDefaultSubAccount(context.Context, *SetDefaultSubAccountRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultSubAccount not implemented")
+}
+func (UnimplementedSubAccountServiceServer) GetSubAccountBalance(context.Context, *GetSubAccountBalanceRequest) (*SubAccountBalance, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubAccountBalance not implemented")
+}
+func (UnimplementedSubAccountServiceServer) GetSubAccountBalances(context.Context, *GetSubAccountBalancesRequest) (*GetSubAccountBalancesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubAccountBalances not implemented")
+}
+func (UnimplementedSubAccountServiceServer) GetAllSubAccountBalances(context.Context, *GetAllSubAccountBalancesRequest) (*GetSubAccountBalancesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllSubAccountBalances not implemented")
+}
+func (UnimplementedSubAccountServiceServer) TransferIn(context.Context, *TransferRequest) (*TransferResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransferIn not implemented")
+}
+func (UnimplementedSubAccountServiceServer) TransferOut(context.Context, *TransferRequest) (*TransferResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransferOut not implemented")
+}
+func (UnimplementedSubAccountServiceServer) GetTransferHistory(context.Context, *GetTransferHistoryRequest) (*GetTransferHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTransferHistory not implemented")
+}
+func (UnimplementedSubAccountServiceServer) mustEmbedUnimplementedSubAccountServiceServer() {}
+func (UnimplementedSubAccountServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeSubAccountServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SubAccountServiceServer will
+// result in compilation errors.
+type UnsafeSubAccountServiceServer interface {
+	mustEmbedUnimplementedSubAccountServiceServer()
+}
+
+func RegisterSubAccountServiceServer(s grpc.ServiceRegistrar, srv SubAccountServiceServer) {
+	// If the following call pancis, it indicates UnimplementedSubAccountServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&SubAccountService_ServiceDesc, srv)
+}
+
+func _SubAccountService_CreateSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).CreateSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_CreateSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).CreateSubAccount(ctx, req.(*CreateSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_GetSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).GetSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_GetSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).GetSubAccount(ctx, req.(*GetSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_ListSubAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSubAccountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).ListSubAccounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_ListSubAccounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).ListSubAccounts(ctx, req.(*ListSubAccountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_UpdateSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).UpdateSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_UpdateSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).UpdateSubAccount(ctx, req.(*UpdateSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_DeleteSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).DeleteSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_DeleteSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).DeleteSubAccount(ctx, req.(*DeleteSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_FreezeSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FreezeSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).FreezeSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_FreezeSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).FreezeSubAccount(ctx, req.(*FreezeSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_UnfreezeSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnfreezeSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).UnfreezeSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_UnfreezeSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).UnfreezeSubAccount(ctx, req.(*UnfreezeSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_SetDefaultSubAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultSubAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).SetDefaultSubAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_SetDefaultSubAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).SetDefaultSubAccount(ctx, req.(*SetDefaultSubAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_GetSubAccountBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubAccountBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).GetSubAccountBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_GetSubAccountBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).GetSubAccountBalance(ctx, req.(*GetSubAccountBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_GetSubAccountBalances_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubAccountBalancesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).GetSubAccountBalances(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_GetSubAccountBalances_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).GetSubAccountBalances(ctx, req.(*GetSubAccountBalancesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_GetAllSubAccountBalances_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllSubAccountBalancesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).GetAllSubAccountBalances(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_GetAllSubAccountBalances_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).GetAllSubAccountBalances(ctx, req.(*GetAllSubAccountBalancesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_TransferIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).TransferIn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_TransferIn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).TransferIn(ctx, req.(*TransferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_TransferOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).TransferOut(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_TransferOut_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).TransferOut(ctx, req.(*TransferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SubAccountService_GetTransferHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTransferHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubAccountServiceServer).GetTransferHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubAccountService_GetTransferHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubAccountServiceServer).GetTransferHistory(ctx, req.(*GetTransferHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SubAccountService_ServiceDesc is the grpc.ServiceDesc for SubAccountService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SubAccountService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "eidos.trading.v1.SubAccountService",
+	HandlerType: (*SubAccountServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateSubAccount",
+			Handler:    _SubAccountService_CreateSubAccount_Handler,
+		},
+		{
+			MethodName: "GetSubAccount",
+			Handler:    _SubAccountService_GetSubAccount_Handler,
+		},
+		{
+			MethodName: "ListSubAccounts",
+			Handler:    _SubAccountService_ListSubAccounts_Handler,
+		},
+		{
+			MethodName: "UpdateSubAccount",
+			Handler:    _SubAccountService_UpdateSubAccount_Handler,
+		},
+		{
+			MethodName: "DeleteSubAccount",
+			Handler:    _SubAccountService_DeleteSubAccount_Handler,
+		},
+		{
+			MethodName: "FreezeSubAccount",
+			Handler:    _SubAccountService_FreezeSubAccount_Handler,
+		},
+		{
+			MethodName: "UnfreezeSubAccount",
+			Handler:    _SubAccountService_UnfreezeSubAccount_Handler,
+		},
+		{
+			MethodName: "SetDefaultSubAccount",
+			Handler:    _SubAccountService_SetDefaultSubAccount_Handler,
+		},
+		{
+			MethodName: "GetSubAccountBalance",
+			Handler:    _SubAccountService_GetSubAccountBalance_Handler,
+		},
+		{
+			MethodName: "GetSubAccountBalances",
+			Handler:    _SubAccountService_GetSubAccountBalances_Handler,
+		},
+		{
+			MethodName: "GetAllSubAccountBalances",
+			Handler:    _SubAccountService_GetAllSubAccountBalances_Handler,
+		},
+		{
+			MethodName: "TransferIn",
+			Handler:    _SubAccountService_TransferIn_Handler,
+		},
+		{
+			MethodName: "TransferOut",
+			Handler:    _SubAccountService_TransferOut_Handler,
+		},
+		{
+			MethodName: "GetTransferHistory",
+			Handler:    _SubAccountService_GetTransferHistory_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "trading/v1/trading.proto",
+}

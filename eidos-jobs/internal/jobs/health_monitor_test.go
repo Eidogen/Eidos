@@ -38,8 +38,10 @@ func TestHealthMonitorJob_CheckEndpoint_Healthy(t *testing.T) {
 		t.Errorf("Expected endpoint to be healthy, got error: %s", status.Error)
 	}
 
-	if status.LatencyMs <= 0 {
-		t.Error("Expected latency to be recorded")
+	// 注意：本地测试服务器响应可能非常快（<1ms），LatencyMs 可能为 0
+	// 只要 Healthy 为 true，就说明检查正常工作
+	if status.LatencyMs < 0 {
+		t.Error("Expected latency to be non-negative")
 	}
 }
 

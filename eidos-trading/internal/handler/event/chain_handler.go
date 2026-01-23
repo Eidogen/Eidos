@@ -143,3 +143,62 @@ func (h *SettlementConfirmedHandler) HandleEvent(ctx context.Context, eventType 
 func (h *SettlementConfirmedHandler) Topic() string {
 	return kafka.TopicSettlementConfirmed
 }
+
+// WithdrawalReviewResultHandler 处理提现审核结果事件 (来自 eidos-risk)
+type WithdrawalReviewResultHandler struct {
+	withdrawalService service.WithdrawalService
+}
+
+// NewWithdrawalReviewResultHandler 创建提现审核结果处理器
+func NewWithdrawalReviewResultHandler(withdrawalService service.WithdrawalService) *WithdrawalReviewResultHandler {
+	return &WithdrawalReviewResultHandler{
+		withdrawalService: withdrawalService,
+	}
+}
+
+// HandleEvent 实现 EventHandler 接口
+func (h *WithdrawalReviewResultHandler) HandleEvent(ctx context.Context, eventType string, payload []byte) error {
+	msg, err := worker.ParseWithdrawalReviewResult(payload)
+	if err != nil {
+		return fmt.Errorf("parse withdrawal review result: %w", err)
+	}
+
+	logger.Info("处理提现审核结果",
+		"withdrawal_id", msg.WithdrawalID,
+		"result", msg.Result,
+		"reviewer", msg.Reviewer,
+		"risk_score", msg.RiskScore,
+	)
+
+	// 根据审核结果调用对应服务方法
+	switch msg.Result {
+	case "approved":
+		if err := h.withdrawalService.ApproveWithdrawal(ctx, msg.WithdrawalID); err != nil {
+			return fmt.Errorf("approve withdrawal: %w", err)
+		}
+		logger.Info("提现审核通过已处理", "withdrawal_id", msg.WithdrawalID)
+
+	case "rejected":
+		reason := msg.Comment
+		if reason == "" {
+			reason = "风控审核拒绝"
+		}
+		if err := h.withdrawalService.RejectWithdrawal(ctx, msg.WithdrawalID, reason); err != nil {
+			return fmt.Errorf("reject withdrawal: %w", err)
+		}
+		logger.Info("提现审核拒绝已处理", "withdrawal_id", msg.WithdrawalID)
+
+	default:
+		logger.Warn("未知的审核结果",
+			"withdrawal_id", msg.WithdrawalID,
+			"result", msg.Result)
+		return fmt.Errorf("unknown review result: %s", msg.Result)
+	}
+
+	return nil
+}
+
+// Topic 返回处理的 topic
+func (h *WithdrawalReviewResultHandler) Topic() string {
+	return kafka.TopicWithdrawalReviewResults
+}

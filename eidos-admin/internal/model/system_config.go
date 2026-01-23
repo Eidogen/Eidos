@@ -48,6 +48,7 @@ func (ConfigVersion) TableName() string {
 const (
 	ConfigScopeGlobal        = "global"
 	ConfigScopeMarketConfigs = "market_configs"
+	ConfigScopeTokenConfigs  = "token_configs"
 	ConfigScopeSystemConfigs = "system_configs"
 	ConfigScopeRiskRules     = "risk_rules"
 )

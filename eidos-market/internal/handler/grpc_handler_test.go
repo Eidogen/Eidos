@@ -536,6 +536,18 @@ func (m *mockMarketService) GetRecentTrades(ctx context.Context, market string, 
 	return trades, nil
 }
 
+func (m *mockMarketService) GetTradeHistory(ctx context.Context, market string, startTime, endTime int64, limit int, fromID string) ([]*model.Trade, error) {
+	// 简单实现：返回最近交易作为历史记录
+	trades, ok := m.trades[market]
+	if !ok {
+		return []*model.Trade{}, nil
+	}
+	if limit > 0 && len(trades) > limit {
+		return trades[:limit], nil
+	}
+	return trades, nil
+}
+
 // ============ gRPC Handler Tests ============
 
 func TestMarketHandler_ListMarkets(t *testing.T) {
@@ -742,4 +754,8 @@ func (a *marketServiceAdapter) GetDepth(ctx context.Context, market string, limi
 
 func (a *marketServiceAdapter) GetRecentTrades(ctx context.Context, market string, limit int) ([]*model.Trade, error) {
 	return a.mock.GetRecentTrades(ctx, market, limit)
+}
+
+func (a *marketServiceAdapter) GetTradeHistory(ctx context.Context, market string, startTime, endTime int64, limit int, fromID string) ([]*model.Trade, error) {
+	return a.mock.GetTradeHistory(ctx, market, startTime, endTime, limit, fromID)
 }

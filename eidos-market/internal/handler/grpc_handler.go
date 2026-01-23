@@ -18,6 +18,7 @@ type MarketServiceInterface interface {
 	GetAllTickers(ctx context.Context) ([]*model.Ticker, error)
 	GetKlines(ctx context.Context, market string, interval model.KlineInterval, startTime, endTime int64, limit int) ([]*model.Kline, error)
 	GetDepth(ctx context.Context, market string, limit int) (*model.Depth, error)
+	GetDepthWithPrecision(ctx context.Context, market string, limit int, precision string) (*model.Depth, error)
 	GetRecentTrades(ctx context.Context, market string, limit int) ([]*model.Trade, error)
 	GetTradeHistory(ctx context.Context, market string, startTime, endTime int64, limit int, fromID string) ([]*model.Trade, error)
 }
@@ -162,7 +163,14 @@ func (h *MarketHandler) GetDepth(ctx context.Context, req *marketv1.GetDepthRequ
 		limit = model.NormalizeDepthLimit(limit)
 	}
 
-	depth, err := h.svc.GetDepth(ctx, req.Market, limit)
+	// 验证精度参数
+	precision := req.Precision
+	if precision != "" && !model.IsValidPrecision(precision) {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid precision: %s, valid values are: %v", precision, model.ValidPrecisions)
+	}
+
+	// 使用带精度的查询方法
+	depth, err := h.svc.GetDepthWithPrecision(ctx, req.Market, limit, precision)
 	if err != nil {
 		if err == service.ErrMarketNotFound {
 			return nil, status.Error(codes.NotFound, "market not found")

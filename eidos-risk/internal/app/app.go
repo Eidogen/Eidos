@@ -105,10 +105,15 @@ type App struct {
 	rateLimitCache *cache.RateLimitCache
 
 	// 服务层
-	riskSvc      *service.RiskService
-	blacklistSvc *service.BlacklistService
-	ruleSvc      *service.RuleService
-	eventSvc     *service.EventService
+	riskSvc            *service.RiskService
+	blacklistSvc       *service.BlacklistService
+	ruleSvc            *service.RuleService
+	eventSvc           *service.EventService
+	withdrawReviewSvc  *service.WithdrawalReviewService
+	whitelistSvc       *service.WhitelistService
+	alertSvc           *service.AlertService
+	tradeMonitorSvc    *service.TradeMonitorService   // 交易监控服务 (后置风控)
+	degradationSvc     *service.DegradationService    // 服务降级管理
 
 	// 链路追踪
 	tracingShutdown func(context.Context) error
@@ -199,6 +204,11 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// 4. 停止 Kafka 消费者
 	if a.kafkaConsumer != nil {
 		a.kafkaConsumer.Stop()
+	}
+
+	// 4.5 停止服务降级监控
+	if a.degradationSvc != nil {
+		a.degradationSvc.Stop()
 	}
 
 	// 5. 关闭 Kafka 生产者
@@ -354,7 +364,8 @@ func (a *App) initServices() {
 	eventRepo := repository.NewRiskEventRepository(a.db)
 	blacklistRepo := repository.NewBlacklistRepository(a.db)
 	auditRepo := repository.NewAuditLogRepository(a.db)
-	withdrawRepo := repository.NewWithdrawalReviewRepository(a.db)
+	withdrawReviewRepo := repository.NewWithdrawalReviewRepository(a.db)
+	whitelistRepo := repository.NewWhitelistRepository(a.db)
 
 	// 创建缓存层
 	blacklistCache := cache.NewBlacklistCache(a.redisClient)
@@ -370,7 +381,7 @@ func (a *App) initServices() {
 		eventRepo,
 		blacklistRepo,
 		auditRepo,
-		withdrawRepo,
+		withdrawReviewRepo,
 		blacklistCache,
 		a.rateLimitCache,
 		amountCache,
@@ -384,12 +395,48 @@ func (a *App) initServices() {
 	a.ruleSvc = service.NewRuleService(ruleRepo)
 	a.eventSvc = service.NewEventService(eventRepo)
 
+	// 初始化白名单服务
+	a.whitelistSvc = service.NewWhitelistService(whitelistRepo, withdrawCache)
+
+	// 初始化告警服务
+	a.alertSvc = service.NewAlertService(a.redisClient)
+
+	// 初始化服务降级管理
+	a.degradationSvc = service.NewDegradationService(a.redisClient, a.db, nil)
+	a.degradationSvc.Start(a.ctx)
+	// 将降级服务注入到风控服务
+	a.riskSvc.SetDegradationService(a.degradationSvc)
+
+	// 初始化提现审核服务
+	a.withdrawReviewSvc = service.NewWithdrawalReviewService(withdrawReviewRepo)
+	// 配置审核阈值（可从配置文件读取）
+	a.withdrawReviewSvc.SetConfig(
+		a.cfg.Risk.Withdrawal.AutoApproveThreshold, // 低于此分数自动通过（默认30）
+		a.cfg.Risk.Withdrawal.AutoRejectThreshold,  // 高于此分数自动拒绝（默认80）
+		time.Duration(a.cfg.Risk.Withdrawal.ReviewTimeoutHours)*time.Hour, // 审核超时时间（默认24小时）
+	)
+
 	// 设置 Kafka 回调
 	if a.kafkaProducer != nil {
 		alertCallback := a.kafkaProducer.RiskAlertCallback()
 		a.riskSvc.SetOnRiskAlert(alertCallback)
 		a.blacklistSvc.SetOnRiskAlert(alertCallback)
 		a.ruleSvc.SetOnRiskAlert(alertCallback)
+
+		// 设置提现审核回调 - 审核结果发送到 Kafka 通知 eidos-trading
+		a.withdrawReviewSvc.SetOnApproved(a.kafkaProducer.WithdrawalApprovedCallback())
+		a.withdrawReviewSvc.SetOnRejected(a.kafkaProducer.WithdrawalRejectedCallback())
+		a.withdrawReviewSvc.SetOnRiskAlert(alertCallback)
+	}
+
+	// 启动提现审核后台任务（处理过期审核）
+	a.withdrawReviewSvc.StartBackgroundTasks(a.ctx)
+
+	// 创建交易监控服务 (后置风控)
+	a.tradeMonitorSvc = service.NewTradeMonitorService(eventRepo, orderCache, marketCache)
+	// 设置 Kafka 告警回调
+	if a.kafkaProducer != nil {
+		a.tradeMonitorSvc.SetAlertCallback(a.kafkaProducer.RiskAlertCallback())
 	}
 
 	// 启动 Kafka 消费者
@@ -403,20 +450,21 @@ func (a *App) initServices() {
 			amountCache,
 			marketCache,
 			withdrawCache,
+			a.tradeMonitorSvc.TradeCallback(), // 传入交易监控回调
 		)
 		if err != nil {
-			logger.Error("failed to create kafka consumer", "error", err)
+			logger.Error("创建 Kafka consumer 失败", "error", err)
 		} else {
 			a.kafkaConsumer = consumer
 			go func() {
 				if err := consumer.Start(a.ctx); err != nil {
-					logger.Error("kafka consumer error", "error", err)
+					logger.Error("Kafka consumer 错误", "error", err)
 				}
 			}()
 		}
 	}
 
-	logger.Info("services initialized")
+	logger.Info("服务层初始化完成")
 }
 
 // warmupCache 预热缓存
@@ -475,6 +523,9 @@ func (a *App) startGRPC() error {
 		a.eventSvc,
 	)
 	riskHandler.SetRateLimitCache(a.rateLimitCache)
+	riskHandler.SetWithdrawReviewService(a.withdrawReviewSvc)
+	riskHandler.SetWhitelistService(a.whitelistSvc)
+	riskHandler.SetAlertService(a.alertSvc)
 	riskv1.RegisterRiskServiceServer(a.grpcServer, riskHandler)
 
 	// 注册健康检查

@@ -1227,8 +1227,9 @@ func (x *PriceLevel) GetAmount() string {
 
 type GetDepthRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Market        string                 `protobuf:"bytes,1,opt,name=market,proto3" json:"market,omitempty"` // 交易对
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // 档位数: 5, 10, 20, 50, 100，默认 20
+	Market        string                 `protobuf:"bytes,1,opt,name=market,proto3" json:"market,omitempty"`       // 交易对
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`        // 档位数: 5, 10, 20, 50, 100，默认 20
+	Precision     string                 `protobuf:"bytes,3,opt,name=precision,proto3" json:"precision,omitempty"` // 聚合精度: "0.001", "0.01", "0.1", "1", "10", "100"，为空表示不聚合
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1275,6 +1276,13 @@ func (x *GetDepthRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *GetDepthRequest) GetPrecision() string {
+	if x != nil {
+		return x.Precision
+	}
+	return ""
 }
 
 type GetDepthResponse struct {
@@ -1734,10 +1742,11 @@ const file_market_v1_market_service_proto_rawDesc = "" +
 	"\n" +
 	"PriceLevel\x12\x14\n" +
 	"\x05price\x18\x01 \x01(\tR\x05price\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\tR\x06amount\"?\n" +
+	"\x06amount\x18\x02 \x01(\tR\x06amount\"]\n" +
 	"\x0fGetDepthRequest\x12\x16\n" +
 	"\x06market\x18\x01 \x01(\tR\x06market\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xc6\x01\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x1c\n" +
+	"\tprecision\x18\x03 \x01(\tR\tprecision\"\xc6\x01\n" +
 	"\x10GetDepthResponse\x12\x16\n" +
 	"\x06market\x18\x01 \x01(\tR\x06market\x12/\n" +
 	"\x04bids\x18\x02 \x03(\v2\x1b.eidos.market.v1.PriceLevelR\x04bids\x12/\n" +

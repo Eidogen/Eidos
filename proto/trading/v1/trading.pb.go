@@ -3661,6 +3661,1368 @@ func (x *RollbackSettlementRequest) GetRolledBackAt() int64 {
 	return 0
 }
 
+// SubAccount 子账户信息
+type SubAccount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户唯一标识
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 所属钱包地址
+	Wallet string `protobuf:"bytes,2,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户名称
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// 子账户类型
+	Type common.SubAccountType `protobuf:"varint,4,opt,name=type,proto3,enum=eidos.common.v1.SubAccountType" json:"type,omitempty"`
+	// 子账户状态
+	Status common.SubAccountStatus `protobuf:"varint,5,opt,name=status,proto3,enum=eidos.common.v1.SubAccountStatus" json:"status,omitempty"`
+	// 是否为默认子账户
+	IsDefault bool `protobuf:"varint,6,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
+	// 备注
+	Remark string `protobuf:"bytes,7,opt,name=remark,proto3" json:"remark,omitempty"`
+	// 创建时间 (Unix 毫秒)
+	CreatedAt int64 `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// 更新时间 (Unix 毫秒)
+	UpdatedAt     int64 `protobuf:"varint,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubAccount) Reset() {
+	*x = SubAccount{}
+	mi := &file_trading_v1_trading_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubAccount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubAccount) ProtoMessage() {}
+
+func (x *SubAccount) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubAccount.ProtoReflect.Descriptor instead.
+func (*SubAccount) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *SubAccount) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *SubAccount) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *SubAccount) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SubAccount) GetType() common.SubAccountType {
+	if x != nil {
+		return x.Type
+	}
+	return common.SubAccountType(0)
+}
+
+func (x *SubAccount) GetStatus() common.SubAccountStatus {
+	if x != nil {
+		return x.Status
+	}
+	return common.SubAccountStatus(0)
+}
+
+func (x *SubAccount) GetIsDefault() bool {
+	if x != nil {
+		return x.IsDefault
+	}
+	return false
+}
+
+func (x *SubAccount) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *SubAccount) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *SubAccount) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+// SubAccountBalance 子账户余额
+type SubAccountBalance struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 钱包地址
+	Wallet string `protobuf:"bytes,2,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 代币符号
+	Token string `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
+	// 可用余额 (decimal string)
+	Available string `protobuf:"bytes,4,opt,name=available,proto3" json:"available,omitempty"`
+	// 冻结余额 (decimal string)
+	Frozen string `protobuf:"bytes,5,opt,name=frozen,proto3" json:"frozen,omitempty"`
+	// 总余额 (decimal string)
+	Total string `protobuf:"bytes,6,opt,name=total,proto3" json:"total,omitempty"`
+	// 更新时间 (Unix 毫秒)
+	UpdatedAt     int64 `protobuf:"varint,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubAccountBalance) Reset() {
+	*x = SubAccountBalance{}
+	mi := &file_trading_v1_trading_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubAccountBalance) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubAccountBalance) ProtoMessage() {}
+
+func (x *SubAccountBalance) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubAccountBalance.ProtoReflect.Descriptor instead.
+func (*SubAccountBalance) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *SubAccountBalance) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetAvailable() string {
+	if x != nil {
+		return x.Available
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetFrozen() string {
+	if x != nil {
+		return x.Frozen
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetTotal() string {
+	if x != nil {
+		return x.Total
+	}
+	return ""
+}
+
+func (x *SubAccountBalance) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+// SubAccountTransfer 划转记录
+type SubAccountTransfer struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 划转ID
+	TransferId string `protobuf:"bytes,1,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	// 钱包地址
+	Wallet string `protobuf:"bytes,2,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户ID
+	SubAccountId string `protobuf:"bytes,3,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 划转类型
+	Type common.SubAccountTransferType `protobuf:"varint,4,opt,name=type,proto3,enum=eidos.common.v1.SubAccountTransferType" json:"type,omitempty"`
+	// 代币符号
+	Token string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
+	// 划转金额 (decimal string)
+	Amount string `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	// 备注
+	Remark string `protobuf:"bytes,7,opt,name=remark,proto3" json:"remark,omitempty"`
+	// 创建时间 (Unix 毫秒)
+	CreatedAt     int64 `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubAccountTransfer) Reset() {
+	*x = SubAccountTransfer{}
+	mi := &file_trading_v1_trading_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubAccountTransfer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubAccountTransfer) ProtoMessage() {}
+
+func (x *SubAccountTransfer) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubAccountTransfer.ProtoReflect.Descriptor instead.
+func (*SubAccountTransfer) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SubAccountTransfer) GetTransferId() string {
+	if x != nil {
+		return x.TransferId
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetType() common.SubAccountTransferType {
+	if x != nil {
+		return x.Type
+	}
+	return common.SubAccountTransferType(0)
+}
+
+func (x *SubAccountTransfer) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *SubAccountTransfer) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// CreateSubAccountRequest 创建子账户请求
+type CreateSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户名称 (required, 2-50字符)
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// 子账户类型 (optional, 默认 TRADING)
+	Type          common.SubAccountType `protobuf:"varint,3,opt,name=type,proto3,enum=eidos.common.v1.SubAccountType" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSubAccountRequest) Reset() {
+	*x = CreateSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSubAccountRequest) ProtoMessage() {}
+
+func (x *CreateSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*CreateSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *CreateSubAccountRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *CreateSubAccountRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateSubAccountRequest) GetType() common.SubAccountType {
+	if x != nil {
+		return x.Type
+	}
+	return common.SubAccountType(0)
+}
+
+// CreateSubAccountResponse 创建子账户响应
+type CreateSubAccountResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 创建的子账户
+	SubAccount    *SubAccount `protobuf:"bytes,1,opt,name=sub_account,json=subAccount,proto3" json:"sub_account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSubAccountResponse) Reset() {
+	*x = CreateSubAccountResponse{}
+	mi := &file_trading_v1_trading_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSubAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSubAccountResponse) ProtoMessage() {}
+
+func (x *CreateSubAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSubAccountResponse.ProtoReflect.Descriptor instead.
+func (*CreateSubAccountResponse) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *CreateSubAccountResponse) GetSubAccount() *SubAccount {
+	if x != nil {
+		return x.SubAccount
+	}
+	return nil
+}
+
+// GetSubAccountRequest 获取子账户请求
+type GetSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId  string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubAccountRequest) Reset() {
+	*x = GetSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubAccountRequest) ProtoMessage() {}
+
+func (x *GetSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*GetSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *GetSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+// ListSubAccountsRequest 列出子账户请求
+type ListSubAccountsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet        string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubAccountsRequest) Reset() {
+	*x = ListSubAccountsRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubAccountsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubAccountsRequest) ProtoMessage() {}
+
+func (x *ListSubAccountsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubAccountsRequest.ProtoReflect.Descriptor instead.
+func (*ListSubAccountsRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListSubAccountsRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+// ListSubAccountsResponse 列出子账户响应
+type ListSubAccountsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户列表
+	SubAccounts   []*SubAccount `protobuf:"bytes,1,rep,name=sub_accounts,json=subAccounts,proto3" json:"sub_accounts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubAccountsResponse) Reset() {
+	*x = ListSubAccountsResponse{}
+	mi := &file_trading_v1_trading_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubAccountsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubAccountsResponse) ProtoMessage() {}
+
+func (x *ListSubAccountsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubAccountsResponse.ProtoReflect.Descriptor instead.
+func (*ListSubAccountsResponse) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListSubAccountsResponse) GetSubAccounts() []*SubAccount {
+	if x != nil {
+		return x.SubAccounts
+	}
+	return nil
+}
+
+// UpdateSubAccountRequest 更新子账户请求
+type UpdateSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 新名称 (optional)
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// 新备注 (optional)
+	Remark        string `protobuf:"bytes,3,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSubAccountRequest) Reset() {
+	*x = UpdateSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSubAccountRequest) ProtoMessage() {}
+
+func (x *UpdateSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *UpdateSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *UpdateSubAccountRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateSubAccountRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+// DeleteSubAccountRequest 删除子账户请求
+type DeleteSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId  string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSubAccountRequest) Reset() {
+	*x = DeleteSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSubAccountRequest) ProtoMessage() {}
+
+func (x *DeleteSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *DeleteSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+// FreezeSubAccountRequest 冻结子账户请求
+type FreezeSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 冻结原因 (optional)
+	Reason        string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FreezeSubAccountRequest) Reset() {
+	*x = FreezeSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FreezeSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FreezeSubAccountRequest) ProtoMessage() {}
+
+func (x *FreezeSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FreezeSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*FreezeSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *FreezeSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *FreezeSubAccountRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// UnfreezeSubAccountRequest 解冻子账户请求
+type UnfreezeSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId  string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnfreezeSubAccountRequest) Reset() {
+	*x = UnfreezeSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnfreezeSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnfreezeSubAccountRequest) ProtoMessage() {}
+
+func (x *UnfreezeSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnfreezeSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*UnfreezeSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *UnfreezeSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+// SetDefaultSubAccountRequest 设置默认子账户请求
+type SetDefaultSubAccountRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户ID (required)
+	SubAccountId  string `protobuf:"bytes,2,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetDefaultSubAccountRequest) Reset() {
+	*x = SetDefaultSubAccountRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetDefaultSubAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetDefaultSubAccountRequest) ProtoMessage() {}
+
+func (x *SetDefaultSubAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetDefaultSubAccountRequest.ProtoReflect.Descriptor instead.
+func (*SetDefaultSubAccountRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *SetDefaultSubAccountRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *SetDefaultSubAccountRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+// GetSubAccountBalanceRequest 获取子账户余额请求
+type GetSubAccountBalanceRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 代币符号 (required)
+	Token         string `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubAccountBalanceRequest) Reset() {
+	*x = GetSubAccountBalanceRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubAccountBalanceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubAccountBalanceRequest) ProtoMessage() {}
+
+func (x *GetSubAccountBalanceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubAccountBalanceRequest.ProtoReflect.Descriptor instead.
+func (*GetSubAccountBalanceRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *GetSubAccountBalanceRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *GetSubAccountBalanceRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+// GetSubAccountBalancesRequest 获取子账户所有余额请求
+type GetSubAccountBalancesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 子账户ID (required)
+	SubAccountId string `protobuf:"bytes,1,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 隐藏零余额 (optional)
+	HideZero      bool `protobuf:"varint,2,opt,name=hide_zero,json=hideZero,proto3" json:"hide_zero,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubAccountBalancesRequest) Reset() {
+	*x = GetSubAccountBalancesRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubAccountBalancesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubAccountBalancesRequest) ProtoMessage() {}
+
+func (x *GetSubAccountBalancesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubAccountBalancesRequest.ProtoReflect.Descriptor instead.
+func (*GetSubAccountBalancesRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *GetSubAccountBalancesRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *GetSubAccountBalancesRequest) GetHideZero() bool {
+	if x != nil {
+		return x.HideZero
+	}
+	return false
+}
+
+// GetAllSubAccountBalancesRequest 获取所有子账户余额请求
+type GetAllSubAccountBalancesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 隐藏零余额 (optional)
+	HideZero      bool `protobuf:"varint,2,opt,name=hide_zero,json=hideZero,proto3" json:"hide_zero,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAllSubAccountBalancesRequest) Reset() {
+	*x = GetAllSubAccountBalancesRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAllSubAccountBalancesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAllSubAccountBalancesRequest) ProtoMessage() {}
+
+func (x *GetAllSubAccountBalancesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAllSubAccountBalancesRequest.ProtoReflect.Descriptor instead.
+func (*GetAllSubAccountBalancesRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GetAllSubAccountBalancesRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *GetAllSubAccountBalancesRequest) GetHideZero() bool {
+	if x != nil {
+		return x.HideZero
+	}
+	return false
+}
+
+// GetSubAccountBalancesResponse 获取余额响应
+type GetSubAccountBalancesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 余额列表
+	Balances      []*SubAccountBalance `protobuf:"bytes,1,rep,name=balances,proto3" json:"balances,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubAccountBalancesResponse) Reset() {
+	*x = GetSubAccountBalancesResponse{}
+	mi := &file_trading_v1_trading_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubAccountBalancesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubAccountBalancesResponse) ProtoMessage() {}
+
+func (x *GetSubAccountBalancesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubAccountBalancesResponse.ProtoReflect.Descriptor instead.
+func (*GetSubAccountBalancesResponse) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetSubAccountBalancesResponse) GetBalances() []*SubAccountBalance {
+	if x != nil {
+		return x.Balances
+	}
+	return nil
+}
+
+// TransferRequest 划转请求
+type TransferRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户ID (required)
+	SubAccountId string `protobuf:"bytes,2,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 代币符号 (required)
+	Token string `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
+	// 划转金额 (required, decimal string)
+	Amount string `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	// 备注 (optional)
+	Remark        string `protobuf:"bytes,5,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransferRequest) Reset() {
+	*x = TransferRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferRequest) ProtoMessage() {}
+
+func (x *TransferRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferRequest.ProtoReflect.Descriptor instead.
+func (*TransferRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *TransferRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+// TransferResponse 划转响应
+type TransferResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 划转ID
+	TransferId    string `protobuf:"bytes,1,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransferResponse) Reset() {
+	*x = TransferResponse{}
+	mi := &file_trading_v1_trading_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferResponse) ProtoMessage() {}
+
+func (x *TransferResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferResponse.ProtoReflect.Descriptor instead.
+func (*TransferResponse) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *TransferResponse) GetTransferId() string {
+	if x != nil {
+		return x.TransferId
+	}
+	return ""
+}
+
+// GetTransferHistoryRequest 获取划转历史请求
+type GetTransferHistoryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 钱包地址 (required)
+	Wallet string `protobuf:"bytes,1,opt,name=wallet,proto3" json:"wallet,omitempty"`
+	// 子账户ID筛选 (optional)
+	SubAccountId string `protobuf:"bytes,2,opt,name=sub_account_id,json=subAccountId,proto3" json:"sub_account_id,omitempty"`
+	// 划转类型筛选 (optional)
+	Type common.SubAccountTransferType `protobuf:"varint,3,opt,name=type,proto3,enum=eidos.common.v1.SubAccountTransferType" json:"type,omitempty"`
+	// 代币符号筛选 (optional)
+	Token string `protobuf:"bytes,4,opt,name=token,proto3" json:"token,omitempty"`
+	// 开始时间 (Unix 毫秒, optional)
+	StartTime int64 `protobuf:"varint,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	// 结束时间 (Unix 毫秒, optional)
+	EndTime int64 `protobuf:"varint,6,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	// 页码 (1-indexed, 默认 1)
+	Page int32 `protobuf:"varint,7,opt,name=page,proto3" json:"page,omitempty"`
+	// 每页数量 (默认 20, 最大 100)
+	PageSize      int32 `protobuf:"varint,8,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTransferHistoryRequest) Reset() {
+	*x = GetTransferHistoryRequest{}
+	mi := &file_trading_v1_trading_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTransferHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTransferHistoryRequest) ProtoMessage() {}
+
+func (x *GetTransferHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTransferHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetTransferHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *GetTransferHistoryRequest) GetWallet() string {
+	if x != nil {
+		return x.Wallet
+	}
+	return ""
+}
+
+func (x *GetTransferHistoryRequest) GetSubAccountId() string {
+	if x != nil {
+		return x.SubAccountId
+	}
+	return ""
+}
+
+func (x *GetTransferHistoryRequest) GetType() common.SubAccountTransferType {
+	if x != nil {
+		return x.Type
+	}
+	return common.SubAccountTransferType(0)
+}
+
+func (x *GetTransferHistoryRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *GetTransferHistoryRequest) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
+func (x *GetTransferHistoryRequest) GetEndTime() int64 {
+	if x != nil {
+		return x.EndTime
+	}
+	return 0
+}
+
+func (x *GetTransferHistoryRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetTransferHistoryRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// GetTransferHistoryResponse 获取划转历史响应
+type GetTransferHistoryResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 划转记录列表
+	Transfers []*SubAccountTransfer `protobuf:"bytes,1,rep,name=transfers,proto3" json:"transfers,omitempty"`
+	// 总记录数
+	Total int64 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// 当前页码
+	Page int32 `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	// 每页数量
+	PageSize      int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTransferHistoryResponse) Reset() {
+	*x = GetTransferHistoryResponse{}
+	mi := &file_trading_v1_trading_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTransferHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTransferHistoryResponse) ProtoMessage() {}
+
+func (x *GetTransferHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trading_v1_trading_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTransferHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetTransferHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *GetTransferHistoryResponse) GetTransfers() []*SubAccountTransfer {
+	if x != nil {
+		return x.Transfers
+	}
+	return nil
+}
+
+func (x *GetTransferHistoryResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GetTransferHistoryResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetTransferHistoryResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
 // PrepareOrderRequest is the request to prepare an order for signing
 type PrepareOrderRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3686,7 +5048,7 @@ type PrepareOrderRequest struct {
 
 func (x *PrepareOrderRequest) Reset() {
 	*x = PrepareOrderRequest{}
-	mi := &file_trading_v1_trading_proto_msgTypes[38]
+	mi := &file_trading_v1_trading_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3698,7 +5060,7 @@ func (x *PrepareOrderRequest) String() string {
 func (*PrepareOrderRequest) ProtoMessage() {}
 
 func (x *PrepareOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[38]
+	mi := &file_trading_v1_trading_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3711,7 +5073,7 @@ func (x *PrepareOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareOrderRequest.ProtoReflect.Descriptor instead.
 func (*PrepareOrderRequest) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{38}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *PrepareOrderRequest) GetWallet() string {
@@ -3787,7 +5149,7 @@ type PrepareOrderResponse struct {
 
 func (x *PrepareOrderResponse) Reset() {
 	*x = PrepareOrderResponse{}
-	mi := &file_trading_v1_trading_proto_msgTypes[39]
+	mi := &file_trading_v1_trading_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3799,7 +5161,7 @@ func (x *PrepareOrderResponse) String() string {
 func (*PrepareOrderResponse) ProtoMessage() {}
 
 func (x *PrepareOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[39]
+	mi := &file_trading_v1_trading_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3812,7 +5174,7 @@ func (x *PrepareOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareOrderResponse.ProtoReflect.Descriptor instead.
 func (*PrepareOrderResponse) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{39}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *PrepareOrderResponse) GetOrderId() string {
@@ -3860,7 +5222,7 @@ type EIP712TypedData struct {
 
 func (x *EIP712TypedData) Reset() {
 	*x = EIP712TypedData{}
-	mi := &file_trading_v1_trading_proto_msgTypes[40]
+	mi := &file_trading_v1_trading_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3872,7 +5234,7 @@ func (x *EIP712TypedData) String() string {
 func (*EIP712TypedData) ProtoMessage() {}
 
 func (x *EIP712TypedData) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[40]
+	mi := &file_trading_v1_trading_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3885,7 +5247,7 @@ func (x *EIP712TypedData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EIP712TypedData.ProtoReflect.Descriptor instead.
 func (*EIP712TypedData) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{40}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *EIP712TypedData) GetTypes() map[string]*EIP712TypeList {
@@ -3926,7 +5288,7 @@ type EIP712TypeList struct {
 
 func (x *EIP712TypeList) Reset() {
 	*x = EIP712TypeList{}
-	mi := &file_trading_v1_trading_proto_msgTypes[41]
+	mi := &file_trading_v1_trading_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3938,7 +5300,7 @@ func (x *EIP712TypeList) String() string {
 func (*EIP712TypeList) ProtoMessage() {}
 
 func (x *EIP712TypeList) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[41]
+	mi := &file_trading_v1_trading_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3951,7 +5313,7 @@ func (x *EIP712TypeList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EIP712TypeList.ProtoReflect.Descriptor instead.
 func (*EIP712TypeList) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{41}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *EIP712TypeList) GetTypes() []*EIP712Type {
@@ -3974,7 +5336,7 @@ type EIP712Type struct {
 
 func (x *EIP712Type) Reset() {
 	*x = EIP712Type{}
-	mi := &file_trading_v1_trading_proto_msgTypes[42]
+	mi := &file_trading_v1_trading_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3986,7 +5348,7 @@ func (x *EIP712Type) String() string {
 func (*EIP712Type) ProtoMessage() {}
 
 func (x *EIP712Type) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[42]
+	mi := &file_trading_v1_trading_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3999,7 +5361,7 @@ func (x *EIP712Type) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EIP712Type.ProtoReflect.Descriptor instead.
 func (*EIP712Type) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{42}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *EIP712Type) GetName() string {
@@ -4033,7 +5395,7 @@ type EIP712Domain struct {
 
 func (x *EIP712Domain) Reset() {
 	*x = EIP712Domain{}
-	mi := &file_trading_v1_trading_proto_msgTypes[43]
+	mi := &file_trading_v1_trading_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4045,7 +5407,7 @@ func (x *EIP712Domain) String() string {
 func (*EIP712Domain) ProtoMessage() {}
 
 func (x *EIP712Domain) ProtoReflect() protoreflect.Message {
-	mi := &file_trading_v1_trading_proto_msgTypes[43]
+	mi := &file_trading_v1_trading_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4058,7 +5420,7 @@ func (x *EIP712Domain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EIP712Domain.ProtoReflect.Descriptor instead.
 func (*EIP712Domain) Descriptor() ([]byte, []int) {
-	return file_trading_v1_trading_proto_rawDescGZIP(), []int{43}
+	return file_trading_v1_trading_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *EIP712Domain) GetName() string {
@@ -4423,7 +5785,103 @@ const file_trading_v1_trading_proto_rawDesc = "" +
 	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x1d\n" +
 	"\n" +
 	"error_code\x18\x04 \x01(\tR\terrorCode\x12$\n" +
-	"\x0erolled_back_at\x18\x05 \x01(\x03R\frolledBackAt\"\xbd\x02\n" +
+	"\x0erolled_back_at\x18\x05 \x01(\x03R\frolledBackAt\"\xc3\x02\n" +
+	"\n" +
+	"SubAccount\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x16\n" +
+	"\x06wallet\x18\x02 \x01(\tR\x06wallet\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x123\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x1f.eidos.common.v1.SubAccountTypeR\x04type\x129\n" +
+	"\x06status\x18\x05 \x01(\x0e2!.eidos.common.v1.SubAccountStatusR\x06status\x12\x1d\n" +
+	"\n" +
+	"is_default\x18\x06 \x01(\bR\tisDefault\x12\x16\n" +
+	"\x06remark\x18\a \x01(\tR\x06remark\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\x03R\tupdatedAt\"\xd2\x01\n" +
+	"\x11SubAccountBalance\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x16\n" +
+	"\x06wallet\x18\x02 \x01(\tR\x06wallet\x12\x14\n" +
+	"\x05token\x18\x03 \x01(\tR\x05token\x12\x1c\n" +
+	"\tavailable\x18\x04 \x01(\tR\tavailable\x12\x16\n" +
+	"\x06frozen\x18\x05 \x01(\tR\x06frozen\x12\x14\n" +
+	"\x05total\x18\x06 \x01(\tR\x05total\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\x03R\tupdatedAt\"\x95\x02\n" +
+	"\x12SubAccountTransfer\x12\x1f\n" +
+	"\vtransfer_id\x18\x01 \x01(\tR\n" +
+	"transferId\x12\x16\n" +
+	"\x06wallet\x18\x02 \x01(\tR\x06wallet\x12$\n" +
+	"\x0esub_account_id\x18\x03 \x01(\tR\fsubAccountId\x12;\n" +
+	"\x04type\x18\x04 \x01(\x0e2'.eidos.common.v1.SubAccountTransferTypeR\x04type\x12\x14\n" +
+	"\x05token\x18\x05 \x01(\tR\x05token\x12\x16\n" +
+	"\x06amount\x18\x06 \x01(\tR\x06amount\x12\x16\n" +
+	"\x06remark\x18\a \x01(\tR\x06remark\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\x03R\tcreatedAt\"z\n" +
+	"\x17CreateSubAccountRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x1f.eidos.common.v1.SubAccountTypeR\x04type\"Y\n" +
+	"\x18CreateSubAccountResponse\x12=\n" +
+	"\vsub_account\x18\x01 \x01(\v2\x1c.eidos.trading.v1.SubAccountR\n" +
+	"subAccount\"<\n" +
+	"\x14GetSubAccountRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\"0\n" +
+	"\x16ListSubAccountsRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\"Z\n" +
+	"\x17ListSubAccountsResponse\x12?\n" +
+	"\fsub_accounts\x18\x01 \x03(\v2\x1c.eidos.trading.v1.SubAccountR\vsubAccounts\"k\n" +
+	"\x17UpdateSubAccountRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06remark\x18\x03 \x01(\tR\x06remark\"?\n" +
+	"\x17DeleteSubAccountRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\"W\n" +
+	"\x17FreezeSubAccountRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"A\n" +
+	"\x19UnfreezeSubAccountRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\"[\n" +
+	"\x1bSetDefaultSubAccountRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12$\n" +
+	"\x0esub_account_id\x18\x02 \x01(\tR\fsubAccountId\"Y\n" +
+	"\x1bGetSubAccountBalanceRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\"a\n" +
+	"\x1cGetSubAccountBalancesRequest\x12$\n" +
+	"\x0esub_account_id\x18\x01 \x01(\tR\fsubAccountId\x12\x1b\n" +
+	"\thide_zero\x18\x02 \x01(\bR\bhideZero\"V\n" +
+	"\x1fGetAllSubAccountBalancesRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12\x1b\n" +
+	"\thide_zero\x18\x02 \x01(\bR\bhideZero\"`\n" +
+	"\x1dGetSubAccountBalancesResponse\x12?\n" +
+	"\bbalances\x18\x01 \x03(\v2#.eidos.trading.v1.SubAccountBalanceR\bbalances\"\x95\x01\n" +
+	"\x0fTransferRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12$\n" +
+	"\x0esub_account_id\x18\x02 \x01(\tR\fsubAccountId\x12\x14\n" +
+	"\x05token\x18\x03 \x01(\tR\x05token\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\x12\x16\n" +
+	"\x06remark\x18\x05 \x01(\tR\x06remark\"3\n" +
+	"\x10TransferResponse\x12\x1f\n" +
+	"\vtransfer_id\x18\x01 \x01(\tR\n" +
+	"transferId\"\x97\x02\n" +
+	"\x19GetTransferHistoryRequest\x12\x16\n" +
+	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12$\n" +
+	"\x0esub_account_id\x18\x02 \x01(\tR\fsubAccountId\x12;\n" +
+	"\x04type\x18\x03 \x01(\x0e2'.eidos.common.v1.SubAccountTransferTypeR\x04type\x12\x14\n" +
+	"\x05token\x18\x04 \x01(\tR\x05token\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x05 \x01(\x03R\tstartTime\x12\x19\n" +
+	"\bend_time\x18\x06 \x01(\x03R\aendTime\x12\x12\n" +
+	"\x04page\x18\a \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\b \x01(\x05R\bpageSize\"\xa7\x01\n" +
+	"\x1aGetTransferHistoryResponse\x12B\n" +
+	"\ttransfers\x18\x01 \x03(\v2$.eidos.trading.v1.SubAccountTransferR\ttransfers\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"\xbd\x02\n" +
 	"\x13PrepareOrderRequest\x12\x16\n" +
 	"\x06wallet\x18\x01 \x01(\tR\x06wallet\x12\x16\n" +
 	"\x06market\x18\x02 \x01(\tR\x06market\x12.\n" +
@@ -4490,7 +5948,24 @@ const file_trading_v1_trading_proto_rawDesc = "" +
 	"\x12ProcessTradeResult\x12+.eidos.trading.v1.ProcessTradeResultRequest\x1a\x16.google.protobuf.Empty\x12[\n" +
 	"\x13ProcessDepositEvent\x12,.eidos.trading.v1.ProcessDepositEventRequest\x1a\x16.google.protobuf.Empty\x12W\n" +
 	"\x11ConfirmSettlement\x12*.eidos.trading.v1.ConfirmSettlementRequest\x1a\x16.google.protobuf.Empty\x12Y\n" +
-	"\x12RollbackSettlement\x12+.eidos.trading.v1.RollbackSettlementRequest\x1a\x16.google.protobuf.EmptyB<Z:github.com/eidos-exchange/eidos/proto/trading/v1;tradingv1b\x06proto3"
+	"\x12RollbackSettlement\x12+.eidos.trading.v1.RollbackSettlementRequest\x1a\x16.google.protobuf.Empty2\xfe\n" +
+	"\n" +
+	"\x11SubAccountService\x12i\n" +
+	"\x10CreateSubAccount\x12).eidos.trading.v1.CreateSubAccountRequest\x1a*.eidos.trading.v1.CreateSubAccountResponse\x12U\n" +
+	"\rGetSubAccount\x12&.eidos.trading.v1.GetSubAccountRequest\x1a\x1c.eidos.trading.v1.SubAccount\x12f\n" +
+	"\x0fListSubAccounts\x12(.eidos.trading.v1.ListSubAccountsRequest\x1a).eidos.trading.v1.ListSubAccountsResponse\x12U\n" +
+	"\x10UpdateSubAccount\x12).eidos.trading.v1.UpdateSubAccountRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
+	"\x10DeleteSubAccount\x12).eidos.trading.v1.DeleteSubAccountRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
+	"\x10FreezeSubAccount\x12).eidos.trading.v1.FreezeSubAccountRequest\x1a\x16.google.protobuf.Empty\x12Y\n" +
+	"\x12UnfreezeSubAccount\x12+.eidos.trading.v1.UnfreezeSubAccountRequest\x1a\x16.google.protobuf.Empty\x12]\n" +
+	"\x14SetDefaultSubAccount\x12-.eidos.trading.v1.SetDefaultSubAccountRequest\x1a\x16.google.protobuf.Empty\x12j\n" +
+	"\x14GetSubAccountBalance\x12-.eidos.trading.v1.GetSubAccountBalanceRequest\x1a#.eidos.trading.v1.SubAccountBalance\x12x\n" +
+	"\x15GetSubAccountBalances\x12..eidos.trading.v1.GetSubAccountBalancesRequest\x1a/.eidos.trading.v1.GetSubAccountBalancesResponse\x12~\n" +
+	"\x18GetAllSubAccountBalances\x121.eidos.trading.v1.GetAllSubAccountBalancesRequest\x1a/.eidos.trading.v1.GetSubAccountBalancesResponse\x12S\n" +
+	"\n" +
+	"TransferIn\x12!.eidos.trading.v1.TransferRequest\x1a\".eidos.trading.v1.TransferResponse\x12T\n" +
+	"\vTransferOut\x12!.eidos.trading.v1.TransferRequest\x1a\".eidos.trading.v1.TransferResponse\x12o\n" +
+	"\x12GetTransferHistory\x12+.eidos.trading.v1.GetTransferHistoryRequest\x1a,.eidos.trading.v1.GetTransferHistoryResponseB<Z:github.com/eidos-exchange/eidos/proto/trading/v1;tradingv1b\x06proto3"
 
 var (
 	file_trading_v1_trading_proto_rawDescOnce sync.Once
@@ -4504,160 +5979,221 @@ func file_trading_v1_trading_proto_rawDescGZIP() []byte {
 	return file_trading_v1_trading_proto_rawDescData
 }
 
-var file_trading_v1_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
+var file_trading_v1_trading_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_trading_v1_trading_proto_goTypes = []any{
-	(*Order)(nil),                      // 0: eidos.trading.v1.Order
-	(*CreateOrderRequest)(nil),         // 1: eidos.trading.v1.CreateOrderRequest
-	(*CreateOrderResponse)(nil),        // 2: eidos.trading.v1.CreateOrderResponse
-	(*CancelOrderRequest)(nil),         // 3: eidos.trading.v1.CancelOrderRequest
-	(*BatchCancelOrdersRequest)(nil),   // 4: eidos.trading.v1.BatchCancelOrdersRequest
-	(*BatchCancelOrdersResponse)(nil),  // 5: eidos.trading.v1.BatchCancelOrdersResponse
-	(*CancelFailure)(nil),              // 6: eidos.trading.v1.CancelFailure
-	(*GetOrderRequest)(nil),            // 7: eidos.trading.v1.GetOrderRequest
-	(*ListOrdersRequest)(nil),          // 8: eidos.trading.v1.ListOrdersRequest
-	(*ListOrdersResponse)(nil),         // 9: eidos.trading.v1.ListOrdersResponse
-	(*ListOpenOrdersRequest)(nil),      // 10: eidos.trading.v1.ListOpenOrdersRequest
-	(*Balance)(nil),                    // 11: eidos.trading.v1.Balance
-	(*GetBalanceRequest)(nil),          // 12: eidos.trading.v1.GetBalanceRequest
-	(*GetBalancesRequest)(nil),         // 13: eidos.trading.v1.GetBalancesRequest
-	(*GetBalancesResponse)(nil),        // 14: eidos.trading.v1.GetBalancesResponse
-	(*BalanceLog)(nil),                 // 15: eidos.trading.v1.BalanceLog
-	(*GetBalanceLogsRequest)(nil),      // 16: eidos.trading.v1.GetBalanceLogsRequest
-	(*GetBalanceLogsResponse)(nil),     // 17: eidos.trading.v1.GetBalanceLogsResponse
-	(*Trade)(nil),                      // 18: eidos.trading.v1.Trade
-	(*GetTradeRequest)(nil),            // 19: eidos.trading.v1.GetTradeRequest
-	(*ListTradesRequest)(nil),          // 20: eidos.trading.v1.ListTradesRequest
-	(*ListTradesResponse)(nil),         // 21: eidos.trading.v1.ListTradesResponse
-	(*ListTradesByOrderRequest)(nil),   // 22: eidos.trading.v1.ListTradesByOrderRequest
-	(*Deposit)(nil),                    // 23: eidos.trading.v1.Deposit
-	(*GetDepositRequest)(nil),          // 24: eidos.trading.v1.GetDepositRequest
-	(*ListDepositsRequest)(nil),        // 25: eidos.trading.v1.ListDepositsRequest
-	(*ListDepositsResponse)(nil),       // 26: eidos.trading.v1.ListDepositsResponse
-	(*Withdrawal)(nil),                 // 27: eidos.trading.v1.Withdrawal
-	(*CreateWithdrawalRequest)(nil),    // 28: eidos.trading.v1.CreateWithdrawalRequest
-	(*CreateWithdrawalResponse)(nil),   // 29: eidos.trading.v1.CreateWithdrawalResponse
-	(*CancelWithdrawalRequest)(nil),    // 30: eidos.trading.v1.CancelWithdrawalRequest
-	(*GetWithdrawalRequest)(nil),       // 31: eidos.trading.v1.GetWithdrawalRequest
-	(*ListWithdrawalsRequest)(nil),     // 32: eidos.trading.v1.ListWithdrawalsRequest
-	(*ListWithdrawalsResponse)(nil),    // 33: eidos.trading.v1.ListWithdrawalsResponse
-	(*ProcessTradeResultRequest)(nil),  // 34: eidos.trading.v1.ProcessTradeResultRequest
-	(*ProcessDepositEventRequest)(nil), // 35: eidos.trading.v1.ProcessDepositEventRequest
-	(*ConfirmSettlementRequest)(nil),   // 36: eidos.trading.v1.ConfirmSettlementRequest
-	(*RollbackSettlementRequest)(nil),  // 37: eidos.trading.v1.RollbackSettlementRequest
-	(*PrepareOrderRequest)(nil),        // 38: eidos.trading.v1.PrepareOrderRequest
-	(*PrepareOrderResponse)(nil),       // 39: eidos.trading.v1.PrepareOrderResponse
-	(*EIP712TypedData)(nil),            // 40: eidos.trading.v1.EIP712TypedData
-	(*EIP712TypeList)(nil),             // 41: eidos.trading.v1.EIP712TypeList
-	(*EIP712Type)(nil),                 // 42: eidos.trading.v1.EIP712Type
-	(*EIP712Domain)(nil),               // 43: eidos.trading.v1.EIP712Domain
-	nil,                                // 44: eidos.trading.v1.EIP712TypedData.TypesEntry
-	nil,                                // 45: eidos.trading.v1.EIP712TypedData.MessageEntry
-	(common.OrderSide)(0),              // 46: eidos.common.v1.OrderSide
-	(common.OrderType)(0),              // 47: eidos.common.v1.OrderType
-	(common.OrderStatus)(0),            // 48: eidos.common.v1.OrderStatus
-	(common.TimeInForce)(0),            // 49: eidos.common.v1.TimeInForce
-	(common.SelfTradePrevention)(0),    // 50: eidos.common.v1.SelfTradePrevention
-	(common.BalanceChangeType)(0),      // 51: eidos.common.v1.BalanceChangeType
-	(common.SettlementStatus)(0),       // 52: eidos.common.v1.SettlementStatus
-	(common.DepositStatus)(0),          // 53: eidos.common.v1.DepositStatus
-	(common.WithdrawStatus)(0),         // 54: eidos.common.v1.WithdrawStatus
-	(*emptypb.Empty)(nil),              // 55: google.protobuf.Empty
+	(*Order)(nil),                           // 0: eidos.trading.v1.Order
+	(*CreateOrderRequest)(nil),              // 1: eidos.trading.v1.CreateOrderRequest
+	(*CreateOrderResponse)(nil),             // 2: eidos.trading.v1.CreateOrderResponse
+	(*CancelOrderRequest)(nil),              // 3: eidos.trading.v1.CancelOrderRequest
+	(*BatchCancelOrdersRequest)(nil),        // 4: eidos.trading.v1.BatchCancelOrdersRequest
+	(*BatchCancelOrdersResponse)(nil),       // 5: eidos.trading.v1.BatchCancelOrdersResponse
+	(*CancelFailure)(nil),                   // 6: eidos.trading.v1.CancelFailure
+	(*GetOrderRequest)(nil),                 // 7: eidos.trading.v1.GetOrderRequest
+	(*ListOrdersRequest)(nil),               // 8: eidos.trading.v1.ListOrdersRequest
+	(*ListOrdersResponse)(nil),              // 9: eidos.trading.v1.ListOrdersResponse
+	(*ListOpenOrdersRequest)(nil),           // 10: eidos.trading.v1.ListOpenOrdersRequest
+	(*Balance)(nil),                         // 11: eidos.trading.v1.Balance
+	(*GetBalanceRequest)(nil),               // 12: eidos.trading.v1.GetBalanceRequest
+	(*GetBalancesRequest)(nil),              // 13: eidos.trading.v1.GetBalancesRequest
+	(*GetBalancesResponse)(nil),             // 14: eidos.trading.v1.GetBalancesResponse
+	(*BalanceLog)(nil),                      // 15: eidos.trading.v1.BalanceLog
+	(*GetBalanceLogsRequest)(nil),           // 16: eidos.trading.v1.GetBalanceLogsRequest
+	(*GetBalanceLogsResponse)(nil),          // 17: eidos.trading.v1.GetBalanceLogsResponse
+	(*Trade)(nil),                           // 18: eidos.trading.v1.Trade
+	(*GetTradeRequest)(nil),                 // 19: eidos.trading.v1.GetTradeRequest
+	(*ListTradesRequest)(nil),               // 20: eidos.trading.v1.ListTradesRequest
+	(*ListTradesResponse)(nil),              // 21: eidos.trading.v1.ListTradesResponse
+	(*ListTradesByOrderRequest)(nil),        // 22: eidos.trading.v1.ListTradesByOrderRequest
+	(*Deposit)(nil),                         // 23: eidos.trading.v1.Deposit
+	(*GetDepositRequest)(nil),               // 24: eidos.trading.v1.GetDepositRequest
+	(*ListDepositsRequest)(nil),             // 25: eidos.trading.v1.ListDepositsRequest
+	(*ListDepositsResponse)(nil),            // 26: eidos.trading.v1.ListDepositsResponse
+	(*Withdrawal)(nil),                      // 27: eidos.trading.v1.Withdrawal
+	(*CreateWithdrawalRequest)(nil),         // 28: eidos.trading.v1.CreateWithdrawalRequest
+	(*CreateWithdrawalResponse)(nil),        // 29: eidos.trading.v1.CreateWithdrawalResponse
+	(*CancelWithdrawalRequest)(nil),         // 30: eidos.trading.v1.CancelWithdrawalRequest
+	(*GetWithdrawalRequest)(nil),            // 31: eidos.trading.v1.GetWithdrawalRequest
+	(*ListWithdrawalsRequest)(nil),          // 32: eidos.trading.v1.ListWithdrawalsRequest
+	(*ListWithdrawalsResponse)(nil),         // 33: eidos.trading.v1.ListWithdrawalsResponse
+	(*ProcessTradeResultRequest)(nil),       // 34: eidos.trading.v1.ProcessTradeResultRequest
+	(*ProcessDepositEventRequest)(nil),      // 35: eidos.trading.v1.ProcessDepositEventRequest
+	(*ConfirmSettlementRequest)(nil),        // 36: eidos.trading.v1.ConfirmSettlementRequest
+	(*RollbackSettlementRequest)(nil),       // 37: eidos.trading.v1.RollbackSettlementRequest
+	(*SubAccount)(nil),                      // 38: eidos.trading.v1.SubAccount
+	(*SubAccountBalance)(nil),               // 39: eidos.trading.v1.SubAccountBalance
+	(*SubAccountTransfer)(nil),              // 40: eidos.trading.v1.SubAccountTransfer
+	(*CreateSubAccountRequest)(nil),         // 41: eidos.trading.v1.CreateSubAccountRequest
+	(*CreateSubAccountResponse)(nil),        // 42: eidos.trading.v1.CreateSubAccountResponse
+	(*GetSubAccountRequest)(nil),            // 43: eidos.trading.v1.GetSubAccountRequest
+	(*ListSubAccountsRequest)(nil),          // 44: eidos.trading.v1.ListSubAccountsRequest
+	(*ListSubAccountsResponse)(nil),         // 45: eidos.trading.v1.ListSubAccountsResponse
+	(*UpdateSubAccountRequest)(nil),         // 46: eidos.trading.v1.UpdateSubAccountRequest
+	(*DeleteSubAccountRequest)(nil),         // 47: eidos.trading.v1.DeleteSubAccountRequest
+	(*FreezeSubAccountRequest)(nil),         // 48: eidos.trading.v1.FreezeSubAccountRequest
+	(*UnfreezeSubAccountRequest)(nil),       // 49: eidos.trading.v1.UnfreezeSubAccountRequest
+	(*SetDefaultSubAccountRequest)(nil),     // 50: eidos.trading.v1.SetDefaultSubAccountRequest
+	(*GetSubAccountBalanceRequest)(nil),     // 51: eidos.trading.v1.GetSubAccountBalanceRequest
+	(*GetSubAccountBalancesRequest)(nil),    // 52: eidos.trading.v1.GetSubAccountBalancesRequest
+	(*GetAllSubAccountBalancesRequest)(nil), // 53: eidos.trading.v1.GetAllSubAccountBalancesRequest
+	(*GetSubAccountBalancesResponse)(nil),   // 54: eidos.trading.v1.GetSubAccountBalancesResponse
+	(*TransferRequest)(nil),                 // 55: eidos.trading.v1.TransferRequest
+	(*TransferResponse)(nil),                // 56: eidos.trading.v1.TransferResponse
+	(*GetTransferHistoryRequest)(nil),       // 57: eidos.trading.v1.GetTransferHistoryRequest
+	(*GetTransferHistoryResponse)(nil),      // 58: eidos.trading.v1.GetTransferHistoryResponse
+	(*PrepareOrderRequest)(nil),             // 59: eidos.trading.v1.PrepareOrderRequest
+	(*PrepareOrderResponse)(nil),            // 60: eidos.trading.v1.PrepareOrderResponse
+	(*EIP712TypedData)(nil),                 // 61: eidos.trading.v1.EIP712TypedData
+	(*EIP712TypeList)(nil),                  // 62: eidos.trading.v1.EIP712TypeList
+	(*EIP712Type)(nil),                      // 63: eidos.trading.v1.EIP712Type
+	(*EIP712Domain)(nil),                    // 64: eidos.trading.v1.EIP712Domain
+	nil,                                     // 65: eidos.trading.v1.EIP712TypedData.TypesEntry
+	nil,                                     // 66: eidos.trading.v1.EIP712TypedData.MessageEntry
+	(common.OrderSide)(0),                   // 67: eidos.common.v1.OrderSide
+	(common.OrderType)(0),                   // 68: eidos.common.v1.OrderType
+	(common.OrderStatus)(0),                 // 69: eidos.common.v1.OrderStatus
+	(common.TimeInForce)(0),                 // 70: eidos.common.v1.TimeInForce
+	(common.SelfTradePrevention)(0),         // 71: eidos.common.v1.SelfTradePrevention
+	(common.BalanceChangeType)(0),           // 72: eidos.common.v1.BalanceChangeType
+	(common.SettlementStatus)(0),            // 73: eidos.common.v1.SettlementStatus
+	(common.DepositStatus)(0),               // 74: eidos.common.v1.DepositStatus
+	(common.WithdrawStatus)(0),              // 75: eidos.common.v1.WithdrawStatus
+	(common.SubAccountType)(0),              // 76: eidos.common.v1.SubAccountType
+	(common.SubAccountStatus)(0),            // 77: eidos.common.v1.SubAccountStatus
+	(common.SubAccountTransferType)(0),      // 78: eidos.common.v1.SubAccountTransferType
+	(*emptypb.Empty)(nil),                   // 79: google.protobuf.Empty
 }
 var file_trading_v1_trading_proto_depIdxs = []int32{
-	46, // 0: eidos.trading.v1.Order.side:type_name -> eidos.common.v1.OrderSide
-	47, // 1: eidos.trading.v1.Order.type:type_name -> eidos.common.v1.OrderType
-	48, // 2: eidos.trading.v1.Order.status:type_name -> eidos.common.v1.OrderStatus
-	49, // 3: eidos.trading.v1.Order.time_in_force:type_name -> eidos.common.v1.TimeInForce
-	50, // 4: eidos.trading.v1.Order.self_trade_prevention:type_name -> eidos.common.v1.SelfTradePrevention
-	46, // 5: eidos.trading.v1.CreateOrderRequest.side:type_name -> eidos.common.v1.OrderSide
-	47, // 6: eidos.trading.v1.CreateOrderRequest.type:type_name -> eidos.common.v1.OrderType
-	49, // 7: eidos.trading.v1.CreateOrderRequest.time_in_force:type_name -> eidos.common.v1.TimeInForce
-	50, // 8: eidos.trading.v1.CreateOrderRequest.self_trade_prevention:type_name -> eidos.common.v1.SelfTradePrevention
+	67, // 0: eidos.trading.v1.Order.side:type_name -> eidos.common.v1.OrderSide
+	68, // 1: eidos.trading.v1.Order.type:type_name -> eidos.common.v1.OrderType
+	69, // 2: eidos.trading.v1.Order.status:type_name -> eidos.common.v1.OrderStatus
+	70, // 3: eidos.trading.v1.Order.time_in_force:type_name -> eidos.common.v1.TimeInForce
+	71, // 4: eidos.trading.v1.Order.self_trade_prevention:type_name -> eidos.common.v1.SelfTradePrevention
+	67, // 5: eidos.trading.v1.CreateOrderRequest.side:type_name -> eidos.common.v1.OrderSide
+	68, // 6: eidos.trading.v1.CreateOrderRequest.type:type_name -> eidos.common.v1.OrderType
+	70, // 7: eidos.trading.v1.CreateOrderRequest.time_in_force:type_name -> eidos.common.v1.TimeInForce
+	71, // 8: eidos.trading.v1.CreateOrderRequest.self_trade_prevention:type_name -> eidos.common.v1.SelfTradePrevention
 	0,  // 9: eidos.trading.v1.CreateOrderResponse.order:type_name -> eidos.trading.v1.Order
-	46, // 10: eidos.trading.v1.BatchCancelOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
+	67, // 10: eidos.trading.v1.BatchCancelOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
 	6,  // 11: eidos.trading.v1.BatchCancelOrdersResponse.failures:type_name -> eidos.trading.v1.CancelFailure
-	46, // 12: eidos.trading.v1.ListOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
-	47, // 13: eidos.trading.v1.ListOrdersRequest.type:type_name -> eidos.common.v1.OrderType
-	48, // 14: eidos.trading.v1.ListOrdersRequest.statuses:type_name -> eidos.common.v1.OrderStatus
+	67, // 12: eidos.trading.v1.ListOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
+	68, // 13: eidos.trading.v1.ListOrdersRequest.type:type_name -> eidos.common.v1.OrderType
+	69, // 14: eidos.trading.v1.ListOrdersRequest.statuses:type_name -> eidos.common.v1.OrderStatus
 	0,  // 15: eidos.trading.v1.ListOrdersResponse.orders:type_name -> eidos.trading.v1.Order
-	46, // 16: eidos.trading.v1.ListOpenOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
+	67, // 16: eidos.trading.v1.ListOpenOrdersRequest.side:type_name -> eidos.common.v1.OrderSide
 	11, // 17: eidos.trading.v1.GetBalancesResponse.balances:type_name -> eidos.trading.v1.Balance
-	51, // 18: eidos.trading.v1.BalanceLog.type:type_name -> eidos.common.v1.BalanceChangeType
-	51, // 19: eidos.trading.v1.GetBalanceLogsRequest.type:type_name -> eidos.common.v1.BalanceChangeType
+	72, // 18: eidos.trading.v1.BalanceLog.type:type_name -> eidos.common.v1.BalanceChangeType
+	72, // 19: eidos.trading.v1.GetBalanceLogsRequest.type:type_name -> eidos.common.v1.BalanceChangeType
 	15, // 20: eidos.trading.v1.GetBalanceLogsResponse.logs:type_name -> eidos.trading.v1.BalanceLog
-	46, // 21: eidos.trading.v1.Trade.maker_side:type_name -> eidos.common.v1.OrderSide
-	52, // 22: eidos.trading.v1.Trade.settlement_status:type_name -> eidos.common.v1.SettlementStatus
-	52, // 23: eidos.trading.v1.ListTradesRequest.settlement_status:type_name -> eidos.common.v1.SettlementStatus
-	46, // 24: eidos.trading.v1.ListTradesRequest.side:type_name -> eidos.common.v1.OrderSide
+	67, // 21: eidos.trading.v1.Trade.maker_side:type_name -> eidos.common.v1.OrderSide
+	73, // 22: eidos.trading.v1.Trade.settlement_status:type_name -> eidos.common.v1.SettlementStatus
+	73, // 23: eidos.trading.v1.ListTradesRequest.settlement_status:type_name -> eidos.common.v1.SettlementStatus
+	67, // 24: eidos.trading.v1.ListTradesRequest.side:type_name -> eidos.common.v1.OrderSide
 	18, // 25: eidos.trading.v1.ListTradesResponse.trades:type_name -> eidos.trading.v1.Trade
-	53, // 26: eidos.trading.v1.Deposit.status:type_name -> eidos.common.v1.DepositStatus
-	53, // 27: eidos.trading.v1.ListDepositsRequest.status:type_name -> eidos.common.v1.DepositStatus
+	74, // 26: eidos.trading.v1.Deposit.status:type_name -> eidos.common.v1.DepositStatus
+	74, // 27: eidos.trading.v1.ListDepositsRequest.status:type_name -> eidos.common.v1.DepositStatus
 	23, // 28: eidos.trading.v1.ListDepositsResponse.deposits:type_name -> eidos.trading.v1.Deposit
-	54, // 29: eidos.trading.v1.Withdrawal.status:type_name -> eidos.common.v1.WithdrawStatus
+	75, // 29: eidos.trading.v1.Withdrawal.status:type_name -> eidos.common.v1.WithdrawStatus
 	27, // 30: eidos.trading.v1.CreateWithdrawalResponse.withdrawal:type_name -> eidos.trading.v1.Withdrawal
-	54, // 31: eidos.trading.v1.ListWithdrawalsRequest.status:type_name -> eidos.common.v1.WithdrawStatus
+	75, // 31: eidos.trading.v1.ListWithdrawalsRequest.status:type_name -> eidos.common.v1.WithdrawStatus
 	27, // 32: eidos.trading.v1.ListWithdrawalsResponse.withdrawals:type_name -> eidos.trading.v1.Withdrawal
-	46, // 33: eidos.trading.v1.ProcessTradeResultRequest.maker_side:type_name -> eidos.common.v1.OrderSide
-	46, // 34: eidos.trading.v1.PrepareOrderRequest.side:type_name -> eidos.common.v1.OrderSide
-	47, // 35: eidos.trading.v1.PrepareOrderRequest.type:type_name -> eidos.common.v1.OrderType
-	49, // 36: eidos.trading.v1.PrepareOrderRequest.time_in_force:type_name -> eidos.common.v1.TimeInForce
-	40, // 37: eidos.trading.v1.PrepareOrderResponse.typed_data:type_name -> eidos.trading.v1.EIP712TypedData
-	44, // 38: eidos.trading.v1.EIP712TypedData.types:type_name -> eidos.trading.v1.EIP712TypedData.TypesEntry
-	43, // 39: eidos.trading.v1.EIP712TypedData.domain:type_name -> eidos.trading.v1.EIP712Domain
-	45, // 40: eidos.trading.v1.EIP712TypedData.message:type_name -> eidos.trading.v1.EIP712TypedData.MessageEntry
-	42, // 41: eidos.trading.v1.EIP712TypeList.types:type_name -> eidos.trading.v1.EIP712Type
-	41, // 42: eidos.trading.v1.EIP712TypedData.TypesEntry.value:type_name -> eidos.trading.v1.EIP712TypeList
-	38, // 43: eidos.trading.v1.TradingService.PrepareOrder:input_type -> eidos.trading.v1.PrepareOrderRequest
-	1,  // 44: eidos.trading.v1.TradingService.CreateOrder:input_type -> eidos.trading.v1.CreateOrderRequest
-	3,  // 45: eidos.trading.v1.TradingService.CancelOrder:input_type -> eidos.trading.v1.CancelOrderRequest
-	4,  // 46: eidos.trading.v1.TradingService.BatchCancelOrders:input_type -> eidos.trading.v1.BatchCancelOrdersRequest
-	7,  // 47: eidos.trading.v1.TradingService.GetOrder:input_type -> eidos.trading.v1.GetOrderRequest
-	8,  // 48: eidos.trading.v1.TradingService.ListOrders:input_type -> eidos.trading.v1.ListOrdersRequest
-	10, // 49: eidos.trading.v1.TradingService.ListOpenOrders:input_type -> eidos.trading.v1.ListOpenOrdersRequest
-	12, // 50: eidos.trading.v1.TradingService.GetBalance:input_type -> eidos.trading.v1.GetBalanceRequest
-	13, // 51: eidos.trading.v1.TradingService.GetBalances:input_type -> eidos.trading.v1.GetBalancesRequest
-	16, // 52: eidos.trading.v1.TradingService.GetBalanceLogs:input_type -> eidos.trading.v1.GetBalanceLogsRequest
-	19, // 53: eidos.trading.v1.TradingService.GetTrade:input_type -> eidos.trading.v1.GetTradeRequest
-	20, // 54: eidos.trading.v1.TradingService.ListTrades:input_type -> eidos.trading.v1.ListTradesRequest
-	22, // 55: eidos.trading.v1.TradingService.ListTradesByOrder:input_type -> eidos.trading.v1.ListTradesByOrderRequest
-	24, // 56: eidos.trading.v1.TradingService.GetDeposit:input_type -> eidos.trading.v1.GetDepositRequest
-	25, // 57: eidos.trading.v1.TradingService.ListDeposits:input_type -> eidos.trading.v1.ListDepositsRequest
-	28, // 58: eidos.trading.v1.TradingService.CreateWithdrawal:input_type -> eidos.trading.v1.CreateWithdrawalRequest
-	30, // 59: eidos.trading.v1.TradingService.CancelWithdrawal:input_type -> eidos.trading.v1.CancelWithdrawalRequest
-	31, // 60: eidos.trading.v1.TradingService.GetWithdrawal:input_type -> eidos.trading.v1.GetWithdrawalRequest
-	32, // 61: eidos.trading.v1.TradingService.ListWithdrawals:input_type -> eidos.trading.v1.ListWithdrawalsRequest
-	34, // 62: eidos.trading.v1.TradingService.ProcessTradeResult:input_type -> eidos.trading.v1.ProcessTradeResultRequest
-	35, // 63: eidos.trading.v1.TradingService.ProcessDepositEvent:input_type -> eidos.trading.v1.ProcessDepositEventRequest
-	36, // 64: eidos.trading.v1.TradingService.ConfirmSettlement:input_type -> eidos.trading.v1.ConfirmSettlementRequest
-	37, // 65: eidos.trading.v1.TradingService.RollbackSettlement:input_type -> eidos.trading.v1.RollbackSettlementRequest
-	39, // 66: eidos.trading.v1.TradingService.PrepareOrder:output_type -> eidos.trading.v1.PrepareOrderResponse
-	2,  // 67: eidos.trading.v1.TradingService.CreateOrder:output_type -> eidos.trading.v1.CreateOrderResponse
-	55, // 68: eidos.trading.v1.TradingService.CancelOrder:output_type -> google.protobuf.Empty
-	5,  // 69: eidos.trading.v1.TradingService.BatchCancelOrders:output_type -> eidos.trading.v1.BatchCancelOrdersResponse
-	0,  // 70: eidos.trading.v1.TradingService.GetOrder:output_type -> eidos.trading.v1.Order
-	9,  // 71: eidos.trading.v1.TradingService.ListOrders:output_type -> eidos.trading.v1.ListOrdersResponse
-	9,  // 72: eidos.trading.v1.TradingService.ListOpenOrders:output_type -> eidos.trading.v1.ListOrdersResponse
-	11, // 73: eidos.trading.v1.TradingService.GetBalance:output_type -> eidos.trading.v1.Balance
-	14, // 74: eidos.trading.v1.TradingService.GetBalances:output_type -> eidos.trading.v1.GetBalancesResponse
-	17, // 75: eidos.trading.v1.TradingService.GetBalanceLogs:output_type -> eidos.trading.v1.GetBalanceLogsResponse
-	18, // 76: eidos.trading.v1.TradingService.GetTrade:output_type -> eidos.trading.v1.Trade
-	21, // 77: eidos.trading.v1.TradingService.ListTrades:output_type -> eidos.trading.v1.ListTradesResponse
-	21, // 78: eidos.trading.v1.TradingService.ListTradesByOrder:output_type -> eidos.trading.v1.ListTradesResponse
-	23, // 79: eidos.trading.v1.TradingService.GetDeposit:output_type -> eidos.trading.v1.Deposit
-	26, // 80: eidos.trading.v1.TradingService.ListDeposits:output_type -> eidos.trading.v1.ListDepositsResponse
-	29, // 81: eidos.trading.v1.TradingService.CreateWithdrawal:output_type -> eidos.trading.v1.CreateWithdrawalResponse
-	55, // 82: eidos.trading.v1.TradingService.CancelWithdrawal:output_type -> google.protobuf.Empty
-	27, // 83: eidos.trading.v1.TradingService.GetWithdrawal:output_type -> eidos.trading.v1.Withdrawal
-	33, // 84: eidos.trading.v1.TradingService.ListWithdrawals:output_type -> eidos.trading.v1.ListWithdrawalsResponse
-	55, // 85: eidos.trading.v1.TradingService.ProcessTradeResult:output_type -> google.protobuf.Empty
-	55, // 86: eidos.trading.v1.TradingService.ProcessDepositEvent:output_type -> google.protobuf.Empty
-	55, // 87: eidos.trading.v1.TradingService.ConfirmSettlement:output_type -> google.protobuf.Empty
-	55, // 88: eidos.trading.v1.TradingService.RollbackSettlement:output_type -> google.protobuf.Empty
-	66, // [66:89] is the sub-list for method output_type
-	43, // [43:66] is the sub-list for method input_type
-	43, // [43:43] is the sub-list for extension type_name
-	43, // [43:43] is the sub-list for extension extendee
-	0,  // [0:43] is the sub-list for field type_name
+	67, // 33: eidos.trading.v1.ProcessTradeResultRequest.maker_side:type_name -> eidos.common.v1.OrderSide
+	76, // 34: eidos.trading.v1.SubAccount.type:type_name -> eidos.common.v1.SubAccountType
+	77, // 35: eidos.trading.v1.SubAccount.status:type_name -> eidos.common.v1.SubAccountStatus
+	78, // 36: eidos.trading.v1.SubAccountTransfer.type:type_name -> eidos.common.v1.SubAccountTransferType
+	76, // 37: eidos.trading.v1.CreateSubAccountRequest.type:type_name -> eidos.common.v1.SubAccountType
+	38, // 38: eidos.trading.v1.CreateSubAccountResponse.sub_account:type_name -> eidos.trading.v1.SubAccount
+	38, // 39: eidos.trading.v1.ListSubAccountsResponse.sub_accounts:type_name -> eidos.trading.v1.SubAccount
+	39, // 40: eidos.trading.v1.GetSubAccountBalancesResponse.balances:type_name -> eidos.trading.v1.SubAccountBalance
+	78, // 41: eidos.trading.v1.GetTransferHistoryRequest.type:type_name -> eidos.common.v1.SubAccountTransferType
+	40, // 42: eidos.trading.v1.GetTransferHistoryResponse.transfers:type_name -> eidos.trading.v1.SubAccountTransfer
+	67, // 43: eidos.trading.v1.PrepareOrderRequest.side:type_name -> eidos.common.v1.OrderSide
+	68, // 44: eidos.trading.v1.PrepareOrderRequest.type:type_name -> eidos.common.v1.OrderType
+	70, // 45: eidos.trading.v1.PrepareOrderRequest.time_in_force:type_name -> eidos.common.v1.TimeInForce
+	61, // 46: eidos.trading.v1.PrepareOrderResponse.typed_data:type_name -> eidos.trading.v1.EIP712TypedData
+	65, // 47: eidos.trading.v1.EIP712TypedData.types:type_name -> eidos.trading.v1.EIP712TypedData.TypesEntry
+	64, // 48: eidos.trading.v1.EIP712TypedData.domain:type_name -> eidos.trading.v1.EIP712Domain
+	66, // 49: eidos.trading.v1.EIP712TypedData.message:type_name -> eidos.trading.v1.EIP712TypedData.MessageEntry
+	63, // 50: eidos.trading.v1.EIP712TypeList.types:type_name -> eidos.trading.v1.EIP712Type
+	62, // 51: eidos.trading.v1.EIP712TypedData.TypesEntry.value:type_name -> eidos.trading.v1.EIP712TypeList
+	59, // 52: eidos.trading.v1.TradingService.PrepareOrder:input_type -> eidos.trading.v1.PrepareOrderRequest
+	1,  // 53: eidos.trading.v1.TradingService.CreateOrder:input_type -> eidos.trading.v1.CreateOrderRequest
+	3,  // 54: eidos.trading.v1.TradingService.CancelOrder:input_type -> eidos.trading.v1.CancelOrderRequest
+	4,  // 55: eidos.trading.v1.TradingService.BatchCancelOrders:input_type -> eidos.trading.v1.BatchCancelOrdersRequest
+	7,  // 56: eidos.trading.v1.TradingService.GetOrder:input_type -> eidos.trading.v1.GetOrderRequest
+	8,  // 57: eidos.trading.v1.TradingService.ListOrders:input_type -> eidos.trading.v1.ListOrdersRequest
+	10, // 58: eidos.trading.v1.TradingService.ListOpenOrders:input_type -> eidos.trading.v1.ListOpenOrdersRequest
+	12, // 59: eidos.trading.v1.TradingService.GetBalance:input_type -> eidos.trading.v1.GetBalanceRequest
+	13, // 60: eidos.trading.v1.TradingService.GetBalances:input_type -> eidos.trading.v1.GetBalancesRequest
+	16, // 61: eidos.trading.v1.TradingService.GetBalanceLogs:input_type -> eidos.trading.v1.GetBalanceLogsRequest
+	19, // 62: eidos.trading.v1.TradingService.GetTrade:input_type -> eidos.trading.v1.GetTradeRequest
+	20, // 63: eidos.trading.v1.TradingService.ListTrades:input_type -> eidos.trading.v1.ListTradesRequest
+	22, // 64: eidos.trading.v1.TradingService.ListTradesByOrder:input_type -> eidos.trading.v1.ListTradesByOrderRequest
+	24, // 65: eidos.trading.v1.TradingService.GetDeposit:input_type -> eidos.trading.v1.GetDepositRequest
+	25, // 66: eidos.trading.v1.TradingService.ListDeposits:input_type -> eidos.trading.v1.ListDepositsRequest
+	28, // 67: eidos.trading.v1.TradingService.CreateWithdrawal:input_type -> eidos.trading.v1.CreateWithdrawalRequest
+	30, // 68: eidos.trading.v1.TradingService.CancelWithdrawal:input_type -> eidos.trading.v1.CancelWithdrawalRequest
+	31, // 69: eidos.trading.v1.TradingService.GetWithdrawal:input_type -> eidos.trading.v1.GetWithdrawalRequest
+	32, // 70: eidos.trading.v1.TradingService.ListWithdrawals:input_type -> eidos.trading.v1.ListWithdrawalsRequest
+	34, // 71: eidos.trading.v1.TradingService.ProcessTradeResult:input_type -> eidos.trading.v1.ProcessTradeResultRequest
+	35, // 72: eidos.trading.v1.TradingService.ProcessDepositEvent:input_type -> eidos.trading.v1.ProcessDepositEventRequest
+	36, // 73: eidos.trading.v1.TradingService.ConfirmSettlement:input_type -> eidos.trading.v1.ConfirmSettlementRequest
+	37, // 74: eidos.trading.v1.TradingService.RollbackSettlement:input_type -> eidos.trading.v1.RollbackSettlementRequest
+	41, // 75: eidos.trading.v1.SubAccountService.CreateSubAccount:input_type -> eidos.trading.v1.CreateSubAccountRequest
+	43, // 76: eidos.trading.v1.SubAccountService.GetSubAccount:input_type -> eidos.trading.v1.GetSubAccountRequest
+	44, // 77: eidos.trading.v1.SubAccountService.ListSubAccounts:input_type -> eidos.trading.v1.ListSubAccountsRequest
+	46, // 78: eidos.trading.v1.SubAccountService.UpdateSubAccount:input_type -> eidos.trading.v1.UpdateSubAccountRequest
+	47, // 79: eidos.trading.v1.SubAccountService.DeleteSubAccount:input_type -> eidos.trading.v1.DeleteSubAccountRequest
+	48, // 80: eidos.trading.v1.SubAccountService.FreezeSubAccount:input_type -> eidos.trading.v1.FreezeSubAccountRequest
+	49, // 81: eidos.trading.v1.SubAccountService.UnfreezeSubAccount:input_type -> eidos.trading.v1.UnfreezeSubAccountRequest
+	50, // 82: eidos.trading.v1.SubAccountService.SetDefaultSubAccount:input_type -> eidos.trading.v1.SetDefaultSubAccountRequest
+	51, // 83: eidos.trading.v1.SubAccountService.GetSubAccountBalance:input_type -> eidos.trading.v1.GetSubAccountBalanceRequest
+	52, // 84: eidos.trading.v1.SubAccountService.GetSubAccountBalances:input_type -> eidos.trading.v1.GetSubAccountBalancesRequest
+	53, // 85: eidos.trading.v1.SubAccountService.GetAllSubAccountBalances:input_type -> eidos.trading.v1.GetAllSubAccountBalancesRequest
+	55, // 86: eidos.trading.v1.SubAccountService.TransferIn:input_type -> eidos.trading.v1.TransferRequest
+	55, // 87: eidos.trading.v1.SubAccountService.TransferOut:input_type -> eidos.trading.v1.TransferRequest
+	57, // 88: eidos.trading.v1.SubAccountService.GetTransferHistory:input_type -> eidos.trading.v1.GetTransferHistoryRequest
+	60, // 89: eidos.trading.v1.TradingService.PrepareOrder:output_type -> eidos.trading.v1.PrepareOrderResponse
+	2,  // 90: eidos.trading.v1.TradingService.CreateOrder:output_type -> eidos.trading.v1.CreateOrderResponse
+	79, // 91: eidos.trading.v1.TradingService.CancelOrder:output_type -> google.protobuf.Empty
+	5,  // 92: eidos.trading.v1.TradingService.BatchCancelOrders:output_type -> eidos.trading.v1.BatchCancelOrdersResponse
+	0,  // 93: eidos.trading.v1.TradingService.GetOrder:output_type -> eidos.trading.v1.Order
+	9,  // 94: eidos.trading.v1.TradingService.ListOrders:output_type -> eidos.trading.v1.ListOrdersResponse
+	9,  // 95: eidos.trading.v1.TradingService.ListOpenOrders:output_type -> eidos.trading.v1.ListOrdersResponse
+	11, // 96: eidos.trading.v1.TradingService.GetBalance:output_type -> eidos.trading.v1.Balance
+	14, // 97: eidos.trading.v1.TradingService.GetBalances:output_type -> eidos.trading.v1.GetBalancesResponse
+	17, // 98: eidos.trading.v1.TradingService.GetBalanceLogs:output_type -> eidos.trading.v1.GetBalanceLogsResponse
+	18, // 99: eidos.trading.v1.TradingService.GetTrade:output_type -> eidos.trading.v1.Trade
+	21, // 100: eidos.trading.v1.TradingService.ListTrades:output_type -> eidos.trading.v1.ListTradesResponse
+	21, // 101: eidos.trading.v1.TradingService.ListTradesByOrder:output_type -> eidos.trading.v1.ListTradesResponse
+	23, // 102: eidos.trading.v1.TradingService.GetDeposit:output_type -> eidos.trading.v1.Deposit
+	26, // 103: eidos.trading.v1.TradingService.ListDeposits:output_type -> eidos.trading.v1.ListDepositsResponse
+	29, // 104: eidos.trading.v1.TradingService.CreateWithdrawal:output_type -> eidos.trading.v1.CreateWithdrawalResponse
+	79, // 105: eidos.trading.v1.TradingService.CancelWithdrawal:output_type -> google.protobuf.Empty
+	27, // 106: eidos.trading.v1.TradingService.GetWithdrawal:output_type -> eidos.trading.v1.Withdrawal
+	33, // 107: eidos.trading.v1.TradingService.ListWithdrawals:output_type -> eidos.trading.v1.ListWithdrawalsResponse
+	79, // 108: eidos.trading.v1.TradingService.ProcessTradeResult:output_type -> google.protobuf.Empty
+	79, // 109: eidos.trading.v1.TradingService.ProcessDepositEvent:output_type -> google.protobuf.Empty
+	79, // 110: eidos.trading.v1.TradingService.ConfirmSettlement:output_type -> google.protobuf.Empty
+	79, // 111: eidos.trading.v1.TradingService.RollbackSettlement:output_type -> google.protobuf.Empty
+	42, // 112: eidos.trading.v1.SubAccountService.CreateSubAccount:output_type -> eidos.trading.v1.CreateSubAccountResponse
+	38, // 113: eidos.trading.v1.SubAccountService.GetSubAccount:output_type -> eidos.trading.v1.SubAccount
+	45, // 114: eidos.trading.v1.SubAccountService.ListSubAccounts:output_type -> eidos.trading.v1.ListSubAccountsResponse
+	79, // 115: eidos.trading.v1.SubAccountService.UpdateSubAccount:output_type -> google.protobuf.Empty
+	79, // 116: eidos.trading.v1.SubAccountService.DeleteSubAccount:output_type -> google.protobuf.Empty
+	79, // 117: eidos.trading.v1.SubAccountService.FreezeSubAccount:output_type -> google.protobuf.Empty
+	79, // 118: eidos.trading.v1.SubAccountService.UnfreezeSubAccount:output_type -> google.protobuf.Empty
+	79, // 119: eidos.trading.v1.SubAccountService.SetDefaultSubAccount:output_type -> google.protobuf.Empty
+	39, // 120: eidos.trading.v1.SubAccountService.GetSubAccountBalance:output_type -> eidos.trading.v1.SubAccountBalance
+	54, // 121: eidos.trading.v1.SubAccountService.GetSubAccountBalances:output_type -> eidos.trading.v1.GetSubAccountBalancesResponse
+	54, // 122: eidos.trading.v1.SubAccountService.GetAllSubAccountBalances:output_type -> eidos.trading.v1.GetSubAccountBalancesResponse
+	56, // 123: eidos.trading.v1.SubAccountService.TransferIn:output_type -> eidos.trading.v1.TransferResponse
+	56, // 124: eidos.trading.v1.SubAccountService.TransferOut:output_type -> eidos.trading.v1.TransferResponse
+	58, // 125: eidos.trading.v1.SubAccountService.GetTransferHistory:output_type -> eidos.trading.v1.GetTransferHistoryResponse
+	89, // [89:126] is the sub-list for method output_type
+	52, // [52:89] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_trading_v1_trading_proto_init() }
@@ -4671,9 +6207,9 @@ func file_trading_v1_trading_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_trading_v1_trading_proto_rawDesc), len(file_trading_v1_trading_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   46,
+			NumMessages:   67,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_trading_v1_trading_proto_goTypes,
 		DependencyIndexes: file_trading_v1_trading_proto_depIdxs,

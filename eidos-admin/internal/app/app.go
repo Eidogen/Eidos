@@ -198,6 +198,7 @@ func (a *App) initInfra() error {
 type repositories struct {
 	Admin        *repository.AdminRepository
 	MarketConfig *repository.MarketConfigRepository
+	TokenConfig  *repository.TokenRepository
 	SystemConfig *repository.SystemConfigRepository
 	AuditLog     *repository.AuditLogRepository
 	Stats        *repository.StatsRepository
@@ -208,6 +209,7 @@ func (a *App) initRepositories() *repositories {
 	return &repositories{
 		Admin:        repository.NewAdminRepository(a.db),
 		MarketConfig: repository.NewMarketConfigRepository(a.db),
+		TokenConfig:  repository.NewTokenRepository(a.db),
 		SystemConfig: repository.NewSystemConfigRepository(a.db),
 		AuditLog:     repository.NewAuditLogRepository(a.db),
 		Stats:        repository.NewStatsRepository(a.db),
@@ -219,6 +221,7 @@ type services struct {
 	Auth       *service.AuthService
 	Admin      *service.AdminService
 	Market     *service.MarketService
+	Token      *service.TokenService
 	Config     *service.ConfigService
 	Stats      *service.StatsService
 	Audit      *service.AuditService
@@ -247,6 +250,9 @@ func (a *App) initServices(repos *repositories) *services {
 
 	// 创建市场配置服务
 	marketSvc := service.NewMarketService(repos.MarketConfig, repos.SystemConfig, repos.AuditLog)
+
+	// 创建代币配置服务
+	tokenSvc := service.NewTokenService(repos.TokenConfig, repos.SystemConfig, repos.AuditLog)
 
 	// 创建系统配置服务
 	configSvc := service.NewConfigService(repos.SystemConfig, repos.AuditLog)
@@ -285,6 +291,7 @@ func (a *App) initServices(repos *repositories) *services {
 		Auth:       authSvc,
 		Admin:      adminSvc,
 		Market:     marketSvc,
+		Token:      tokenSvc,
 		Config:     configSvc,
 		Stats:      statsSvc,
 		Audit:      auditSvc,
@@ -301,6 +308,7 @@ func (a *App) initHandlers(svcs *services) *router.Handlers {
 		Auth:       handler.NewAuthHandler(svcs.Auth),
 		Admin:      handler.NewAdminHandler(svcs.Admin),
 		Market:     handler.NewMarketHandler(svcs.Market),
+		Token:      handler.NewTokenHandler(svcs.Token),
 		Stats:      handler.NewStatsHandler(svcs.Stats),
 		Config:     handler.NewConfigHandler(svcs.Config),
 		Audit:      handler.NewAuditHandler(svcs.Audit),

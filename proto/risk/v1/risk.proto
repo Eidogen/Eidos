@@ -98,6 +98,23 @@ service RiskService {
 
     // GetRiskStats retrieves risk statistics
     rpc GetRiskStats(GetRiskStatsRequest) returns (GetRiskStatsResponse);
+
+    // ========== Withdrawal Review Management ==========
+
+    // ListWithdrawalReviews retrieves pending withdrawal reviews
+    rpc ListWithdrawalReviews(ListWithdrawalReviewsRequest) returns (ListWithdrawalReviewsResponse);
+
+    // GetWithdrawalReview retrieves a specific withdrawal review
+    rpc GetWithdrawalReview(GetWithdrawalReviewRequest) returns (GetWithdrawalReviewResponse);
+
+    // ApproveWithdrawalReview approves a withdrawal review
+    rpc ApproveWithdrawalReview(ApproveWithdrawalReviewRequest) returns (ApproveWithdrawalReviewResponse);
+
+    // RejectWithdrawalReview rejects a withdrawal review
+    rpc RejectWithdrawalReview(RejectWithdrawalReviewRequest) returns (RejectWithdrawalReviewResponse);
+
+    // GetWithdrawalReviewStats retrieves withdrawal review statistics
+    rpc GetWithdrawalReviewStats(GetWithdrawalReviewStatsRequest) returns (GetWithdrawalReviewStatsResponse);
 }
 
 // ============================================================================
@@ -965,4 +982,211 @@ message AccountStatusChangeMessage {
 
     // Change timestamp (Unix milliseconds)
     int64 changed_at = 5;
+}
+
+// ============================================================================
+// Withdrawal Review Management Messages
+// ============================================================================
+
+// WithdrawalReview represents a withdrawal review record
+message WithdrawalReview {
+    // Review ID (UUID)
+    string review_id = 1;
+
+    // Withdrawal ID (unique)
+    string withdrawal_id = 2;
+
+    // Wallet address
+    string wallet_address = 3;
+
+    // Token symbol
+    string token = 4;
+
+    // Withdrawal amount (decimal string)
+    string amount = 5;
+
+    // Destination address
+    string to_address = 6;
+
+    // Risk score (0-100)
+    int32 risk_score = 7;
+
+    // Risk factors (JSON array)
+    repeated RiskFactor risk_factors = 8;
+
+    // Auto decision (AUTO_APPROVE, MANUAL_REVIEW, AUTO_REJECT)
+    string auto_decision = 9;
+
+    // Review status (pending, approved, rejected)
+    string status = 10;
+
+    // Reviewer (admin wallet or "system")
+    string reviewer = 11;
+
+    // Review comment
+    string review_comment = 12;
+
+    // Reviewed at (Unix milliseconds, 0 if not reviewed)
+    int64 reviewed_at = 13;
+
+    // Created at (Unix milliseconds)
+    int64 created_at = 14;
+
+    // Expires at (Unix milliseconds)
+    int64 expires_at = 15;
+}
+
+// RiskFactor represents a single risk factor
+message RiskFactor {
+    // Factor name
+    string factor = 1;
+
+    // Score contribution
+    int32 score = 2;
+
+    // Reason description
+    string reason = 3;
+}
+
+// ListWithdrawalReviewsRequest is the request to list withdrawal reviews
+message ListWithdrawalReviewsRequest {
+    // Filter by wallet address (optional)
+    string wallet = 1;
+
+    // Filter by status (optional, default: pending)
+    string status = 2;
+
+    // Filter by risk level: low (<30), medium (30-70), high (>=70) (optional)
+    string risk_level = 3;
+
+    // Pagination
+    eidos.common.v1.PaginationRequest pagination = 4;
+}
+
+// ListWithdrawalReviewsResponse contains withdrawal reviews
+message ListWithdrawalReviewsResponse {
+    // Withdrawal reviews
+    repeated WithdrawalReview reviews = 1;
+
+    // Pagination
+    eidos.common.v1.PaginationResponse pagination = 2;
+}
+
+// GetWithdrawalReviewRequest is the request to get a withdrawal review
+message GetWithdrawalReviewRequest {
+    // Review ID (either review_id or withdrawal_id must be set)
+    string review_id = 1;
+
+    // Withdrawal ID (alternative to review_id)
+    string withdrawal_id = 2;
+}
+
+// GetWithdrawalReviewResponse contains the withdrawal review
+message GetWithdrawalReviewResponse {
+    // Withdrawal review
+    WithdrawalReview review = 1;
+}
+
+// ApproveWithdrawalReviewRequest is the request to approve a withdrawal
+message ApproveWithdrawalReviewRequest {
+    // Review ID
+    string review_id = 1;
+
+    // Reviewer (admin wallet)
+    string reviewer = 2;
+
+    // Approval comment (optional)
+    string comment = 3;
+}
+
+// ApproveWithdrawalReviewResponse is the response after approval
+message ApproveWithdrawalReviewResponse {
+    // Whether approval was successful
+    bool success = 1;
+
+    // Error message if failed
+    string error_message = 2;
+
+    // Updated review
+    WithdrawalReview review = 3;
+}
+
+// RejectWithdrawalReviewRequest is the request to reject a withdrawal
+message RejectWithdrawalReviewRequest {
+    // Review ID
+    string review_id = 1;
+
+    // Reviewer (admin wallet)
+    string reviewer = 2;
+
+    // Rejection reason (required)
+    string reason = 3;
+}
+
+// RejectWithdrawalReviewResponse is the response after rejection
+message RejectWithdrawalReviewResponse {
+    // Whether rejection was successful
+    bool success = 1;
+
+    // Error message if failed
+    string error_message = 2;
+
+    // Updated review
+    WithdrawalReview review = 3;
+}
+
+// GetWithdrawalReviewStatsRequest is the request to get review statistics
+message GetWithdrawalReviewStatsRequest {
+    // Time period in hours (default: 24)
+    int32 period_hours = 1;
+}
+
+// GetWithdrawalReviewStatsResponse contains review statistics
+message GetWithdrawalReviewStatsResponse {
+    // Total pending reviews
+    int64 pending_count = 1;
+
+    // Total approved reviews (in period)
+    int64 approved_count = 2;
+
+    // Total rejected reviews (in period)
+    int64 rejected_count = 3;
+
+    // Total expired reviews (in period)
+    int64 expired_count = 4;
+
+    // Average review time (milliseconds)
+    int64 avg_review_time_ms = 5;
+
+    // Pending by risk level
+    int64 pending_high_risk = 6;
+    int64 pending_medium_risk = 7;
+    int64 pending_low_risk = 8;
+
+    // Total pending amount (decimal string)
+    string total_pending_amount = 9;
+}
+
+// WithdrawalReviewResultMessage is published when a withdrawal review is completed (Kafka: withdrawal-review-results)
+message WithdrawalReviewResultMessage {
+    // Withdrawal ID
+    string withdrawal_id = 1;
+
+    // Review ID
+    string review_id = 2;
+
+    // Result (approved, rejected)
+    string result = 3;
+
+    // Reviewer
+    string reviewer = 4;
+
+    // Comment
+    string comment = 5;
+
+    // Risk score
+    int32 risk_score = 6;
+
+    // Timestamp (Unix milliseconds)
+    int64 timestamp = 7;
 }

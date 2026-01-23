@@ -19,27 +19,32 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RiskService_CheckOrder_FullMethodName           = "/eidos.risk.v1.RiskService/CheckOrder"
-	RiskService_CheckWithdrawal_FullMethodName      = "/eidos.risk.v1.RiskService/CheckWithdrawal"
-	RiskService_CheckTransaction_FullMethodName     = "/eidos.risk.v1.RiskService/CheckTransaction"
-	RiskService_AddToBlacklist_FullMethodName       = "/eidos.risk.v1.RiskService/AddToBlacklist"
-	RiskService_RemoveFromBlacklist_FullMethodName  = "/eidos.risk.v1.RiskService/RemoveFromBlacklist"
-	RiskService_CheckBlacklist_FullMethodName       = "/eidos.risk.v1.RiskService/CheckBlacklist"
-	RiskService_ListBlacklist_FullMethodName        = "/eidos.risk.v1.RiskService/ListBlacklist"
-	RiskService_ListRiskRules_FullMethodName        = "/eidos.risk.v1.RiskService/ListRiskRules"
-	RiskService_GetRiskRule_FullMethodName          = "/eidos.risk.v1.RiskService/GetRiskRule"
-	RiskService_UpdateRiskRule_FullMethodName       = "/eidos.risk.v1.RiskService/UpdateRiskRule"
-	RiskService_GetRateLimitStatus_FullMethodName   = "/eidos.risk.v1.RiskService/GetRateLimitStatus"
-	RiskService_ResetRateLimit_FullMethodName       = "/eidos.risk.v1.RiskService/ResetRateLimit"
-	RiskService_ListRiskEvents_FullMethodName       = "/eidos.risk.v1.RiskService/ListRiskEvents"
-	RiskService_GetRiskEvent_FullMethodName         = "/eidos.risk.v1.RiskService/GetRiskEvent"
-	RiskService_AcknowledgeRiskEvent_FullMethodName = "/eidos.risk.v1.RiskService/AcknowledgeRiskEvent"
-	RiskService_GetUserLimits_FullMethodName        = "/eidos.risk.v1.RiskService/GetUserLimits"
-	RiskService_SetUserLimits_FullMethodName        = "/eidos.risk.v1.RiskService/SetUserLimits"
-	RiskService_FreezeAccount_FullMethodName        = "/eidos.risk.v1.RiskService/FreezeAccount"
-	RiskService_UnfreezeAccount_FullMethodName      = "/eidos.risk.v1.RiskService/UnfreezeAccount"
-	RiskService_GetAccountStatus_FullMethodName     = "/eidos.risk.v1.RiskService/GetAccountStatus"
-	RiskService_GetRiskStats_FullMethodName         = "/eidos.risk.v1.RiskService/GetRiskStats"
+	RiskService_CheckOrder_FullMethodName               = "/eidos.risk.v1.RiskService/CheckOrder"
+	RiskService_CheckWithdrawal_FullMethodName          = "/eidos.risk.v1.RiskService/CheckWithdrawal"
+	RiskService_CheckTransaction_FullMethodName         = "/eidos.risk.v1.RiskService/CheckTransaction"
+	RiskService_AddToBlacklist_FullMethodName           = "/eidos.risk.v1.RiskService/AddToBlacklist"
+	RiskService_RemoveFromBlacklist_FullMethodName      = "/eidos.risk.v1.RiskService/RemoveFromBlacklist"
+	RiskService_CheckBlacklist_FullMethodName           = "/eidos.risk.v1.RiskService/CheckBlacklist"
+	RiskService_ListBlacklist_FullMethodName            = "/eidos.risk.v1.RiskService/ListBlacklist"
+	RiskService_ListRiskRules_FullMethodName            = "/eidos.risk.v1.RiskService/ListRiskRules"
+	RiskService_GetRiskRule_FullMethodName              = "/eidos.risk.v1.RiskService/GetRiskRule"
+	RiskService_UpdateRiskRule_FullMethodName           = "/eidos.risk.v1.RiskService/UpdateRiskRule"
+	RiskService_GetRateLimitStatus_FullMethodName       = "/eidos.risk.v1.RiskService/GetRateLimitStatus"
+	RiskService_ResetRateLimit_FullMethodName           = "/eidos.risk.v1.RiskService/ResetRateLimit"
+	RiskService_ListRiskEvents_FullMethodName           = "/eidos.risk.v1.RiskService/ListRiskEvents"
+	RiskService_GetRiskEvent_FullMethodName             = "/eidos.risk.v1.RiskService/GetRiskEvent"
+	RiskService_AcknowledgeRiskEvent_FullMethodName     = "/eidos.risk.v1.RiskService/AcknowledgeRiskEvent"
+	RiskService_GetUserLimits_FullMethodName            = "/eidos.risk.v1.RiskService/GetUserLimits"
+	RiskService_SetUserLimits_FullMethodName            = "/eidos.risk.v1.RiskService/SetUserLimits"
+	RiskService_FreezeAccount_FullMethodName            = "/eidos.risk.v1.RiskService/FreezeAccount"
+	RiskService_UnfreezeAccount_FullMethodName          = "/eidos.risk.v1.RiskService/UnfreezeAccount"
+	RiskService_GetAccountStatus_FullMethodName         = "/eidos.risk.v1.RiskService/GetAccountStatus"
+	RiskService_GetRiskStats_FullMethodName             = "/eidos.risk.v1.RiskService/GetRiskStats"
+	RiskService_ListWithdrawalReviews_FullMethodName    = "/eidos.risk.v1.RiskService/ListWithdrawalReviews"
+	RiskService_GetWithdrawalReview_FullMethodName      = "/eidos.risk.v1.RiskService/GetWithdrawalReview"
+	RiskService_ApproveWithdrawalReview_FullMethodName  = "/eidos.risk.v1.RiskService/ApproveWithdrawalReview"
+	RiskService_RejectWithdrawalReview_FullMethodName   = "/eidos.risk.v1.RiskService/RejectWithdrawalReview"
+	RiskService_GetWithdrawalReviewStats_FullMethodName = "/eidos.risk.v1.RiskService/GetWithdrawalReviewStats"
 )
 
 // RiskServiceClient is the client API for RiskService service.
@@ -97,6 +102,16 @@ type RiskServiceClient interface {
 	GetAccountStatus(ctx context.Context, in *GetAccountStatusRequest, opts ...grpc.CallOption) (*GetAccountStatusResponse, error)
 	// GetRiskStats retrieves risk statistics
 	GetRiskStats(ctx context.Context, in *GetRiskStatsRequest, opts ...grpc.CallOption) (*GetRiskStatsResponse, error)
+	// ListWithdrawalReviews retrieves pending withdrawal reviews
+	ListWithdrawalReviews(ctx context.Context, in *ListWithdrawalReviewsRequest, opts ...grpc.CallOption) (*ListWithdrawalReviewsResponse, error)
+	// GetWithdrawalReview retrieves a specific withdrawal review
+	GetWithdrawalReview(ctx context.Context, in *GetWithdrawalReviewRequest, opts ...grpc.CallOption) (*GetWithdrawalReviewResponse, error)
+	// ApproveWithdrawalReview approves a withdrawal review
+	ApproveWithdrawalReview(ctx context.Context, in *ApproveWithdrawalReviewRequest, opts ...grpc.CallOption) (*ApproveWithdrawalReviewResponse, error)
+	// RejectWithdrawalReview rejects a withdrawal review
+	RejectWithdrawalReview(ctx context.Context, in *RejectWithdrawalReviewRequest, opts ...grpc.CallOption) (*RejectWithdrawalReviewResponse, error)
+	// GetWithdrawalReviewStats retrieves withdrawal review statistics
+	GetWithdrawalReviewStats(ctx context.Context, in *GetWithdrawalReviewStatsRequest, opts ...grpc.CallOption) (*GetWithdrawalReviewStatsResponse, error)
 }
 
 type riskServiceClient struct {
@@ -317,6 +332,56 @@ func (c *riskServiceClient) GetRiskStats(ctx context.Context, in *GetRiskStatsRe
 	return out, nil
 }
 
+func (c *riskServiceClient) ListWithdrawalReviews(ctx context.Context, in *ListWithdrawalReviewsRequest, opts ...grpc.CallOption) (*ListWithdrawalReviewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWithdrawalReviewsResponse)
+	err := c.cc.Invoke(ctx, RiskService_ListWithdrawalReviews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) GetWithdrawalReview(ctx context.Context, in *GetWithdrawalReviewRequest, opts ...grpc.CallOption) (*GetWithdrawalReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWithdrawalReviewResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetWithdrawalReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) ApproveWithdrawalReview(ctx context.Context, in *ApproveWithdrawalReviewRequest, opts ...grpc.CallOption) (*ApproveWithdrawalReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveWithdrawalReviewResponse)
+	err := c.cc.Invoke(ctx, RiskService_ApproveWithdrawalReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) RejectWithdrawalReview(ctx context.Context, in *RejectWithdrawalReviewRequest, opts ...grpc.CallOption) (*RejectWithdrawalReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectWithdrawalReviewResponse)
+	err := c.cc.Invoke(ctx, RiskService_RejectWithdrawalReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riskServiceClient) GetWithdrawalReviewStats(ctx context.Context, in *GetWithdrawalReviewStatsRequest, opts ...grpc.CallOption) (*GetWithdrawalReviewStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWithdrawalReviewStatsResponse)
+	err := c.cc.Invoke(ctx, RiskService_GetWithdrawalReviewStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RiskServiceServer is the server API for RiskService service.
 // All implementations must embed UnimplementedRiskServiceServer
 // for forward compatibility.
@@ -372,6 +437,16 @@ type RiskServiceServer interface {
 	GetAccountStatus(context.Context, *GetAccountStatusRequest) (*GetAccountStatusResponse, error)
 	// GetRiskStats retrieves risk statistics
 	GetRiskStats(context.Context, *GetRiskStatsRequest) (*GetRiskStatsResponse, error)
+	// ListWithdrawalReviews retrieves pending withdrawal reviews
+	ListWithdrawalReviews(context.Context, *ListWithdrawalReviewsRequest) (*ListWithdrawalReviewsResponse, error)
+	// GetWithdrawalReview retrieves a specific withdrawal review
+	GetWithdrawalReview(context.Context, *GetWithdrawalReviewRequest) (*GetWithdrawalReviewResponse, error)
+	// ApproveWithdrawalReview approves a withdrawal review
+	ApproveWithdrawalReview(context.Context, *ApproveWithdrawalReviewRequest) (*ApproveWithdrawalReviewResponse, error)
+	// RejectWithdrawalReview rejects a withdrawal review
+	RejectWithdrawalReview(context.Context, *RejectWithdrawalReviewRequest) (*RejectWithdrawalReviewResponse, error)
+	// GetWithdrawalReviewStats retrieves withdrawal review statistics
+	GetWithdrawalReviewStats(context.Context, *GetWithdrawalReviewStatsRequest) (*GetWithdrawalReviewStatsResponse, error)
 	mustEmbedUnimplementedRiskServiceServer()
 }
 
@@ -444,6 +519,21 @@ func (UnimplementedRiskServiceServer) GetAccountStatus(context.Context, *GetAcco
 }
 func (UnimplementedRiskServiceServer) GetRiskStats(context.Context, *GetRiskStatsRequest) (*GetRiskStatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRiskStats not implemented")
+}
+func (UnimplementedRiskServiceServer) ListWithdrawalReviews(context.Context, *ListWithdrawalReviewsRequest) (*ListWithdrawalReviewsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWithdrawalReviews not implemented")
+}
+func (UnimplementedRiskServiceServer) GetWithdrawalReview(context.Context, *GetWithdrawalReviewRequest) (*GetWithdrawalReviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWithdrawalReview not implemented")
+}
+func (UnimplementedRiskServiceServer) ApproveWithdrawalReview(context.Context, *ApproveWithdrawalReviewRequest) (*ApproveWithdrawalReviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApproveWithdrawalReview not implemented")
+}
+func (UnimplementedRiskServiceServer) RejectWithdrawalReview(context.Context, *RejectWithdrawalReviewRequest) (*RejectWithdrawalReviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RejectWithdrawalReview not implemented")
+}
+func (UnimplementedRiskServiceServer) GetWithdrawalReviewStats(context.Context, *GetWithdrawalReviewStatsRequest) (*GetWithdrawalReviewStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWithdrawalReviewStats not implemented")
 }
 func (UnimplementedRiskServiceServer) mustEmbedUnimplementedRiskServiceServer() {}
 func (UnimplementedRiskServiceServer) testEmbeddedByValue()                     {}
@@ -844,6 +934,96 @@ func _RiskService_GetRiskStats_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RiskService_ListWithdrawalReviews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWithdrawalReviewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).ListWithdrawalReviews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_ListWithdrawalReviews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).ListWithdrawalReviews(ctx, req.(*ListWithdrawalReviewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_GetWithdrawalReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWithdrawalReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetWithdrawalReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetWithdrawalReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetWithdrawalReview(ctx, req.(*GetWithdrawalReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_ApproveWithdrawalReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveWithdrawalReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).ApproveWithdrawalReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_ApproveWithdrawalReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).ApproveWithdrawalReview(ctx, req.(*ApproveWithdrawalReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_RejectWithdrawalReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectWithdrawalReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).RejectWithdrawalReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_RejectWithdrawalReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).RejectWithdrawalReview(ctx, req.(*RejectWithdrawalReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiskService_GetWithdrawalReviewStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWithdrawalReviewStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiskServiceServer).GetWithdrawalReviewStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiskService_GetWithdrawalReviewStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiskServiceServer).GetWithdrawalReviewStats(ctx, req.(*GetWithdrawalReviewStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RiskService_ServiceDesc is the grpc.ServiceDesc for RiskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -934,6 +1114,26 @@ var RiskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRiskStats",
 			Handler:    _RiskService_GetRiskStats_Handler,
+		},
+		{
+			MethodName: "ListWithdrawalReviews",
+			Handler:    _RiskService_ListWithdrawalReviews_Handler,
+		},
+		{
+			MethodName: "GetWithdrawalReview",
+			Handler:    _RiskService_GetWithdrawalReview_Handler,
+		},
+		{
+			MethodName: "ApproveWithdrawalReview",
+			Handler:    _RiskService_ApproveWithdrawalReview_Handler,
+		},
+		{
+			MethodName: "RejectWithdrawalReview",
+			Handler:    _RiskService_RejectWithdrawalReview_Handler,
+		},
+		{
+			MethodName: "GetWithdrawalReviewStats",
+			Handler:    _RiskService_GetWithdrawalReviewStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

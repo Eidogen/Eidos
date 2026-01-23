@@ -100,6 +100,14 @@ risk:
     enabled: true
     check_interval_sec: 60
 
+  # 提现审核配置
+  withdrawal:
+    enabled: true
+    large_withdrawal_threshold: "10000"    # 大额提现阈值 (超过此金额需要人工审核)
+    auto_approve_threshold: 30             # 自动通过风险分阈值 (低于此分数自动通过)
+    auto_reject_threshold: 80              # 自动拒绝风险分阈值 (高于此分数自动拒绝)
+    review_timeout_hours: 24               # 审核超时时间 (小时)
+
 # Fraud Detection
 fraud_detection:
   enabled: true

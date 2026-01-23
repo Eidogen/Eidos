@@ -31,6 +31,8 @@ const (
 
 	// 风控相关
 	TopicRiskAlerts = "risk-alerts" // 风控告警 (risk)
+	// TopicWithdrawalReviewResults 提现审核结果 (risk → trading)
+	TopicWithdrawalReviewResults = "withdrawal-review-results"
 
 	// 死信队列
 	TopicDeadLetter = "dead-letter" // 处理失败的消息

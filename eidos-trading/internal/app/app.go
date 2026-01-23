@@ -79,21 +79,23 @@ type App struct {
 	reconciliationWorker *worker.ReconciliationWorker
 
 	// 服务层
-	orderSvc    service.OrderService
-	balanceSvc  service.BalanceService
-	tradeSvc    service.TradeService
-	depositSvc  service.DepositService
-	withdrawSvc service.WithdrawalService
-	clearingSvc service.ClearingService
+	orderSvc      service.OrderService
+	balanceSvc    service.BalanceService
+	tradeSvc      service.TradeService
+	depositSvc    service.DepositService
+	withdrawSvc   service.WithdrawalService
+	clearingSvc   service.ClearingService
+	subAccountSvc service.SubAccountService
 
 	// 仓储层
-	orderRepo    repository.OrderRepository
-	balanceRepo  repository.BalanceRepository
-	tradeRepo    repository.TradeRepository
-	depositRepo  repository.DepositRepository
-	withdrawRepo repository.WithdrawalRepository
-	nonceRepo    repository.NonceRepository
-	outboxRepo   *repository.OutboxRepository
+	orderRepo      repository.OrderRepository
+	balanceRepo    repository.BalanceRepository
+	tradeRepo      repository.TradeRepository
+	depositRepo    repository.DepositRepository
+	withdrawRepo   repository.WithdrawalRepository
+	nonceRepo      repository.NonceRepository
+	outboxRepo     *repository.OutboxRepository
+	subAccountRepo repository.SubAccountRepository
 
 	// 缓存层 (Redis 作为实时资金真相)
 	balanceCache cache.BalanceRedisRepository
@@ -280,6 +282,7 @@ func (a *App) initRepositories() {
 	a.withdrawRepo = repository.NewWithdrawalRepository(a.db)
 	a.nonceRepo = repository.NewNonceRepository(a.db, a.rdb)
 	a.outboxRepo = repository.NewOutboxRepository(a.db)
+	a.subAccountRepo = repository.NewSubAccountRepository(a.db)
 
 	// 初始化 Redis 缓存层 (实时资金真相)
 	a.balanceCache = cache.NewBalanceRedisRepository(a.rdb)
@@ -301,6 +304,7 @@ func (a *App) initServices() {
 	a.depositSvc = service.NewDepositService(a.depositRepo, a.balanceRepo, a.balanceCache, a.idGen, tokenCfg)
 	a.withdrawSvc = service.NewWithdrawalService(a.withdrawRepo, a.balanceRepo, a.balanceCache, a.nonceRepo, a.idGen, tokenCfg, nil)
 	a.clearingSvc = service.NewClearingService(a.db, a.tradeRepo, a.orderRepo, a.balanceRepo, a.balanceCache, marketCfg, nil, nil, nil)
+	a.subAccountSvc = service.NewSubAccountService(a.subAccountRepo, a.balanceRepo, tokenCfg)
 }
 
 // initServicesWithKafka 在 Kafka 和 Publisher 初始化后重新创建需要它们的服务
@@ -416,6 +420,7 @@ func (a *App) initKafka() error {
 			kafka.TopicDeposits,
 			kafka.TopicSettlementConfirmed,
 			kafka.TopicWithdrawalConfirmed,
+			kafka.TopicWithdrawalReviewResults, // 提现审核结果 (来自 eidos-risk)
 		},
 	})
 	if err != nil {
@@ -540,6 +545,10 @@ func (a *App) startGRPCServer() error {
 	// 注册业务服务
 	pb.RegisterTradingServiceServer(a.grpcServer, tradingHandler)
 
+	// 注册子账户服务
+	subAccountHandler := handler.NewSubAccountHandler(a.subAccountSvc)
+	pb.RegisterSubAccountServiceServer(a.grpcServer, subAccountHandler)
+
 	// 启动监听
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", a.cfg.Service.GRPCPort))
 	if err != nil {
@@ -616,6 +625,11 @@ func (a *App) startConsumers() error {
 	eventProcessor.RegisterHandler(
 		kafka.TopicWithdrawalConfirmed,
 		event.NewWithdrawalConfirmedHandler(a.withdrawSvc),
+	)
+	// 提现审核结果处理器 (来自 eidos-risk)
+	eventProcessor.RegisterHandler(
+		kafka.TopicWithdrawalReviewResults,
+		event.NewWithdrawalReviewResultHandler(a.withdrawSvc),
 	)
 
 	// 注册到 Kafka 消费者组

@@ -72,6 +72,9 @@ type RiskService struct {
 
 	// Kafka 生产者 (通过回调设置)
 	onRiskAlert func(ctx context.Context, alert *RiskAlertMessage) error
+
+	// 服务降级
+	degradationSvc *DegradationService
 }
 
 // RiskAlertMessage 风控告警消息
@@ -128,6 +131,11 @@ func NewRiskService(
 // SetOnRiskAlert 设置风控告警回调
 func (s *RiskService) SetOnRiskAlert(fn func(ctx context.Context, alert *RiskAlertMessage) error) {
 	s.onRiskAlert = fn
+}
+
+// SetDegradationService 设置降级服务
+func (s *RiskService) SetDegradationService(svc *DegradationService) {
+	s.degradationSvc = svc
 }
 
 // initEngine 初始化规则引擎
@@ -200,6 +208,17 @@ func (s *RiskService) initEngine() {
 func (s *RiskService) CheckOrder(ctx context.Context, req *CheckOrderRequest) (*CheckOrderResponse, error) {
 	startTime := time.Now()
 
+	// 检查服务降级状态
+	if s.degradationSvc != nil && !s.degradationSvc.CanPerformRiskCheck() {
+		approved, reason := s.degradationSvc.GetRiskCheckFallbackResult()
+		return &CheckOrderResponse{
+			Approved:     approved,
+			RejectReason: reason,
+			RejectCode:   "RISK_SERVICE_DEGRADED",
+			Warnings:     []string{"风控服务处于降级模式"},
+		}, nil
+	}
+
 	// 构建规则引擎请求
 	engineReq := &rules.OrderCheckRequest{
 		Wallet:    req.Wallet,
@@ -261,6 +280,18 @@ func (s *RiskService) CheckOrder(ctx context.Context, req *CheckOrderRequest) (*
 // CheckWithdraw 检查提现请求
 func (s *RiskService) CheckWithdraw(ctx context.Context, req *CheckWithdrawRequest) (*CheckWithdrawResponse, error) {
 	startTime := time.Now()
+
+	// 检查服务降级状态
+	if s.degradationSvc != nil && !s.degradationSvc.CanPerformRiskCheck() {
+		approved, reason := s.degradationSvc.GetRiskCheckFallbackResult()
+		return &CheckWithdrawResponse{
+			Approved:            approved,
+			RejectReason:        reason,
+			RejectCode:          "RISK_SERVICE_DEGRADED",
+			RequireManualReview: !approved, // 降级时如果放行也需要人工审核
+			RiskScore:           100,       // 高风险分数
+		}, nil
+	}
 
 	// 构建规则引擎请求
 	engineReq := &rules.WithdrawCheckRequest{

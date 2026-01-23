@@ -12,6 +12,7 @@ type Handlers struct {
 	Auth       *handler.AuthHandler
 	Admin      *handler.AdminHandler
 	Market     *handler.MarketHandler
+	Token      *handler.TokenHandler
 	Stats      *handler.StatsHandler
 	Config     *handler.ConfigHandler
 	Audit      *handler.AuditHandler
@@ -123,6 +124,21 @@ func SetupRouter(r *gin.Engine, h *Handlers, authMiddleware *middleware.AuthMidd
 				markets.PUT("/:id", middleware.RequirePermission("market:write"), h.Market.Update)
 				markets.PUT("/:id/status", middleware.RequirePermission("market:write"), h.Market.UpdateStatus)
 				markets.DELETE("/:id", middleware.RequirePermission("market:write"), h.Market.Delete)
+			}
+
+			// === 代币管理 (需要 token:read/token:write 权限) ===
+			tokens := authenticated.Group("/tokens")
+			{
+				tokens.GET("", middleware.RequirePermission("token:read"), h.Token.List)
+				tokens.GET("/active", middleware.RequirePermission("token:read"), h.Token.GetAllActive)
+				tokens.GET("/deposit-enabled", middleware.RequirePermission("token:read"), h.Token.GetDepositEnabled)
+				tokens.GET("/withdraw-enabled", middleware.RequirePermission("token:read"), h.Token.GetWithdrawEnabled)
+				tokens.GET("/:id", middleware.RequirePermission("token:read"), h.Token.Get)
+				tokens.GET("/symbol/:symbol", middleware.RequirePermission("token:read"), h.Token.GetBySymbol)
+				tokens.POST("", middleware.RequirePermission("token:write"), h.Token.Create)
+				tokens.PUT("/:id", middleware.RequirePermission("token:write"), h.Token.Update)
+				tokens.PUT("/:id/status", middleware.RequirePermission("token:write"), h.Token.UpdateStatus)
+				tokens.DELETE("/:id", middleware.RequirePermission("token:write"), h.Token.Delete)
 			}
 
 			// === 风控管理 (需要 risk:read/risk:write 权限) ===

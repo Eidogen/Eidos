@@ -316,6 +316,12 @@ func (s *MarketService) GetAllTickers(ctx context.Context) ([]*model.Ticker, err
 
 // GetDepth 查询深度
 func (s *MarketService) GetDepth(ctx context.Context, market string, limit int) (*model.Depth, error) {
+	return s.GetDepthWithPrecision(ctx, market, limit, "")
+}
+
+// GetDepthWithPrecision 查询深度并支持精度聚合
+// precision: 聚合精度，为空表示不聚合
+func (s *MarketService) GetDepthWithPrecision(ctx context.Context, market string, limit int, precision string) (*model.Depth, error) {
 	s.mu.RLock()
 	agg, exists := s.aggregators[market]
 	s.mu.RUnlock()
@@ -327,7 +333,18 @@ func (s *MarketService) GetDepth(ctx context.Context, market string, limit int) 
 	// 标准化档位数
 	limit = model.NormalizeDepthLimit(limit)
 
-	return agg.depth.GetDepth(limit), nil
+	// 获取原始深度数据
+	depth := agg.depth.GetDepth(limit)
+
+	// 如果指定了聚合精度，进行聚合
+	if precision != "" {
+		p, valid := model.ParsePrecision(precision)
+		if valid {
+			depth = depth.AggregateAndLimit(p, limit)
+		}
+	}
+
+	return depth, nil
 }
 
 // GetRecentTrades 查询最近成交
