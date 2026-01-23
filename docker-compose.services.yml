@@ -460,60 +460,63 @@ services:
       - eidos-network
 
   # eidos-api - REST + WebSocket API 网关
-  # TODO: eidos-api 目录尚未创建，暂时注释掉
-  # eidos-api:
-  #   image: eidos/eidos-api:latest
-  #   build:
-  #     context: .
-  #     dockerfile: eidos-api/Dockerfile
-  #   container_name: eidos-api
-  #   restart: unless-stopped
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
-  #     jaeger:
-  #       condition: service_healthy
-  #     eidos-trading:
-  #       condition: service_started
-  #     eidos-matching:
-  #       condition: service_started
-  #     eidos-market:
-  #       condition: service_started
-  #     eidos-risk:
-  #       condition: service_started
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     # Redis
-  #     REDIS_HOST: ${REDIS_HOST:-redis}
-  #     REDIS_PORT: ${REDIS_PORT:-6379}
-  #     REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
-  #     # Nacos
-  #     NACOS_ENABLED: ${NACOS_ENABLED:-true}
-  #     NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
-  #     NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
-  #     NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
-  #     # 链路追踪 (OpenTelemetry + Jaeger)
-  #     TRACING_ENABLED: ${TRACING_ENABLED:-true}
-  #     OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
-  #     OTEL_SERVICE_NAME: eidos-api
-  #     # 服务配置
-  #     SERVICE_ENV: ${ENV:-dev}
-  #     LOG_LEVEL: ${LOG_LEVEL:-info}
-  #     # EIP-712 签名配置
-  #     EIP712_MOCK_MODE: ${EIP712_MOCK_MODE:-true}
-  #     # 依赖服务地址
-  #     GRPC_TRADING_ADDR: ${GRPC_TRADING_ADDR:-eidos-trading:50051}
-  #     GRPC_MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
-  #     GRPC_MARKET_ADDR: ${GRPC_MARKET_ADDR:-eidos-market:50053}
-  #     GRPC_RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
-  #   healthcheck:
-  #     test: ["CMD", "nc", "-z", "localhost", "8080"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - eidos-network
+  eidos-api:
+    image: eidos/eidos-api:latest
+    build:
+      context: .
+      dockerfile: eidos-api/Dockerfile
+    container_name: eidos-api
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      eidos-trading:
+        condition: service_started
+      eidos-matching:
+        condition: service_started
+      eidos-market:
+        condition: service_started
+      eidos-risk:
+        condition: service_started
+    ports:
+      - "${API_HTTP_PORT:-8080}:8080"
+      - "${API_METRICS_PORT:-9090}:9090"
+    environment:
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      # Nacos
+      NACOS_ENABLED: ${NACOS_ENABLED:-true}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-eidos-dev}
+      NACOS_GROUP: ${NACOS_GROUP:-EIDOS_GROUP}
+      # 链路追踪 (OpenTelemetry + Jaeger)
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      TRACING_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-jaeger:4317}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: eidos-api
+      # 服务配置
+      SERVICE_ENV: ${ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # EIP-712 签名配置
+      EIP712_MOCK_MODE: ${EIP712_MOCK_MODE:-true}
+      # 依赖服务地址
+      GRPC_TRADING_ADDR: ${GRPC_TRADING_ADDR:-eidos-trading:50051}
+      GRPC_MATCHING_ADDR: ${GRPC_MATCHING_ADDR:-eidos-matching:50052}
+      GRPC_MARKET_ADDR: ${GRPC_MARKET_ADDR:-eidos-market:50053}
+      GRPC_CHAIN_ADDR: ${GRPC_CHAIN_ADDR:-eidos-chain:50054}
+      GRPC_RISK_ADDR: ${GRPC_RISK_ADDR:-eidos-risk:50055}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - eidos-network
 
 networks:
   eidos-network:

@@ -1,7 +1,7 @@
 .PHONY: all build test clean proto infra-up infra-down help
 
-# Service list (eidos-api 目录尚未创建，暂时移除)
-SERVICES := eidos-trading eidos-matching eidos-market eidos-chain eidos-risk eidos-jobs eidos-admin
+# Service list
+SERVICES := eidos-api eidos-trading eidos-matching eidos-market eidos-chain eidos-risk eidos-jobs eidos-admin
 
 # Go parameters
 GOCMD := go
